@@ -11,14 +11,19 @@
 
 ## 2. 代码与架构规范
 - **TypeScript**: 保持全量强类型约束，禁止滥用 `any`。
-- **路径别名**: 优先使用 `@/` 指向 `src/` 目录。
+- **路径别名**: 必须使用 `@/` 指向 `src/` 目录。
 - **组件结构**: 遵循函数组件 + React Hooks 范式。
-- **状态管理**: 推荐使用轻量级状态管理工具 `zustand`。
-- **网络请求**: 统一使用封装后的 Axios 实例（位于 `src/api/`）。
+- **UI 库**: 基于 Ant Design (antd) 6.x / React 19，统一在 `src/App.tsx` 的 `ConfigProvider` 配置主题与语言。
+- **状态管理**: 统一使用 `zustand`（位于 `src/store/`）。
+- **网络请求**: 统一使用封装后的 Axios 实例（位于 `src/api/request.ts`）。
+- **页面与路由**:
+  - 页面统一存放于 `src/pages/<PageName>/index.tsx`。
+  - 布局统一存放于 `src/layouts/`。
+  - 路由配置在 `src/router/index.tsx`。
 
 ## 3. Git 提交规范
 本项目配置了 Husky + Commitlint + Lint-staged：
-- 每次提交前会通过 Biome 自动检查和格式化暂存区代码。
+- 每次提交前通过 Biome 自动检查和格式化暂存区代码。
 - Commit Message 必须遵循 Conventional Commits 规范，支持中文描述。
 - 格式示例:
   - `feat: 添加仪表盘统计图表`
