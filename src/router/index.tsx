@@ -1,9 +1,11 @@
 import type React from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import BasicLayout from '@/layouts/BasicLayout';
+import CommentsPage from '@/pages/Comments';
 import DashboardPage from '@/pages/Dashboard';
 import LoginPage from '@/pages/Login';
 import NotFoundPage from '@/pages/NotFound';
+import PostsPage from '@/pages/Posts';
 import UsersPage from '@/pages/Users';
 import VerificationPage from '@/pages/Verification';
 import { useUserStore } from '@/store/user';
@@ -41,6 +43,14 @@ export const router = createBrowserRouter([
       {
         path: 'users',
         element: <UsersPage />,
+      },
+      {
+        path: 'posts',
+        element: <PostsPage />,
+      },
+      {
+        path: 'comments',
+        element: <CommentsPage />,
       },
       {
         path: 'verifications',
