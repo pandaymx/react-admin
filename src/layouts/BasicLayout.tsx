@@ -190,13 +190,22 @@ export const BasicLayout: React.FC = () => {
   };
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout style={{ height: '100vh', overflow: 'hidden' }}>
       <Sider
         trigger={null}
         collapsible
         collapsed={collapsed}
         theme={isDark ? 'dark' : 'light'}
-        style={{ borderRight: `1px solid ${colorBorderSecondary}` }}
+        style={{
+          height: '100vh',
+          position: 'sticky',
+          top: 0,
+          left: 0,
+          zIndex: 100,
+          borderRight: `1px solid ${colorBorderSecondary}`,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
       >
         <div
           style={{
@@ -206,6 +215,7 @@ export const BasicLayout: React.FC = () => {
             justifyContent: 'center',
             padding: '0 16px',
             borderBottom: `1px solid ${colorBorderSecondary}`,
+            flexShrink: 0,
           }}
         >
           <Title
@@ -215,25 +225,32 @@ export const BasicLayout: React.FC = () => {
             {collapsed ? 'RA' : 'React Admin'}
           </Title>
         </div>
-        <Menu
-          mode="inline"
-          theme={isDark ? 'dark' : 'light'}
-          selectedKeys={[location.pathname]}
-          defaultOpenKeys={['user-management']}
-          items={menuItems}
-          onClick={handleMenuClick}
-          style={{ borderRight: 0 }}
-        />
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <Menu
+            mode="inline"
+            theme={isDark ? 'dark' : 'light'}
+            selectedKeys={[location.pathname]}
+            defaultOpenKeys={['user-management']}
+            items={menuItems}
+            onClick={handleMenuClick}
+            style={{ borderRight: 0 }}
+          />
+        </div>
       </Sider>
-      <Layout>
+      <Layout
+        style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      >
         <Header
           style={{
+            height: 64,
+            flexShrink: 0,
             padding: '0 24px',
             background: colorBgContainer,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             borderBottom: `1px solid ${colorBorderSecondary}`,
+            zIndex: 10,
           }}
         >
           <Button
@@ -266,14 +283,20 @@ export const BasicLayout: React.FC = () => {
             </Dropdown>
           </Space>
         </Header>
-        <Content style={{ margin: '24px 24px', minHeight: 280 }}>
+        <Content
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '24px',
+          }}
+        >
           <div style={{ marginBottom: 16 }}>
             <Breadcrumb items={breadcrumbItems} />
           </div>
           <div
             style={{
               padding: 24,
-              minHeight: 'calc(100vh - 180px)',
+              minHeight: 'calc(100% - 40px)',
               background: colorBgContainer,
               borderRadius: borderRadiusLG,
             }}
