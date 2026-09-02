@@ -2,7 +2,24 @@ import { message } from 'antd';
 import axios, { type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import type { ApiResponse, AuthLoginRespVO } from '@/types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/admin-api';
+const getApiBaseUrl = (): string => {
+  const host = import.meta.env.VITE_API_HOST?.trim() || '';
+  const prefix = import.meta.env.VITE_API_BASE_URL?.trim() || '/admin-api';
+
+  if (prefix.startsWith('http://') || prefix.startsWith('https://')) {
+    return prefix;
+  }
+
+  if (host) {
+    const cleanHost = host.replace(/\/+$/, '');
+    const cleanPrefix = prefix.startsWith('/') ? prefix : `/${prefix}`;
+    return `${cleanHost}${cleanPrefix}`;
+  }
+
+  return prefix.startsWith('/') ? prefix : `/${prefix}`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const instance = axios.create({
   baseURL: API_BASE_URL,
