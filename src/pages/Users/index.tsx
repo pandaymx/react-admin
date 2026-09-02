@@ -1,4 +1,5 @@
 import {
+  BarChartOutlined,
   CheckCircleFilled,
   ClockCircleOutlined,
   DownloadOutlined,
@@ -54,6 +55,7 @@ import {
 import type { ActiveStatus, UserItem, UserQueryParams, UserStatus, VerifyStatus } from '@/types';
 import { exportToCsv } from '@/utils/export';
 import { formatBanRemainingTime } from '@/utils/time';
+import { UserPersonaDrawer } from './components/UserPersonaDrawer';
 
 const { Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
@@ -68,10 +70,14 @@ export const UsersPage: React.FC = () => {
   const [pageSize, setPageSize] = useState<number>(10);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
-  // 详情抽屉状态
+  // 基础档案详情抽屉状态
   const [drawerVisible, setDrawerVisible] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<UserItem | null>(null);
   const [isPhoneRevealed, setIsPhoneRevealed] = useState<boolean>(false);
+
+  // 大数据 AI 用户画像抽屉状态
+  const [personaDrawerVisible, setPersonaDrawerVisible] = useState<boolean>(false);
+  const [personaUser, setPersonaUser] = useState<UserItem | null>(null);
 
   // 新建/编辑弹窗占位
   const [editModalVisible, setEditModalVisible] = useState<boolean>(false);
@@ -608,12 +614,12 @@ export const UsersPage: React.FC = () => {
       render: (_, record) => {
         const moreMenuItems = [
           {
-            key: 'detail',
-            icon: <EyeOutlined />,
-            label: '查看完整画像',
+            key: 'persona',
+            icon: <BarChartOutlined style={{ color: '#1677ff' }} />,
+            label: '查看用户画像',
             onClick: () => {
-              setCurrentUser(record);
-              setDrawerVisible(true);
+              setPersonaUser(record);
+              setPersonaDrawerVisible(true);
             },
           },
           {
@@ -893,9 +899,9 @@ export const UsersPage: React.FC = () => {
         />
       </Card>
 
-      {/* 用户完整画像抽屉 */}
+      {/* 用户基础档案与管理详情抽屉 */}
       <Drawer
-        title="用户全景画像与详细档案"
+        title="用户档案与账号管理详情"
         placement="right"
         size="large"
         open={drawerVisible}
@@ -903,6 +909,15 @@ export const UsersPage: React.FC = () => {
         extra={
           currentUser && (
             <Space>
+              <Button
+                icon={<BarChartOutlined style={{ color: '#1677ff' }} />}
+                onClick={() => {
+                  setPersonaUser(currentUser);
+                  setPersonaDrawerVisible(true);
+                }}
+              >
+                查看 AI 用户画像
+              </Button>
               {currentUser.status === 'banned' ? (
                 <Button type="primary" onClick={() => handleStatusChange(currentUser, 'normal')}>
                   解封账号
@@ -1125,6 +1140,13 @@ export const UsersPage: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* 大数据 AI 用户画像抽屉 */}
+      <UserPersonaDrawer
+        open={personaDrawerVisible}
+        user={personaUser}
+        onClose={() => setPersonaDrawerVisible(false)}
+      />
     </div>
   );
 };
