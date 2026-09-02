@@ -5,6 +5,7 @@ import DashboardPage from '@/pages/Dashboard';
 import LoginPage from '@/pages/Login';
 import NotFoundPage from '@/pages/NotFound';
 import UsersPage from '@/pages/Users';
+import VerificationPage from '@/pages/Verification';
 import { useUserStore } from '@/store/user';
 
 // 路由鉴权守卫
@@ -40,6 +41,10 @@ export const router = createBrowserRouter([
       {
         path: 'users',
         element: <UsersPage />,
+      },
+      {
+        path: 'verifications',
+        element: <VerificationPage />,
       },
     ],
   },
