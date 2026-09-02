@@ -23,6 +23,7 @@ import {
   Tag,
   Tooltip,
   Typography,
+  theme,
 } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -46,6 +47,7 @@ export const PostCommentsDrawer: React.FC<PostCommentsDrawerProps> = ({
   onClose,
   onCommentCountChange,
 }) => {
+  const { token } = theme.useToken();
   const [loading, setLoading] = useState<boolean>(false);
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [filterKeyword, setFilterKeyword] = useState<string>('');
@@ -156,7 +158,8 @@ export const PostCommentsDrawer: React.FC<PostCommentsDrawerProps> = ({
           <Card
             size="small"
             style={{
-              backgroundColor: '#fafafa',
+              backgroundColor: token.colorFillAlter,
+              border: `1px solid ${token.colorBorderSecondary}`,
               marginBottom: 16,
               borderRadius: 8,
             }}

@@ -20,6 +20,7 @@ import {
   Switch,
   Tag,
   Typography,
+  theme,
 } from 'antd';
 import type dayjs from 'dayjs';
 import type React from 'react';
@@ -54,6 +55,7 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
   onCancel,
   onOk,
 }) => {
+  const { token } = theme.useToken();
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
   const [punishType, setPunishType] = useState<BanPunishType>(defaultPunishType);
@@ -170,7 +172,15 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
       <div>
         {/* 目标用户展示卡片 */}
         {!isBatch && users[0] && (
-          <Card size="small" style={{ background: '#fafafa', marginBottom: 16, borderRadius: 8 }}>
+          <Card
+            size="small"
+            style={{
+              background: token.colorFillAlter,
+              border: `1px solid ${token.colorBorderSecondary}`,
+              marginBottom: 16,
+              borderRadius: 8,
+            }}
+          >
             <Space size={12} align="center">
               <Avatar src={users[0].avatar} size={42} icon={<UserOutlined />} />
               <div>

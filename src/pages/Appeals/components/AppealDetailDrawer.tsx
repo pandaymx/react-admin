@@ -25,6 +25,7 @@ import {
   Switch,
   Tag,
   Typography,
+  theme,
 } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -51,6 +52,7 @@ export const AppealDetailDrawer: React.FC<AppealDetailDrawerProps> = ({
   onClose,
   onReviewSubmit,
 }) => {
+  const { token } = theme.useToken();
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
   const [reviewAction, setReviewAction] = useState<'approve' | 'reject'>('approve');
@@ -185,7 +187,14 @@ export const AppealDetailDrawer: React.FC<AppealDetailDrawerProps> = ({
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* 申诉用户基础档案 */}
-        <Card size="small" style={{ background: '#fafafa', borderRadius: 8 }}>
+        <Card
+          size="small"
+          style={{
+            background: token.colorFillAlter,
+            border: `1px solid ${token.colorBorderSecondary}`,
+            borderRadius: 8,
+          }}
+        >
           <Space size={16} align="center">
             <Avatar src={appeal.user.avatar} size={54} icon={<UserOutlined />} />
             <div>
@@ -267,7 +276,8 @@ export const AppealDetailDrawer: React.FC<AppealDetailDrawerProps> = ({
           <div
             style={{
               padding: '12px 16px',
-              background: '#f6f8fa',
+              background: token.colorFillAlter,
+              border: `1px solid ${token.colorBorderSecondary}`,
               borderRadius: 6,
               borderLeft: '4px solid #1677ff',
               marginBottom: 16,
@@ -323,8 +333,8 @@ export const AppealDetailDrawer: React.FC<AppealDetailDrawerProps> = ({
             title="复核处置结论"
             size="small"
             style={{
-              borderColor: appeal.status === 'approved' ? '#b7eb8f' : '#ffa39e',
-              background: appeal.status === 'approved' ? '#f6ffed' : '#fff1f0',
+              borderColor: appeal.status === 'approved' ? '#52c41a' : '#ff4d4f',
+              background: token.colorFillAlter,
             }}
           >
             <Descriptions column={2} size="small">
@@ -360,7 +370,10 @@ export const AppealDetailDrawer: React.FC<AppealDetailDrawerProps> = ({
               </Space>
             }
             size="small"
-            style={{ background: '#fafafa', border: '1px solid #d9d9d9' }}
+            style={{
+              background: token.colorFillAlter,
+              border: `1px solid ${token.colorBorderSecondary}`,
+            }}
           >
             <Form form={form} layout="vertical" onFinish={handleSubmit}>
               <Form.Item

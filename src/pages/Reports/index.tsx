@@ -1,6 +1,5 @@
 import {
   DownloadOutlined,
-  ExclamationCircleOutlined,
   EyeOutlined,
   FileTextOutlined,
   MessageOutlined,
@@ -410,51 +409,18 @@ export const ReportsPage: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* 顶部标题与分类 Tabs */}
-      <Card
-        variant="borderless"
-        style={{
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-          borderRadius: 8,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 8,
-              backgroundColor: '#fff1f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ff4d4f',
-              fontSize: 20,
-            }}
-          >
-            <ExclamationCircleOutlined />
-          </div>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 600, color: '#1f1f1f' }}>
-              违规举报与全网风控审核中心
-            </div>
-            <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 2 }}>
-              实时受理创作者作品侵权、评论辱骂及账号违法违规举报工单
-            </div>
-          </div>
-        </div>
-
-        <Tabs
-          activeKey={activeTab}
-          onChange={handleTabChange}
-          items={[
-            { key: 'all', label: '全部举报工单' },
-            { key: 'post', label: '作品帖子举报' },
-            { key: 'comment', label: '评论互动举报' },
-            { key: 'user', label: '用户账号举报' },
-          ]}
-        />
-      </Card>
+      {/* 分类 Tabs */}
+      <Tabs
+        activeKey={activeTab}
+        onChange={handleTabChange}
+        type="card"
+        items={[
+          { key: 'all', label: '全部举报工单' },
+          { key: 'post', label: '作品帖子举报' },
+          { key: 'comment', label: '评论互动举报' },
+          { key: 'user', label: '用户账号举报' },
+        ]}
+      />
 
       {/* 搜索表单 */}
       <Card

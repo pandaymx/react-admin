@@ -35,6 +35,7 @@ import {
   Tag,
   Tooltip,
   Typography,
+  theme,
 } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -52,6 +53,7 @@ const { Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
 
 export const AppealsPage: React.FC = () => {
+  const { token } = theme.useToken();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState<boolean>(false);
   const [exportLoading, setExportLoading] = useState<boolean>(false);
@@ -548,7 +550,14 @@ export const AppealsPage: React.FC = () => {
       {/* 顶部指标统计大盘 */}
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} md={6} lg={4}>
-          <Card size="small" style={{ borderRadius: 8 }}>
+          <Card
+            size="small"
+            style={{
+              borderRadius: 8,
+              background: token.colorFillAlter,
+              border: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
             <Statistic
               title="申诉工单总数"
               value={stats.totalCount}
@@ -559,12 +568,16 @@ export const AppealsPage: React.FC = () => {
         <Col xs={24} sm={12} md={6} lg={5}>
           <Card
             size="small"
-            style={{ borderRadius: 8, background: '#fffbe6', borderColor: '#ffe58f' }}
+            style={{
+              borderRadius: 8,
+              background: token.colorFillAlter,
+              border: `1px solid ${token.colorBorderSecondary}`,
+            }}
           >
             <Statistic
               title="待人工复核"
               value={stats.pendingCount}
-              valueStyle={{ color: '#d48806', fontWeight: 600 }}
+              valueStyle={{ color: '#faad14', fontWeight: 600 }}
               prefix={<ClockCircleOutlined style={{ color: '#faad14' }} />}
             />
           </Card>
@@ -572,12 +585,16 @@ export const AppealsPage: React.FC = () => {
         <Col xs={24} sm={12} md={6} lg={5}>
           <Card
             size="small"
-            style={{ borderRadius: 8, background: '#f6ffed', borderColor: '#b7eb8f' }}
+            style={{
+              borderRadius: 8,
+              background: token.colorFillAlter,
+              border: `1px solid ${token.colorBorderSecondary}`,
+            }}
           >
             <Statistic
               title="申诉成功 (已撤销处罚)"
               value={stats.approvedCount}
-              valueStyle={{ color: '#389e0d', fontWeight: 600 }}
+              valueStyle={{ color: '#52c41a', fontWeight: 600 }}
               prefix={<CheckCircleFilled style={{ color: '#52c41a' }} />}
             />
           </Card>
@@ -585,22 +602,33 @@ export const AppealsPage: React.FC = () => {
         <Col xs={24} sm={12} md={6} lg={5}>
           <Card
             size="small"
-            style={{ borderRadius: 8, background: '#fff1f0', borderColor: '#ffa39e' }}
+            style={{
+              borderRadius: 8,
+              background: token.colorFillAlter,
+              border: `1px solid ${token.colorBorderSecondary}`,
+            }}
           >
             <Statistic
               title="申诉驳回 (维持原判)"
               value={stats.rejectedCount}
-              valueStyle={{ color: '#cf1322' }}
+              valueStyle={{ color: '#ff4d4f', fontWeight: 600 }}
               prefix={<CloseCircleFilled style={{ color: '#ff4d4f' }} />}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6} lg={5}>
-          <Card size="small" style={{ borderRadius: 8 }}>
+          <Card
+            size="small"
+            style={{
+              borderRadius: 8,
+              background: token.colorFillAlter,
+              border: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
             <Statistic
               title="平均复核时效"
               value={stats.avgHandleTime}
-              valueStyle={{ color: '#0958d9', fontSize: 20 }}
+              valueStyle={{ color: '#1677ff', fontSize: 20, fontWeight: 600 }}
               prefix={<ThunderboltOutlined style={{ color: '#1677ff' }} />}
             />
           </Card>
