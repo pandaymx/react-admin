@@ -1,6 +1,6 @@
 export type VerifyStatus = 'unverified' | 'pending' | 'personal' | 'enterprise' | 'creator';
 
-export type UserStatus = 'normal' | 'banned' | 'muted' | 'cancelled';
+export type UserStatus = 'normal' | 'banned' | 'muted' | 'cancelling' | 'cancelled';
 
 export type UserCommentStatus = 'allowed' | 'forbidden';
 
