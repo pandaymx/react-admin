@@ -32,7 +32,6 @@ import {
   Dropdown,
   Form,
   Input,
-  Modal,
   message,
   Popconfirm,
   Row,
@@ -58,7 +57,7 @@ import { formatBanRemainingTime } from '@/utils/time';
 import { type BanPunishType, UserBanModal } from './components/UserBanModal';
 import { UserPersonaDrawer } from './components/UserPersonaDrawer';
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 const { RangePicker } = DatePicker;
 
 export const UsersPage: React.FC = () => {
@@ -84,9 +83,6 @@ export const UsersPage: React.FC = () => {
   const [banModalVisible, setBanModalVisible] = useState<boolean>(false);
   const [banTargetUsers, setBanTargetUsers] = useState<UserItem[]>([]);
   const [banDefaultPunishType, setBanDefaultPunishType] = useState<BanPunishType>('account');
-
-  // 新建/编辑弹窗占位
-  const [editModalVisible, setEditModalVisible] = useState<boolean>(false);
 
   // 手机号脱敏工具函数
   const formatMaskedPhone = (phone?: string, isRevealed = false) => {
@@ -675,13 +671,10 @@ export const UsersPage: React.FC = () => {
             },
           },
           {
-            key: 'edit',
-            icon: <UserOutlined />,
-            label: '编辑资料',
-            onClick: () => {
-              setCurrentUser(record);
-              setEditModalVisible(true);
-            },
+            key: 'punish-setting',
+            icon: <StopOutlined style={{ color: '#ff4d4f' }} />,
+            label: '违规处置设置',
+            onClick: () => handleOpenBanModal([record], 'account'),
           },
           {
             type: 'divider' as const,
@@ -1143,59 +1136,6 @@ export const UsersPage: React.FC = () => {
           </div>
         )}
       </Drawer>
-
-      {/* 编辑用户资料 Modal */}
-      <Modal
-        title={currentUser ? `编辑用户资料【${currentUser.nickname}】` : '编辑用户资料'}
-        open={editModalVisible}
-        onOk={() => {
-          message.success('用户资料修改成功');
-          setEditModalVisible(false);
-          fetchData(currentPage, pageSize);
-        }}
-        onCancel={() => setEditModalVisible(false)}
-        destroyOnClose
-      >
-        <Paragraph type="secondary" style={{ marginTop: 12 }}>
-          用户账号由客户端注册产生，管理后台仅支持对已注册用户进行基础档案、认证等级与权限属性的核验修改。
-        </Paragraph>
-        <Form
-          layout="vertical"
-          initialValues={currentUser || { gender: 'male', verifyStatus: 'unverified' }}
-        >
-          <Form.Item
-            label="用户昵称"
-            name="nickname"
-            rules={[{ required: true, message: '请输入昵称' }]}
-          >
-            <Input placeholder="例如：极客创作者" />
-          </Form.Item>
-          <Form.Item
-            label="抖音 UID"
-            name="uid"
-            rules={[{ required: true, message: '请输入 UID' }]}
-          >
-            <Input placeholder="例如：dy_998811" />
-          </Form.Item>
-          <Form.Item
-            label="用户名"
-            name="username"
-            rules={[{ required: true, message: '请输入用户名' }]}
-          >
-            <Input placeholder="例如：geek_tech" />
-          </Form.Item>
-          <Form.Item label="认证类型" name="verifyStatus">
-            <Select
-              options={[
-                { label: '未认证', value: 'unverified' },
-                { label: '个人实名认证', value: 'personal' },
-                { label: '企业认证(蓝V)', value: 'enterprise' },
-                { label: '达人认证(黄V)', value: 'creator' },
-              ]}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
 
       {/* 大数据 AI 用户画像抽屉 */}
       <UserPersonaDrawer
