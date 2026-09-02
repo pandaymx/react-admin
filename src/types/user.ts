@@ -18,7 +18,10 @@ export interface UserItem {
   status: UserStatus;
   commentCount: number;
   commentStatus: UserCommentStatus;
+  commentBanExpireTime?: string; // 评论封禁到期时间，如 '2026-09-08 18:00:00' 或 'permanent'
   postCount: number;
+  postStatus?: 'allowed' | 'forbidden'; // 发帖权限
+  postBanExpireTime?: string; // 发帖封禁到期时间
   likeCount: number;
   followerCount: number;
   activityCount: number;
