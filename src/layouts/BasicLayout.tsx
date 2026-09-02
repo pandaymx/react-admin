@@ -6,14 +6,28 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  MoonOutlined,
   SafetyCertificateOutlined,
+  SunOutlined,
   TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { Avatar, Breadcrumb, Button, Dropdown, Layout, Menu, Space, Typography, theme } from 'antd';
+import {
+  Avatar,
+  Breadcrumb,
+  Button,
+  Dropdown,
+  Layout,
+  Menu,
+  Space,
+  Tooltip,
+  Typography,
+  theme,
+} from 'antd';
 import type React from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useThemeStore } from '@/store/theme';
 import { useUserStore } from '@/store/user';
 
 const { Header, Sider, Content } = Layout;
@@ -61,10 +75,11 @@ const menuItems = [
 
 export const BasicLayout: React.FC = () => {
   const { collapsed, toggleCollapse, logout, userInfo } = useUserStore();
+  const { mode, toggleTheme } = useThemeStore();
   const navigate = useNavigate();
   const location = useLocation();
   const {
-    token: { colorBgContainer, borderRadiusLG },
+    token: { colorBgContainer, colorBorderSecondary, borderRadiusLG },
   } = theme.useToken();
 
   const handleMenuClick = ({ key }: { key: string }) => {
@@ -120,8 +135,8 @@ export const BasicLayout: React.FC = () => {
         trigger={null}
         collapsible
         collapsed={collapsed}
-        theme="light"
-        style={{ borderRight: '1px solid #f0f0f0' }}
+        theme={mode === 'dark' ? 'dark' : 'light'}
+        style={{ borderRight: `1px solid ${colorBorderSecondary}` }}
       >
         <div
           style={{
@@ -130,7 +145,7 @@ export const BasicLayout: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'center',
             padding: '0 16px',
-            borderBottom: '1px solid #f0f0f0',
+            borderBottom: `1px solid ${colorBorderSecondary}`,
           }}
         >
           <Title
@@ -142,6 +157,7 @@ export const BasicLayout: React.FC = () => {
         </div>
         <Menu
           mode="inline"
+          theme={mode === 'dark' ? 'dark' : 'light'}
           selectedKeys={[location.pathname]}
           defaultOpenKeys={['user-management']}
           items={menuItems}
@@ -157,7 +173,7 @@ export const BasicLayout: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderBottom: '1px solid #f0f0f0',
+            borderBottom: `1px solid ${colorBorderSecondary}`,
           }}
         >
           <Button
@@ -167,7 +183,23 @@ export const BasicLayout: React.FC = () => {
             style={{ fontSize: 16, width: 48, height: 48 }}
           />
 
-          <Space size="large">
+          <Space size="middle">
+            <Tooltip title={mode === 'dark' ? '切换为亮色模式' : '切换为暗黑模式'}>
+              <Button
+                type="text"
+                shape="circle"
+                icon={
+                  mode === 'dark' ? (
+                    <SunOutlined style={{ color: '#faad14', fontSize: 18 }} />
+                  ) : (
+                    <MoonOutlined style={{ fontSize: 18 }} />
+                  )
+                }
+                onClick={toggleTheme}
+                style={{ width: 40, height: 40 }}
+              />
+            </Tooltip>
+
             <Dropdown
               menu={{ items: userMenuItems, onClick: handleUserMenuClick }}
               placement="bottomRight"
