@@ -98,7 +98,10 @@ export const LoginPage: React.FC = () => {
         <Form
           form={form}
           name="login"
-          initialValues={{ username: 'admin', password: 'admin123' }}
+          initialValues={{
+            username: 'admin',
+            password: import.meta.env.PROD ? '' : 'admin123',
+          }}
           onFinish={handlePreLogin}
           size="large"
           layout="vertical"
@@ -110,7 +113,8 @@ export const LoginPage: React.FC = () => {
           >
             <Input
               prefix={<UserOutlined style={{ color: '#bfbfbf' }} />}
-              placeholder="管理员账号 (默认: admin)"
+              placeholder="管理员账号"
+              autoComplete="username"
             />
           </Form.Item>
 
@@ -121,7 +125,8 @@ export const LoginPage: React.FC = () => {
           >
             <Input.Password
               prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
-              placeholder="登录密码 (默认: admin123)"
+              placeholder="登录密码"
+              autoComplete="current-password"
             />
           </Form.Item>
 
