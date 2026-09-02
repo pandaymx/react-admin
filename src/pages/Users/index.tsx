@@ -96,6 +96,7 @@ export const UsersPage: React.FC = () => {
           uid: formValues.uid,
           verifyStatus: formValues.verifyStatus,
           status: formValues.status,
+          activeStatus: formValues.activeStatus,
           page,
           pageSize: size,
         };
@@ -267,7 +268,27 @@ export const UsersPage: React.FC = () => {
           },
           { title: '获赞总数', key: 'likeCount' },
           { title: '粉丝数', key: 'followerCount' },
-          { title: '参与活动数', key: 'activityCount' },
+          {
+            title: '在线状态',
+            key: 'activeStatus',
+            render: (r) =>
+              r.activeStatus === 'online'
+                ? '当前在线'
+                : r.activeStatus === 'recent'
+                  ? '最近在线'
+                  : '长期离线',
+          },
+          { title: '参与活动总数', key: 'activityCount' },
+          {
+            title: '线上活动场次',
+            key: 'onlineActivityCount',
+            render: (r) => r.onlineActivityCount ?? Math.max(0, r.activityCount - 2),
+          },
+          {
+            title: '线下活动场次',
+            key: 'offlineActivityCount',
+            render: (r) => r.offlineActivityCount ?? Math.min(r.activityCount, 2),
+          },
           { title: '最后活跃时间', key: 'lastActiveTime' },
           { title: '注册时间', key: 'registerTime' },
           { title: '联系电话', key: 'phone', render: (r) => formatMaskedPhone(r.phone, false) },
@@ -340,36 +361,6 @@ export const UsersPage: React.FC = () => {
       default:
         return <Badge status="default" text="未知" />;
     }
-  };
-
-  // 活跃状态指示
-  const renderActiveStatusDot = (activeStatus: ActiveStatus, lastActiveTime: string) => {
-    let dotColor = '#bfbfbf';
-    let textDesc = '离线';
-    if (activeStatus === 'online') {
-      dotColor = '#52c41a';
-      textDesc = '当前在线';
-    } else if (activeStatus === 'recent') {
-      dotColor = '#1677ff';
-      textDesc = '近期活跃';
-    }
-
-    return (
-      <Tooltip title={`状态: ${textDesc} | 时间: ${lastActiveTime}`}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              backgroundColor: dotColor,
-              display: 'inline-block',
-            }}
-          />
-          <Text style={{ fontSize: 13 }}>{lastActiveTime.slice(5, 16)}</Text>
-        </span>
-      </Tooltip>
-    );
   };
 
   // 表格列定义
@@ -459,6 +450,39 @@ export const UsersPage: React.FC = () => {
       render: (status: UserStatus) => renderAccountStatus(status),
     },
     {
+      title: '在线状态',
+      dataIndex: 'activeStatus',
+      key: 'activeStatus',
+      width: 130,
+      render: (activeStatus: ActiveStatus, record) => {
+        let badge = <Badge status="default" text={<Text type="secondary">长期离线</Text>} />;
+        if (activeStatus === 'online') {
+          badge = (
+            <Badge
+              status="success"
+              text={
+                <Text type="success" strong>
+                  当前在线
+                </Text>
+              }
+            />
+          );
+        } else if (activeStatus === 'recent') {
+          badge = (
+            <Badge status="processing" text={<Text style={{ color: '#1677ff' }}>最近在线</Text>} />
+          );
+        }
+        return (
+          <div>
+            <div>{badge}</div>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {record.lastActiveTime.slice(5, 16)}
+            </Text>
+          </div>
+        );
+      },
+    },
+    {
       title: '评论',
       dataIndex: 'commentCount',
       key: 'comment',
@@ -545,21 +569,36 @@ export const UsersPage: React.FC = () => {
       },
     },
     {
-      title: '活动',
+      title: '活动参与',
       dataIndex: 'activityCount',
       key: 'activity',
-      width: 180,
+      width: 170,
       sorter: (a, b) => a.activityCount - b.activityCount,
-      render: (count: number, record) => (
-        <div>
-          <div style={{ marginBottom: 2 }}>
-            <Tag color="purple" style={{ fontSize: 11, margin: 0, borderRadius: 4 }}>
-              参与 {count} 场活动
-            </Tag>
+      render: (count: number, record) => {
+        const onlineCount = record.onlineActivityCount ?? Math.max(0, count - 2);
+        const offlineCount = record.offlineActivityCount ?? Math.min(count, 2);
+        return (
+          <div>
+            <div style={{ marginBottom: 4 }}>
+              <Text strong style={{ fontSize: 13 }}>
+                {count}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {' '}
+                场活动
+              </Text>
+            </div>
+            <Space size={4} wrap>
+              <Tag color="cyan" style={{ fontSize: 11, padding: '0 4px', margin: 0 }}>
+                线上: {onlineCount}
+              </Tag>
+              <Tag color="geekblue" style={{ fontSize: 11, padding: '0 4px', margin: 0 }}>
+                线下: {offlineCount}
+              </Tag>
+            </Space>
           </div>
-          <div>{renderActiveStatusDot(record.activeStatus, record.lastActiveTime)}</div>
-        </div>
-      ),
+        );
+      },
     },
     {
       title: '操作',
@@ -685,10 +724,11 @@ export const UsersPage: React.FC = () => {
           initialValues={{
             verifyStatus: 'all',
             status: 'all',
+            activeStatus: 'all',
           }}
         >
           <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12} md={8} lg={6}>
+            <Col xs={24} sm={12} md={8} lg={5}>
               <Form.Item label="用户搜索" name="keyword" style={{ marginBottom: 0 }}>
                 <Input
                   placeholder="搜索昵称 / @用户名"
@@ -728,13 +768,26 @@ export const UsersPage: React.FC = () => {
               </Form.Item>
             </Col>
 
-            <Col xs={24} sm={12} md={10} lg={6}>
+            <Col xs={24} sm={12} md={8} lg={4}>
+              <Form.Item label="在线状态" name="activeStatus" style={{ marginBottom: 0 }}>
+                <Select
+                  options={[
+                    { label: '全部状态', value: 'all' },
+                    { label: '当前在线', value: 'online' },
+                    { label: '最近在线', value: 'recent' },
+                    { label: '长期离线', value: 'offline' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} sm={12} md={8} lg={4}>
               <Form.Item label="注册日期" name="dateRange" style={{ marginBottom: 0 }}>
                 <RangePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
 
-            <Col xs={24} sm={12} md={6} lg={4}>
+            <Col xs={24} sm={12} md={8} lg={3}>
               <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
                 <Button
                   type="primary"
@@ -951,8 +1004,18 @@ export const UsersPage: React.FC = () => {
                     ? '女'
                     : '保密'}
               </Descriptions.Item>
-              <Descriptions.Item label="参与活动数">
-                {currentUser.activityCount} 场
+              <Descriptions.Item label="活动参与情况">
+                <Space size={4}>
+                  <Tag color="purple">共 {currentUser.activityCount} 场</Tag>
+                  <Tag color="cyan">
+                    线上:{' '}
+                    {currentUser.onlineActivityCount ?? Math.max(0, currentUser.activityCount - 2)}
+                  </Tag>
+                  <Tag color="geekblue">
+                    线下:{' '}
+                    {currentUser.offlineActivityCount ?? Math.min(currentUser.activityCount, 2)}
+                  </Tag>
+                </Space>
               </Descriptions.Item>
               <Descriptions.Item label="联系电话">
                 <Space size={6}>
