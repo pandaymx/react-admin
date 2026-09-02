@@ -21,6 +21,7 @@ export interface MenuItem {
 
 export * from './appeal';
 export * from './comment';
+export * from './dashboard';
 export * from './post';
 export * from './report';
 export * from './user';
