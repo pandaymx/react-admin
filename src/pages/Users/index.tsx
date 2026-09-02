@@ -1,22 +1,20 @@
 import {
-  BarChartOutlined,
   CheckCircleFilled,
-  ClockCircleOutlined,
   DownloadOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
+  IdcardOutlined,
   LockOutlined,
-  ManOutlined,
   MoreOutlined,
+  PhoneOutlined,
   ReloadOutlined,
   SafetyCertificateFilled,
   SearchOutlined,
-  StarFilled,
   StopOutlined,
+  TeamOutlined,
   UnlockOutlined,
   UserDeleteOutlined,
   UserOutlined,
-  WomanOutlined,
 } from '@ant-design/icons';
 import type { TableProps } from 'antd';
 import {
@@ -44,32 +42,42 @@ import {
   Typography,
   theme,
 } from 'antd';
+import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+
 import {
   batchUpdateUserStatus,
   executeUserBan,
   getAllFilteredUsers,
   getUserList,
+  getUserStatisticsSummary,
   updateUserStatus,
 } from '@/api/user';
 import { type ColumnOptionItem, useColumnSettings } from '@/components/ColumnSetting';
-import type { ActiveStatus, UserItem, UserQueryParams, UserStatus, VerifyStatus } from '@/types';
+import type {
+  AdminUserPageReqVO,
+  UserItem,
+  UserQueryParams,
+  UserStatisticsRespVO,
+  UserStatus,
+  VerifyStatus,
+} from '@/types';
 import { exportToCsv } from '@/utils/export';
 import { formatBanRemainingTime } from '@/utils/time';
 import { type BanPunishType, UserBanModal } from './components/UserBanModal';
-import { UserPersonaDrawer } from './components/UserPersonaDrawer';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 const { RangePicker } = DatePicker;
 
+// 可选列配置清单（对齐后端 AdminUserRespVO 字段，核心关键列锁定）
 const userColumnOptions: ColumnOptionItem[] = [
-  { key: 'user', title: '用户信息 (头像/昵称/UID)', required: true },
-  { key: 'verifyStatus', title: '认证状态' },
-  { key: 'status', title: '账号状态与封禁处罚' },
-  { key: 'activeStatus', title: '在线状态与活跃时间' },
-  { key: 'comment', title: '评论数与禁言状态' },
-  { key: 'post', title: '作品数与获赞' },
-  { key: 'activity', title: '活动参与明细' },
+  { key: 'user', title: '用户信息 (头像/昵称/展示号)', required: true },
+  { key: 'phoneNumber', title: '联系手机号' },
+  { key: 'qualification', title: '认证类型 (个人/企业)' },
+  { key: 'certified', title: '实名认证状态' },
+  { key: 'status', title: '账号状态与处罚' },
+  { key: 'fans', title: '粉丝/关注/好友数' },
+  { key: 'createTime', title: '注册时间' },
   { key: 'action', title: '操作列', required: true },
 ];
 
@@ -88,19 +96,37 @@ export const UsersPage: React.FC = () => {
   const [pageSize, setPageSize] = useState<number>(10);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
+  // 全局用户概览统计
+  const [summary, setSummary] = useState<UserStatisticsRespVO>({
+    totalCount: 0,
+    normalCount: 0,
+    disabledCount: 0,
+    cancelledCount: 0,
+    todayNewCount: 0,
+    weekNewCount: 0,
+    monthNewCount: 0,
+  });
+
   // 基础档案详情抽屉状态
   const [drawerVisible, setDrawerVisible] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<UserItem | null>(null);
   const [isPhoneRevealed, setIsPhoneRevealed] = useState<boolean>(false);
 
-  // 大数据 AI 用户画像抽屉状态
-  const [personaDrawerVisible, setPersonaDrawerVisible] = useState<boolean>(false);
-  const [personaUser, setPersonaUser] = useState<UserItem | null>(null);
-
   // 封禁处置弹窗状态
   const [banModalVisible, setBanModalVisible] = useState<boolean>(false);
   const [banTargetUsers, setBanTargetUsers] = useState<UserItem[]>([]);
   const [banDefaultPunishType, setBanDefaultPunishType] = useState<BanPunishType>('account');
+
+  // 防抖定时器引用
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   // 手机号脱敏工具函数
   const formatMaskedPhone = (phone?: string, isRevealed = false) => {
@@ -111,31 +137,44 @@ export const UsersPage: React.FC = () => {
       .replace(/^(\d{3,4}-)\d{4}(\d{4})$/, '$1****$2');
   };
 
-  // 获取用户数据
+  // 加载统计概览
+  const fetchSummary = useCallback(async () => {
+    try {
+      const res = await getUserStatisticsSummary();
+      if (res.code === 200 && res.data) {
+        setSummary(res.data);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // 获取用户列表数据 (对接 GET /admin-api/user/users/page)
   const fetchData = useCallback(
     async (page = 1, size = 10) => {
       setLoading(true);
       try {
         const formValues = form.getFieldsValue();
         const params: UserQueryParams = {
-          keyword: formValues.keyword,
-          uid: formValues.uid,
-          verifyStatus: formValues.verifyStatus,
+          userId: formValues.userId,
+          phoneNumber: formValues.phoneNumber,
+          nickname: formValues.nickname,
           status: formValues.status,
-          activeStatus: formValues.activeStatus,
-          page,
+          qualification: formValues.qualification,
+          certified: formValues.certified,
+          pageNo: page,
           pageSize: size,
         };
 
         if (formValues.dateRange && formValues.dateRange.length === 2) {
           params.dateRange = [
-            formValues.dateRange[0].format('YYYY-MM-DD'),
-            formValues.dateRange[1].format('YYYY-MM-DD'),
+            formValues.dateRange[0].format('YYYY-MM-DD 00:00:00'),
+            formValues.dateRange[1].format('YYYY-MM-DD 23:59:59'),
           ];
         }
 
         const res = await getUserList(params);
-        if (res.code === 200) {
+        if (res.code === 200 && res.data) {
           setUserList(res.data.list);
           setTotal(res.data.total);
           setCurrentPage(res.data.page);
@@ -152,23 +191,30 @@ export const UsersPage: React.FC = () => {
 
   useEffect(() => {
     fetchData(1, 10);
-  }, [fetchData]);
+    fetchSummary();
+  }, [fetchData, fetchSummary]);
 
-  // 防抖自动检索定时器引用
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const handleSearch = () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    fetchData(1, pageSize);
+  };
 
-  // 清理防抖定时器
-  useEffect(() => {
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-  }, []);
+  const handleReset = () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    form.resetFields();
+    fetchData(1, pageSize);
+  };
 
-  // 表单字段变动即刻触发查询（输入框 300ms 防抖，下拉框/日期立即触发）
   const handleFormValuesChange = (changedValues: any) => {
-    if ('keyword' in changedValues) {
+    if (
+      'userId' in changedValues ||
+      'phoneNumber' in changedValues ||
+      'nickname' in changedValues
+    ) {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
@@ -183,82 +229,17 @@ export const UsersPage: React.FC = () => {
     }
   };
 
-  // 手动点击搜索
-  const handleSearch = () => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-    fetchData(1, pageSize);
-  };
-
-  // 重置搜索
-  const handleReset = () => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-    form.resetFields();
-    fetchData(1, pageSize);
-  };
-
-  // 打开封禁处置弹窗
-  const handleOpenBanModal = (users: UserItem[], defaultType: BanPunishType = 'account') => {
-    if (!users.length) return;
-    setBanTargetUsers(users);
-    setBanDefaultPunishType(defaultType);
-    setBanModalVisible(true);
-  };
-
-  // 确认执行封禁处置
-  const handleConfirmBan = async (values: {
-    punishType: BanPunishType;
-    duration: string;
-    expireTime: string;
-    reason: string;
-    remark?: string;
-    notifyUser: boolean;
-  }) => {
+  // 状态变更 (正常 1 / 禁用 2 / 注销 3)
+  const handleStatusChange = async (record: UserItem, newStatus: UserStatus) => {
     try {
-      const userIds = banTargetUsers.map((u) => u.id);
-      await executeUserBan({
-        userIds,
-        ...values,
-      });
-      const typeDesc =
-        values.punishType === 'account'
-          ? '账号全量封禁'
-          : values.punishType === 'comment'
-            ? '评论禁言'
-            : '作品禁发';
-      message.success(`已成功对 ${banTargetUsers.length} 名用户执行【${typeDesc}】`);
-      setBanModalVisible(false);
-      if (currentUser && userIds.includes(currentUser.id)) {
-        setDrawerVisible(false);
+      const res = await updateUserStatus(record.id, newStatus);
+      if (res.code === 200) {
+        message.success('账号状态更新成功');
+        fetchData(currentPage, pageSize);
+        fetchSummary();
       }
-      setSelectedRowKeys([]);
-      fetchData(currentPage, pageSize);
-    } catch (err: any) {
-      message.error(err.message || '封禁处置执行失败');
-    }
-  };
-
-  // 状态变更操作 (解封/恢复正常/申请注销)
-  const handleStatusChange = async (record: UserItem, nextStatus: UserStatus) => {
-    try {
-      await updateUserStatus(record.id, nextStatus);
-      const statusMap: Record<UserStatus, string> = {
-        normal: '正常',
-        banned: '已封禁',
-        muted: '已禁言',
-        cancelling: '注销中',
-        cancelled: '已注销',
-      };
-      message.success(`用户【${record.nickname}】状态已更新为：${statusMap[nextStatus]}`);
-      if (currentUser?.id === record.id) {
-        setCurrentUser({ ...currentUser, status: nextStatus });
-      }
-      fetchData(currentPage, pageSize);
-    } catch (err: any) {
-      message.error(err.message || '更新状态失败');
+    } catch {
+      message.error('更新状态失败');
     }
   };
 
@@ -275,137 +256,116 @@ export const UsersPage: React.FC = () => {
         message.success(res.message);
         setSelectedRowKeys([]);
         fetchData(currentPage, pageSize);
+        fetchSummary();
       }
     } catch {
-      message.error('批量操作失败');
+      message.error('批量更新状态失败');
     }
   };
 
-  // 数据导出
-  const handleExport = async (type: 'all' | 'selected') => {
+  // 打开违规处置弹窗
+  const handleOpenBanModal = (users: UserItem[], defaultType: BanPunishType = 'account') => {
+    if (!users.length) {
+      message.warning('请先勾选目标用户');
+      return;
+    }
+    setBanTargetUsers(users);
+    setBanDefaultPunishType(defaultType);
+    setBanModalVisible(true);
+  };
+
+  // 确认执行封禁
+  const handleConfirmBan = async (values: {
+    punishType: BanPunishType;
+    duration: string;
+    expireTime: string;
+    reason: string;
+    remark?: string;
+    notifyUser: boolean;
+  }) => {
+    try {
+      const userIds = banTargetUsers.map((u) => u.id);
+      const res = await executeUserBan({ ...values, userIds });
+      if (res.code === 200) {
+        message.success(res.message);
+        setBanModalVisible(false);
+        setSelectedRowKeys([]);
+        fetchData(currentPage, pageSize);
+        fetchSummary();
+      }
+    } catch {
+      message.error('执行处置失败');
+    }
+  };
+
+  // 导出 CSV
+  const handleExport = async (type: 'all' | 'selected' = 'all') => {
     setExportLoading(true);
     try {
-      let exportData: UserItem[] = [];
+      let dataToExport: UserItem[] = [];
+
       if (type === 'selected') {
-        if (!selectedRowKeys.length) {
-          message.warning('请先勾选需要导出的用户数据');
+        dataToExport = userList.filter((u) => selectedRowKeys.includes(u.id));
+        if (!dataToExport.length) {
+          message.warning('请先勾选要导出的用户');
           setExportLoading(false);
           return;
         }
-        exportData = userList.filter((item) => selectedRowKeys.includes(item.id));
       } else {
         const formValues = form.getFieldsValue();
-        const params: Omit<UserQueryParams, 'page' | 'pageSize'> = {
-          keyword: formValues.keyword,
-          uid: formValues.uid,
-          verifyStatus: formValues.verifyStatus,
-          status: formValues.status,
+        const params: AdminUserPageReqVO = {
+          userId: formValues.userId,
+          phoneNumber: formValues.phoneNumber,
+          nickname: formValues.nickname,
+          status: formValues.status !== 'all' ? formValues.status : undefined,
+          qualification: formValues.qualification !== 'all' ? formValues.qualification : undefined,
+          certified: formValues.certified !== 'all' ? formValues.certified : undefined,
         };
-        if (formValues.dateRange && formValues.dateRange.length === 2) {
-          params.dateRange = [
-            formValues.dateRange[0].format('YYYY-MM-DD'),
-            formValues.dateRange[1].format('YYYY-MM-DD'),
-          ];
-        }
-        exportData = await getAllFilteredUsers(params);
+        dataToExport = await getAllFilteredUsers(params);
       }
 
-      if (!exportData.length) {
-        message.info('当前条件下暂无用户数据可导出');
+      if (!dataToExport.length) {
+        message.warning('当前无数据可导出');
+        setExportLoading(false);
         return;
       }
 
       exportToCsv(
         [
-          { title: '用户ID', key: 'id' },
-          { title: 'UID', key: 'uid' },
-          { title: '昵称', key: 'nickname' },
-          { title: '用户名', key: 'username' },
+          { title: '展示号(UID)', key: 'userId' },
+          { title: '用户昵称', key: 'nickname' },
           {
-            title: '性别',
-            key: 'gender',
-            render: (r) => (r.gender === 'male' ? '男' : r.gender === 'female' ? '女' : '未知'),
+            title: '联系手机号',
+            key: 'phoneNumber',
+            render: (r) => formatMaskedPhone(r.phoneNumber || r.phone, false),
           },
           {
-            title: '认证状态',
-            key: 'verifyStatus',
-            render: (r) => {
-              const map: Record<VerifyStatus, string> = {
-                creator: '达人认证',
-                enterprise: '企业认证',
-                personal: '个人实名',
-                pending: '认证审核中',
-                unverified: '未认证',
-              };
-              return map[r.verifyStatus] || '未认证';
-            },
+            title: '认证类型',
+            key: 'qualification',
+            render: (r) =>
+              r.qualification === 2 ? '企业认证' : r.qualification === 1 ? '个人认证' : '未认证',
           },
-          { title: '认证信息', key: 'verifyInfo' },
+          {
+            title: '实名状态',
+            key: 'certified',
+            render: (r) => (r.certified ? '已实名' : '未实名'),
+          },
           {
             title: '账号状态',
             key: 'status',
-            render: (r) => {
-              const map: Record<UserStatus, string> = {
-                normal: '正常',
-                banned: '已封禁',
-                muted: '已禁言',
-                cancelling: '注销中',
-                cancelled: '已注销',
-              };
-              return map[r.status] || '未知';
-            },
-          },
-          { title: '评论数', key: 'commentCount' },
-          {
-            title: '评论权限',
-            key: 'commentStatus',
             render: (r) =>
-              r.commentStatus === 'allowed'
-                ? '正常互动'
-                : `已禁言(${formatBanRemainingTime(r.commentBanExpireTime).text || '限制中'})`,
+              r.status === 'banned' ? '已封禁' : r.status === 'cancelled' ? '已注销' : '正常',
           },
-          { title: '作品数', key: 'postCount' },
-          {
-            title: '发帖权限',
-            key: 'postStatus',
-            render: (r) =>
-              r.postStatus === 'forbidden'
-                ? `已禁发(${formatBanRemainingTime(r.postBanExpireTime).text || '限制中'})`
-                : '正常发布',
-          },
-          { title: '获赞总数', key: 'likeCount' },
-          { title: '粉丝数', key: 'followerCount' },
-          {
-            title: '在线状态',
-            key: 'activeStatus',
-            render: (r) =>
-              r.activeStatus === 'online'
-                ? '当前在线'
-                : r.activeStatus === 'recent'
-                  ? '最近在线'
-                  : '长期离线',
-          },
-          { title: '参与活动总数', key: 'activityCount' },
-          {
-            title: '线上活动场次',
-            key: 'onlineActivityCount',
-            render: (r) => r.onlineActivityCount ?? Math.max(0, r.activityCount - 2),
-          },
-          {
-            title: '线下活动场次',
-            key: 'offlineActivityCount',
-            render: (r) => r.offlineActivityCount ?? Math.min(r.activityCount, 2),
-          },
-          { title: '最后活跃时间', key: 'lastActiveTime' },
-          { title: '注册时间', key: 'registerTime' },
-          { title: '联系电话', key: 'phone', render: (r) => formatMaskedPhone(r.phone, false) },
-          { title: '电子邮箱', key: 'email' },
+          { title: '粉丝数', key: 'fanCount' },
+          { title: '关注数', key: 'followCount' },
+          { title: '好友数', key: 'friendCount' },
+          { title: '注册时间', key: 'createTime' },
         ],
-        exportData,
-        type === 'selected' ? `用户数据_已选${exportData.length}条` : '用户管理数据列表',
+        dataToExport,
+        '用户管理数据报表',
       );
 
-      message.success(`成功导出 ${exportData.length} 条用户数据`);
+      message.success(`成功导出 ${dataToExport.length} 条用户数据`);
     } catch (err: any) {
       message.error(err.message || '导出失败');
     } finally {
@@ -413,51 +373,33 @@ export const UsersPage: React.FC = () => {
     }
   };
 
-  // 认证状态 Tag 渲染
-  const renderVerifyTag = (verifyStatus: VerifyStatus, verifyInfo?: string) => {
-    let tag = <Tag color="default">未认证</Tag>;
-    if (verifyStatus === 'pending') {
-      tag = (
-        <Tag color="processing" icon={<ClockCircleOutlined />} style={{ borderRadius: 10 }}>
-          审核中
-        </Tag>
-      );
-    } else if (verifyStatus === 'creator') {
-      tag = (
-        <Tag color="gold" icon={<StarFilled />} style={{ borderRadius: 10 }}>
-          达人认证
-        </Tag>
-      );
-    } else if (verifyStatus === 'enterprise') {
-      tag = (
+  // 认证标签渲染 (1=个人，2=企业，其余未认证)
+  const renderQualificationTag = (qualification?: number, verifyStatus?: VerifyStatus) => {
+    if (qualification === 2 || verifyStatus === 'enterprise') {
+      return (
         <Tag color="blue" icon={<SafetyCertificateFilled />} style={{ borderRadius: 10 }}>
           企业认证
         </Tag>
       );
-    } else if (verifyStatus === 'personal') {
-      tag = (
+    }
+    if (qualification === 1 || verifyStatus === 'personal') {
+      return (
         <Tag color="cyan" icon={<CheckCircleFilled />} style={{ borderRadius: 10 }}>
-          实名认证
+          个人认证
         </Tag>
       );
     }
-
-    if (verifyInfo) {
-      return (
-        <Tooltip title={verifyInfo} placement="topLeft">
-          <span style={{ cursor: 'pointer' }}>{tag}</span>
-        </Tooltip>
-      );
-    }
-    return tag;
+    return (
+      <Tag color="default" style={{ borderRadius: 10 }}>
+        未认证
+      </Tag>
+    );
   };
 
-  // 账号状态 Badge 渲染及具体封禁惩处信息
+  // 账号状态渲染 (1=正常, 2=禁用, 3=注销)
   const renderAccountStatus = (record: UserItem) => {
     const status = record.status;
-    const banInfo = formatBanRemainingTime(
-      record.accountBanExpireTime || record.commentBanExpireTime || record.postBanExpireTime,
-    );
+    const banInfo = formatBanRemainingTime(record.accountBanExpireTime);
 
     switch (status) {
       case 'normal':
@@ -466,7 +408,7 @@ export const UsersPage: React.FC = () => {
         const tooltipContent = (
           <div style={{ fontSize: 12 }}>
             <div style={{ fontWeight: 600, color: '#ff4d4f', marginBottom: 2 }}>
-              🚫 账号全量封禁管控中
+              🚫 账号处于禁用/封禁中
             </div>
             <div>处罚原因: {record.banReason || '违反平台社区公约与安全规定'}</div>
             <div>
@@ -486,7 +428,7 @@ export const UsersPage: React.FC = () => {
                   status="error"
                   text={
                     <Text type="danger" strong>
-                      已封禁
+                      已禁用
                     </Text>
                   }
                 />
@@ -515,62 +457,6 @@ export const UsersPage: React.FC = () => {
           </div>
         );
       }
-      case 'muted': {
-        const tooltipContent = (
-          <div style={{ fontSize: 12 }}>
-            <div style={{ fontWeight: 600, color: '#fa8c16', marginBottom: 2 }}>
-              ⚠️ 账号处于违规禁言中
-            </div>
-            <div>禁言原因: {record.banReason || '违规言论/评论区不当发言'}</div>
-            <div>
-              解封时间:{' '}
-              {record.commentBanExpireTime === 'permanent'
-                ? '永久禁言'
-                : record.commentBanExpireTime || '限制中'}
-            </div>
-            {banInfo.text && <div>剩余时间: {banInfo.text}</div>}
-          </div>
-        );
-        return (
-          <div>
-            <Tooltip title={tooltipContent}>
-              <Space size={4} style={{ cursor: 'help' }}>
-                <Badge
-                  status="warning"
-                  text={<Text style={{ color: '#fa8c16', fontWeight: 600 }}>已禁言</Text>}
-                />
-                <Tag color="warning" style={{ fontSize: 10, padding: '0 3px', margin: 0 }}>
-                  {banInfo.text || '7天'}
-                </Tag>
-              </Space>
-            </Tooltip>
-            {record.banReason && (
-              <Tooltip title={`禁言原因: ${record.banReason}`}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: '#fa8c16',
-                    marginTop: 2,
-                    maxWidth: 135,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {record.banReason}
-                </div>
-              </Tooltip>
-            )}
-          </div>
-        );
-      }
-      case 'cancelling':
-        return (
-          <div>
-            <Badge status="warning" text={<Text style={{ color: '#d46b08' }}>注销中</Text>} />
-            <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>冷静期可撤销</div>
-          </div>
-        );
       case 'cancelled':
         return <Badge status="default" text={<Text type="secondary">已注销</Text>} />;
       default:
@@ -578,13 +464,13 @@ export const UsersPage: React.FC = () => {
     }
   };
 
-  // 表格列定义
+  // 表格列定义 (对齐 AdminUserRespVO)
   const columns: TableProps<UserItem>['columns'] = [
     {
       title: '用户',
       dataIndex: 'nickname',
       key: 'user',
-      width: 260,
+      width: 250,
       render: (_, record) => {
         const handleOpenDetail = () => {
           setCurrentUser(record);
@@ -594,7 +480,7 @@ export const UsersPage: React.FC = () => {
         return (
           <Space size={12} orientation="horizontal" align="center">
             <Avatar
-              src={record.avatar}
+              src={record.avatarUrl || record.avatar}
               size={44}
               icon={<UserOutlined />}
               onClick={handleOpenDetail}
@@ -605,214 +491,121 @@ export const UsersPage: React.FC = () => {
               }}
             />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <Space size={4}>
-                <button
-                  type="button"
-                  onClick={handleOpenDetail}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    margin: 0,
-                    cursor: 'pointer',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: 'inherit',
-                    textAlign: 'left',
-                    textDecoration: 'none',
+              <button
+                type="button"
+                onClick={handleOpenDetail}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  margin: 0,
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: 'inherit',
+                  textAlign: 'left',
+                  textDecoration: 'none',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#1677ff';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'inherit';
+                }}
+              >
+                {record.nickname}
+              </button>
+              <Space size={4} style={{ marginTop: 2 }}>
+                <Text
+                  type="secondary"
+                  copyable={{
+                    text: String(record.userId || record.uid),
+                    tooltips: ['复制展示号', '已复制'],
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = '#1677ff';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'inherit';
-                  }}
+                  style={{ fontSize: 12 }}
                 >
-                  {record.nickname}
-                </button>
-                {record.gender === 'male' && (
-                  <ManOutlined style={{ color: '#1677ff', fontSize: 12 }} />
-                )}
-                {record.gender === 'female' && (
-                  <WomanOutlined style={{ color: '#eb2f96', fontSize: 12 }} />
+                  UID: {record.userId || record.uid}
+                </Text>
+                {record.initStatus === 0 && (
+                  <Tag style={{ fontSize: 10, padding: '0 3px', margin: 0 }}>保底账号</Tag>
                 )}
               </Space>
-              <Text
-                type="secondary"
-                copyable={{ text: record.username, tooltips: ['复制用户名', '已复制'] }}
-                style={{ fontSize: 12 }}
-              >
-                @{record.username}
-              </Text>
             </div>
           </Space>
         );
       },
     },
     {
-      title: '认证状态',
-      dataIndex: 'verifyStatus',
-      key: 'verifyStatus',
-      width: 130,
-      render: (verifyStatus: VerifyStatus, record) =>
-        renderVerifyTag(verifyStatus, record.verifyInfo),
+      title: '联系手机号',
+      dataIndex: 'phoneNumber',
+      key: 'phoneNumber',
+      width: 150,
+      render: (phone: string, record) => {
+        const p = phone || record.phone;
+        return (
+          <Text code copyable={p ? { text: p, tooltips: ['复制手机号', '已复制'] } : false}>
+            {formatMaskedPhone(p, false)}
+          </Text>
+        );
+      },
+    },
+    {
+      title: '认证类型',
+      dataIndex: 'qualification',
+      key: 'qualification',
+      width: 120,
+      render: (q: number, record) => renderQualificationTag(q, record.verifyStatus),
+    },
+    {
+      title: '实名认证',
+      dataIndex: 'certified',
+      key: 'certified',
+      width: 110,
+      render: (certified: boolean) =>
+        certified ? (
+          <Tag color="green" icon={<CheckCircleFilled />}>
+            已实名
+          </Tag>
+        ) : (
+          <Tag color="default">未实名</Tag>
+        ),
     },
     {
       title: '账号状态',
       dataIndex: 'status',
       key: 'status',
-      width: 170,
+      width: 160,
       render: (_, record) => renderAccountStatus(record),
     },
     {
-      title: '在线状态',
-      dataIndex: 'activeStatus',
-      key: 'activeStatus',
-      width: 130,
-      render: (activeStatus: ActiveStatus, record) => {
-        let badge = <Badge status="default" text={<Text type="secondary">长期离线</Text>} />;
-        if (activeStatus === 'online') {
-          badge = (
-            <Badge
-              status="success"
-              text={
-                <Text type="success" strong>
-                  当前在线
-                </Text>
-              }
-            />
-          );
-        } else if (activeStatus === 'recent') {
-          badge = (
-            <Badge status="processing" text={<Text style={{ color: '#1677ff' }}>最近在线</Text>} />
-          );
-        }
-        return (
-          <div>
-            <div>{badge}</div>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              {record.lastActiveTime.slice(5, 16)}
-            </Text>
-          </div>
-        );
-      },
-    },
-    {
-      title: '评论',
-      dataIndex: 'commentCount',
-      key: 'comment',
-      width: 155,
-      sorter: (a, b) => a.commentCount - b.commentCount,
-      render: (count: number, record) => {
-        const banInfo = formatBanRemainingTime(record.commentBanExpireTime);
-        return (
-          <div>
-            <div>
-              <Text strong style={{ fontSize: 13 }}>
-                {count.toLocaleString()}
-              </Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {' '}
-                条
-              </Text>
-            </div>
-            <div>
-              {record.commentStatus === 'allowed' ? (
-                <Tag color="green" style={{ fontSize: 11, padding: '0 4px', margin: 0 }}>
-                  正常互动
-                </Tag>
-              ) : (
-                <Tooltip title={banInfo.fullDesc}>
-                  <Space size={2} style={{ cursor: 'help' }}>
-                    <Tag color="error" style={{ fontSize: 11, padding: '0 4px', margin: 0 }}>
-                      已禁言
-                    </Tag>
-                    {banInfo.text && (
-                      <Text type="danger" style={{ fontSize: 11 }}>
-                        ({banInfo.text})
-                      </Text>
-                    )}
-                  </Space>
-                </Tooltip>
-              )}
-            </div>
-          </div>
-        );
-      },
-    },
-    {
-      title: '发帖',
-      dataIndex: 'postCount',
-      key: 'post',
-      width: 155,
-      sorter: (a, b) => a.postCount - b.postCount,
-      render: (count: number, record) => {
-        const banInfo = formatBanRemainingTime(record.postBanExpireTime);
-        return (
-          <div>
-            <div>
-              <Text strong style={{ fontSize: 13 }}>
-                {count.toLocaleString()}
-              </Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {' '}
-                篇作品
-              </Text>
-            </div>
-            <div>
-              {record.postStatus === 'forbidden' ? (
-                <Tooltip title={banInfo.fullDesc}>
-                  <Space size={2} style={{ cursor: 'help' }}>
-                    <Tag color="error" style={{ fontSize: 11, padding: '0 4px', margin: 0 }}>
-                      已禁发
-                    </Tag>
-                    {banInfo.text && (
-                      <Text type="danger" style={{ fontSize: 11 }}>
-                        ({banInfo.text})
-                      </Text>
-                    )}
-                  </Space>
-                </Tooltip>
-              ) : (
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  获赞 {(record.likeCount / 10000).toFixed(1)}w
-                </Text>
-              )}
-            </div>
-          </div>
-        );
-      },
-    },
-    {
-      title: '活动参与',
-      dataIndex: 'activityCount',
-      key: 'activity',
+      title: '粉丝 / 关注 / 好友',
+      key: 'fans',
       width: 170,
-      sorter: (a, b) => a.activityCount - b.activityCount,
-      render: (count: number, record) => {
-        const onlineCount = record.onlineActivityCount ?? Math.max(0, count - 2);
-        const offlineCount = record.offlineActivityCount ?? Math.min(count, 2);
-        return (
+      render: (_, record) => (
+        <div style={{ fontSize: 12 }}>
           <div>
-            <div style={{ marginBottom: 4 }}>
-              <Text strong style={{ fontSize: 13 }}>
-                {count}
-              </Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {' '}
-                场活动
-              </Text>
-            </div>
-            <Space size={4} wrap>
-              <Tag color="cyan" style={{ fontSize: 11, padding: '0 4px', margin: 0 }}>
-                线上: {onlineCount}
-              </Tag>
-              <Tag color="geekblue" style={{ fontSize: 11, padding: '0 4px', margin: 0 }}>
-                线下: {offlineCount}
-              </Tag>
-            </Space>
+            <Text type="secondary">粉丝: </Text>
+            <Text strong>{(record.fanCount || 0).toLocaleString()}</Text>
           </div>
-        );
+          <div>
+            <Text type="secondary">关注: </Text>
+            <span>{record.followCount || 0}</span>
+            <Text type="secondary" style={{ marginLeft: 6 }}>
+              好友:{' '}
+            </Text>
+            <span>{record.friendCount || 0}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: '注册时间',
+      dataIndex: 'createTime',
+      key: 'createTime',
+      width: 160,
+      render: (time: string, record) => {
+        const t = time || record.registerTime || '';
+        return <Text style={{ fontSize: 12 }}>{t.replace('T', ' ').slice(0, 19)}</Text>;
       },
     },
     {
@@ -822,15 +615,6 @@ export const UsersPage: React.FC = () => {
       width: 180,
       render: (_, record) => {
         const moreMenuItems = [
-          {
-            key: 'persona',
-            icon: <BarChartOutlined style={{ color: '#1677ff' }} />,
-            label: '查看用户画像',
-            onClick: () => {
-              setPersonaUser(record);
-              setPersonaDrawerVisible(true);
-            },
-          },
           {
             key: 'punish-setting',
             icon: <StopOutlined style={{ color: '#ff4d4f' }} />,
@@ -848,26 +632,19 @@ export const UsersPage: React.FC = () => {
             onClick: () => handleStatusChange(record, 'normal'),
           },
           {
-            key: 'status-muted',
-            icon: <StopOutlined />,
-            label: '禁言用户',
-            disabled: record.status === 'muted',
-            onClick: () => handleOpenBanModal([record], 'comment'),
-          },
-          {
-            key: 'status-cancelling',
-            icon: <UserDeleteOutlined />,
-            label: '申请注销',
-            disabled: record.status === 'cancelling' || record.status === 'cancelled',
-            onClick: () => handleStatusChange(record, 'cancelling'),
-          },
-          {
             key: 'status-banned',
             icon: <LockOutlined />,
-            label: '封禁账号',
+            label: '禁用账号',
             danger: true,
             disabled: record.status === 'banned',
             onClick: () => handleOpenBanModal([record], 'account'),
+          },
+          {
+            key: 'status-cancelled',
+            icon: <UserDeleteOutlined />,
+            label: '设为已注销',
+            disabled: record.status === 'cancelled',
+            onClick: () => handleStatusChange(record, 'cancelled'),
           },
         ];
 
@@ -887,7 +664,7 @@ export const UsersPage: React.FC = () => {
             {record.status === 'banned' ? (
               <Popconfirm
                 title="解封确认"
-                description={`确定要解除用户【${record.nickname}】的封禁状态吗？`}
+                description={`确定要解除用户【${record.nickname}】的禁用状态吗？`}
                 onConfirm={() => handleStatusChange(record, 'normal')}
                 okText="解封"
                 cancelText="取消"
@@ -903,7 +680,7 @@ export const UsersPage: React.FC = () => {
                 danger
                 onClick={() => handleOpenBanModal([record], 'account')}
               >
-                封禁
+                禁用
               </Button>
             )}
             <Dropdown menu={{ items: moreMenuItems }} trigger={['click']} placement="bottomRight">
@@ -919,7 +696,84 @@ export const UsersPage: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* 搜索与多维筛选卡片 */}
+      {/* 顶部指标统计大盘 (对接 GET /admin-api/user/statistics/summary) */}
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} md={6}>
+          <Card
+            size="small"
+            style={{
+              borderRadius: 8,
+              background: token.colorFillAlter,
+              border: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
+            <Statistic
+              title="用户总数"
+              value={summary.totalCount || total}
+              valueStyle={{ color: '#1677ff', fontSize: 22, fontWeight: 600 }}
+              prefix={<TeamOutlined style={{ color: '#1677ff' }} />}
+              suffix={
+                <Tag color="blue" style={{ fontSize: 11, marginLeft: 8 }}>
+                  今日+{summary.todayNewCount || 0}
+                </Tag>
+              }
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card
+            size="small"
+            style={{
+              borderRadius: 8,
+              background: token.colorFillAlter,
+              border: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
+            <Statistic
+              title="正常活跃状态"
+              value={summary.normalCount || total}
+              valueStyle={{ color: '#52c41a', fontSize: 22, fontWeight: 600 }}
+              prefix={<CheckCircleFilled style={{ color: '#52c41a' }} />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card
+            size="small"
+            style={{
+              borderRadius: 8,
+              background: token.colorFillAlter,
+              border: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
+            <Statistic
+              title="违规禁用/封禁"
+              value={summary.disabledCount || 0}
+              valueStyle={{ color: '#ff4d4f', fontSize: 22, fontWeight: 600 }}
+              prefix={<StopOutlined style={{ color: '#ff4d4f' }} />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card
+            size="small"
+            style={{
+              borderRadius: 8,
+              background: token.colorFillAlter,
+              border: `1px solid ${token.colorBorderSecondary}`,
+            }}
+          >
+            <Statistic
+              title="已注销档案"
+              value={summary.cancelledCount || 0}
+              valueStyle={{ color: '#8c8c8c', fontSize: 22, fontWeight: 600 }}
+              prefix={<UserDeleteOutlined style={{ color: '#8c8c8c' }} />}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 搜索与多维筛选卡片 (对齐 AdminUserPageReqVO) */}
       <Card
         variant="borderless"
         style={{
@@ -933,33 +787,34 @@ export const UsersPage: React.FC = () => {
           onFinish={handleSearch}
           onValuesChange={handleFormValuesChange}
           initialValues={{
-            verifyStatus: 'all',
+            qualification: 'all',
             status: 'all',
-            activeStatus: 'all',
+            certified: 'all',
           }}
         >
           <Row gutter={[16, 12]}>
             <Col xs={24} sm={12} md={8} lg={6}>
-              <Form.Item label="用户搜索" name="keyword" style={{ marginBottom: 0 }}>
+              <Form.Item label="展示号(UID)" name="userId" style={{ marginBottom: 0 }}>
+                <Input placeholder="输入用户展示号 / UID" allowClear />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item label="联系手机号" name="phoneNumber" style={{ marginBottom: 0 }}>
                 <Input
-                  placeholder="搜索昵称 / @用户名 / UID"
+                  placeholder="输入联系手机号"
                   allowClear
-                  prefix={<UserOutlined style={{ color: '#bfbfbf' }} />}
+                  prefix={<PhoneOutlined style={{ color: '#bfbfbf' }} />}
                 />
               </Form.Item>
             </Col>
 
             <Col xs={24} sm={12} md={8} lg={6}>
-              <Form.Item label="认证状态" name="verifyStatus" style={{ marginBottom: 0 }}>
-                <Select
-                  options={[
-                    { label: '全部认证状态', value: 'all' },
-                    { label: '⏳ 认证审核中', value: 'pending' },
-                    { label: '⚪ 未认证', value: 'unverified' },
-                    { label: '🟢 个人实名认证', value: 'personal' },
-                    { label: '🔵 企业认证(蓝V)', value: 'enterprise' },
-                    { label: '🟡 达人认证(黄V)', value: 'creator' },
-                  ]}
+              <Form.Item label="用户昵称" name="nickname" style={{ marginBottom: 0 }}>
+                <Input
+                  placeholder="输入用户昵称"
+                  allowClear
+                  prefix={<UserOutlined style={{ color: '#bfbfbf' }} />}
                 />
               </Form.Item>
             </Col>
@@ -968,32 +823,41 @@ export const UsersPage: React.FC = () => {
               <Form.Item label="账号状态" name="status" style={{ marginBottom: 0 }}>
                 <Select
                   options={[
-                    { label: '全部账号状态', value: 'all' },
-                    { label: '🟢 正常状态', value: 'normal' },
-                    { label: '🔴 已封禁', value: 'banned' },
-                    { label: '🟠 已禁言', value: 'muted' },
-                    { label: '⏳ 注销冷静期中', value: 'cancelling' },
-                    { label: '⚪ 已注销', value: 'cancelled' },
+                    { label: '全部状态', value: 'all' },
+                    { label: '🟢 正常 (1)', value: 1 },
+                    { label: '🔴 禁用/封禁 (2)', value: 2 },
+                    { label: '⚪ 已注销 (3)', value: 3 },
                   ]}
                 />
               </Form.Item>
             </Col>
 
             <Col xs={24} sm={12} md={8} lg={6}>
-              <Form.Item label="在线活跃状态" name="activeStatus" style={{ marginBottom: 0 }}>
+              <Form.Item label="认证类型" name="qualification" style={{ marginBottom: 0 }}>
                 <Select
                   options={[
-                    { label: '全部活跃状态', value: 'all' },
-                    { label: '🟢 当前在线', value: 'online' },
-                    { label: '🔵 最近在线', value: 'recent' },
-                    { label: '⚪ 长期离线', value: 'offline' },
+                    { label: '全部认证类型', value: 'all' },
+                    { label: '🟢 个人认证 (1)', value: 1 },
+                    { label: '🔵 企业认证 (2)', value: 2 },
                   ]}
                 />
               </Form.Item>
             </Col>
 
-            <Col xs={24} sm={16} md={14} lg={12}>
-              <Form.Item label="用户注册时间范围" name="dateRange" style={{ marginBottom: 0 }}>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item label="实名认证" name="certified" style={{ marginBottom: 0 }}>
+                <Select
+                  options={[
+                    { label: '全部实名状态', value: 'all' },
+                    { label: '🟢 已实名认证', value: true },
+                    { label: '⚪ 未实名', value: false },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} sm={16} md={12} lg={8}>
+              <Form.Item label="注册时间范围" name="dateRange" style={{ marginBottom: 0 }}>
                 <RangePicker
                   style={{ width: '100%' }}
                   placeholder={['注册起始日期', '注册截止日期']}
@@ -1004,8 +868,8 @@ export const UsersPage: React.FC = () => {
             <Col
               xs={24}
               sm={8}
-              md={10}
-              lg={12}
+              md={12}
+              lg={4}
               style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end' }}
             >
               <Space size="middle" style={{ marginBottom: 0 }}>
@@ -1049,10 +913,7 @@ export const UsersPage: React.FC = () => {
                   danger
                   onClick={() => handleOpenBanModal(selectedUsers, 'account')}
                 >
-                  批量封禁
-                </Button>
-                <Button size="small" onClick={() => handleOpenBanModal(selectedUsers, 'comment')}>
-                  批量禁言
+                  批量禁用
                 </Button>
                 <Button size="small" onClick={() => handleBatchStatus('normal')}>
                   批量恢复正常
@@ -1111,9 +972,9 @@ export const UsersPage: React.FC = () => {
         />
       </Card>
 
-      {/* 用户基础档案与管理详情抽屉 */}
+      {/* 用户基础档案与管理详情抽屉 (对接 GET /admin-api/user/users/get) */}
       <Drawer
-        title="用户档案与账号管理详情"
+        title="用户档案详情"
         placement="right"
         size="large"
         open={drawerVisible}
@@ -1121,26 +982,13 @@ export const UsersPage: React.FC = () => {
         extra={
           currentUser && (
             <Space>
-              <Button
-                icon={<BarChartOutlined style={{ color: '#1677ff' }} />}
-                onClick={() => {
-                  setPersonaUser(currentUser);
-                  setPersonaDrawerVisible(true);
-                }}
-              >
-                查看 AI 用户画像
-              </Button>
               {currentUser.status === 'banned' ? (
                 <Button type="primary" onClick={() => handleStatusChange(currentUser, 'normal')}>
                   解封账号
                 </Button>
-              ) : currentUser.status === 'cancelling' ? (
-                <Button type="primary" onClick={() => handleStatusChange(currentUser, 'normal')}>
-                  撤销注销申请（恢复正常）
-                </Button>
               ) : (
                 <Button danger onClick={() => handleOpenBanModal([currentUser], 'account')}>
-                  封禁账号
+                  禁用账号
                 </Button>
               )}
             </Space>
@@ -1150,33 +998,42 @@ export const UsersPage: React.FC = () => {
         {currentUser && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-              <Avatar src={currentUser.avatar} size={72} icon={<UserOutlined />} />
+              <Avatar
+                src={currentUser.avatarUrl || currentUser.avatar}
+                size={72}
+                icon={<UserOutlined />}
+              />
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Title level={4} style={{ margin: 0 }}>
                     {currentUser.nickname}
                   </Title>
-                  {renderVerifyTag(currentUser.verifyStatus, currentUser.verifyInfo)}
+                  {renderQualificationTag(currentUser.qualification, currentUser.verifyStatus)}
+                  {currentUser.certified && (
+                    <Tag color="green" icon={<CheckCircleFilled />}>
+                      已实名
+                    </Tag>
+                  )}
                 </div>
                 <div style={{ marginTop: 4 }}>
-                  <Text type="secondary">UID: </Text>
+                  <Text type="secondary">展示号(UID): </Text>
                   <Text code copyable>
-                    {currentUser.uid}
+                    {currentUser.userId || currentUser.uid}
                   </Text>
-                  <Text type="secondary" style={{ marginLeft: 12 }}>
-                    用户名: @{currentUser.username}
-                  </Text>
+                  {currentUser.initStatus === 0 && (
+                    <Tag style={{ marginLeft: 8 }}>系统保底未初始化</Tag>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* 违规处罚置顶预警横幅 */}
-            {(currentUser.status === 'banned' || currentUser.status === 'muted') && (
+            {currentUser.status === 'banned' && (
               <Card
                 size="small"
                 style={{
                   background: token.colorFillAlter,
-                  border: `1px solid ${currentUser.status === 'banned' ? '#ff4d4f' : '#faad14'}`,
+                  border: '1px solid #ff4d4f',
                   borderRadius: 8,
                   marginBottom: 16,
                 }}
@@ -1185,23 +1042,10 @@ export const UsersPage: React.FC = () => {
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                 >
                   <Space>
-                    <StopOutlined
-                      style={{
-                        color: currentUser.status === 'banned' ? '#ff4d4f' : '#faad14',
-                        fontSize: 20,
-                      }}
-                    />
+                    <StopOutlined style={{ color: '#ff4d4f', fontSize: 20 }} />
                     <div>
-                      <Text
-                        strong
-                        style={{
-                          color: currentUser.status === 'banned' ? '#ff4d4f' : '#faad14',
-                          fontSize: 14,
-                        }}
-                      >
-                        {currentUser.status === 'banned'
-                          ? '当前账号已被全站封禁'
-                          : '当前账号处于违规禁言惩戒中'}
+                      <Text strong style={{ color: '#ff4d4f', fontSize: 14 }}>
+                        当前账号已被平台禁用/封禁
                       </Text>
                       <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 2 }}>
                         <span>
@@ -1214,9 +1058,8 @@ export const UsersPage: React.FC = () => {
                             ? '永久封禁'
                             : currentUser.accountBanExpireTime || '限制中'}{' '}
                           (
-                          {formatBanRemainingTime(
-                            currentUser.accountBanExpireTime || currentUser.commentBanExpireTime,
-                          ).text || '生效中'}
+                          {formatBanRemainingTime(currentUser.accountBanExpireTime).text ||
+                            '生效中'}
                           )
                         </span>
                       </div>
@@ -1233,44 +1076,9 @@ export const UsersPage: React.FC = () => {
               </Card>
             )}
 
+            {/* 社交互动指标卡 */}
             <Row gutter={16} style={{ marginBottom: 24 }}>
-              <Col span={6}>
-                <Card
-                  size="small"
-                  variant="borderless"
-                  style={{
-                    background: token.colorFillAlter,
-                    border: `1px solid ${token.colorBorderSecondary}`,
-                    borderRadius: 8,
-                  }}
-                >
-                  <Statistic
-                    title="作品发帖数"
-                    value={currentUser.postCount}
-                    valueStyle={{ color: '#52c41a', fontWeight: 600 }}
-                    suffix="篇"
-                  />
-                </Card>
-              </Col>
-              <Col span={6}>
-                <Card
-                  size="small"
-                  variant="borderless"
-                  style={{
-                    background: token.colorFillAlter,
-                    border: `1px solid ${token.colorBorderSecondary}`,
-                    borderRadius: 8,
-                  }}
-                >
-                  <Statistic
-                    title="获赞总数"
-                    value={currentUser.likeCount}
-                    valueStyle={{ color: '#1677ff', fontWeight: 600 }}
-                    formatter={(val) => `${(Number(val) / 10000).toFixed(1)}w`}
-                  />
-                </Card>
-              </Col>
-              <Col span={6}>
+              <Col span={8}>
                 <Card
                   size="small"
                   variant="borderless"
@@ -1282,13 +1090,12 @@ export const UsersPage: React.FC = () => {
                 >
                   <Statistic
                     title="粉丝总数"
-                    value={currentUser.followerCount}
-                    valueStyle={{ color: '#fa8c16', fontWeight: 600 }}
-                    formatter={(val) => `${(Number(val) / 10000).toFixed(1)}w`}
+                    value={currentUser.fanCount || 0}
+                    valueStyle={{ color: '#1677ff', fontWeight: 600 }}
                   />
                 </Card>
               </Col>
-              <Col span={6}>
+              <Col span={8}>
                 <Card
                   size="small"
                   variant="borderless"
@@ -1299,52 +1106,112 @@ export const UsersPage: React.FC = () => {
                   }}
                 >
                   <Statistic
-                    title="评论互动数"
-                    value={currentUser.commentCount}
-                    valueStyle={{ color: '#722ed1', fontWeight: 600 }}
+                    title="关注总数"
+                    value={currentUser.followCount || 0}
+                    valueStyle={{ color: '#52c41a', fontWeight: 600 }}
+                  />
+                </Card>
+              </Col>
+              <Col span={8}>
+                <Card
+                  size="small"
+                  variant="borderless"
+                  style={{
+                    background: token.colorFillAlter,
+                    border: `1px solid ${token.colorBorderSecondary}`,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Statistic
+                    title="好友总数"
+                    value={currentUser.friendCount || 0}
+                    valueStyle={{ color: '#fa8c16', fontWeight: 600 }}
                   />
                 </Card>
               </Col>
             </Row>
 
+            {/* 实名认证档案专区 */}
+            <Divider style={{ margin: '16px 0' }} />
+            <div style={{ marginBottom: 16 }}>
+              <Space style={{ marginBottom: 8 }}>
+                <IdcardOutlined style={{ color: '#1677ff' }} />
+                <Text strong style={{ fontSize: 14 }}>
+                  实名身份档案 (Personal Auth)
+                </Text>
+              </Space>
+
+              {currentUser.personalAuths && currentUser.personalAuths.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {currentUser.personalAuths.map((auth, idx) => (
+                    <Card
+                      key={auth.idCard || idx}
+                      size="small"
+                      style={{ background: token.colorFillAlter, borderRadius: 6 }}
+                    >
+                      <Row gutter={16}>
+                        <Col span={8}>
+                          <Text type="secondary">真实姓名: </Text>
+                          <Text strong>{auth.realName}</Text>
+                        </Col>
+                        <Col span={8}>
+                          <Text type="secondary">身份证号: </Text>
+                          <Text code>{auth.idCard}</Text>
+                        </Col>
+                        <Col span={8}>
+                          <Text type="secondary">认证时间: </Text>
+                          <Text>{auth.authTime}</Text>
+                        </Col>
+                      </Row>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card size="small" style={{ background: token.colorFillAlter, borderRadius: 6 }}>
+                  <Text type="secondary">
+                    {currentUser.certified ? '已通过实名校验' : '暂无实名认证记录'}
+                  </Text>
+                </Card>
+              )}
+            </div>
+
             <Divider style={{ margin: '16px 0' }} />
 
             <Descriptions title="基本资料" column={2} bordered size="small">
+              <Descriptions.Item label="展示号(UID)">
+                <Text code copyable>
+                  {currentUser.userId || currentUser.uid}
+                </Text>
+              </Descriptions.Item>
               <Descriptions.Item label="账号状态">
                 {renderAccountStatus(currentUser)}
               </Descriptions.Item>
               <Descriptions.Item label="认证类型">
-                {renderVerifyTag(currentUser.verifyStatus, currentUser.verifyInfo)}
+                {renderQualificationTag(currentUser.qualification, currentUser.verifyStatus)}
               </Descriptions.Item>
-              <Descriptions.Item label="认证描述" span={2}>
-                {currentUser.verifyInfo || '暂无认证说明'}
-              </Descriptions.Item>
-              <Descriptions.Item label="性别">
-                {currentUser.gender === 'male'
-                  ? '男'
-                  : currentUser.gender === 'female'
-                    ? '女'
-                    : '保密'}
-              </Descriptions.Item>
-              <Descriptions.Item label="活动参与情况">
-                <Space size={4}>
-                  <Tag color="purple">共 {currentUser.activityCount} 场</Tag>
-                  <Tag color="cyan">
-                    线上:{' '}
-                    {currentUser.onlineActivityCount ?? Math.max(0, currentUser.activityCount - 2)}
-                  </Tag>
-                  <Tag color="geekblue">
-                    线下:{' '}
-                    {currentUser.offlineActivityCount ?? Math.min(currentUser.activityCount, 2)}
-                  </Tag>
-                </Space>
+              <Descriptions.Item label="实名认证">
+                {currentUser.certified ? (
+                  <Tag color="green">已实名</Tag>
+                ) : (
+                  <Tag color="default">未实名</Tag>
+                )}
               </Descriptions.Item>
               <Descriptions.Item label="联系电话">
                 <Space size={6}>
-                  <Text code copyable={currentUser.phone ? { text: currentUser.phone } : false}>
-                    {formatMaskedPhone(currentUser.phone, isPhoneRevealed)}
+                  <Text
+                    code
+                    copyable={
+                      currentUser.phoneNumber || currentUser.phone
+                        ? { text: currentUser.phoneNumber || currentUser.phone || '' }
+                        : false
+                    }
+                  >
+                    {formatMaskedPhone(
+                      currentUser.phoneNumber || currentUser.phone,
+                      isPhoneRevealed,
+                    )}
                   </Text>
-                  {currentUser.phone && (
+                  {(currentUser.phoneNumber || currentUser.phone) && (
                     <Tooltip title={isPhoneRevealed ? '隐藏真实手机号' : '查看完整手机号'}>
                       <Button
                         type="text"
@@ -1357,53 +1224,22 @@ export const UsersPage: React.FC = () => {
                   )}
                 </Space>
               </Descriptions.Item>
-              <Descriptions.Item label="电子邮箱">
-                {currentUser.email || '未绑定'}
-              </Descriptions.Item>
-              <Descriptions.Item label="评论互动权限">
-                {currentUser.commentStatus === 'allowed' ? (
-                  <Tag color="green">正常发言</Tag>
+              <Descriptions.Item label="初始化状态">
+                {currentUser.initStatus === 1 ? (
+                  <Tag color="blue">已初始化</Tag>
                 ) : (
-                  <Space size={4}>
-                    <Tag color="error">已禁言</Tag>
-                    <Text type="danger" style={{ fontSize: 12 }}>
-                      {formatBanRemainingTime(currentUser.commentBanExpireTime).fullDesc}
-                    </Text>
-                  </Space>
+                  <Tag color="default">系统保底</Tag>
                 )}
               </Descriptions.Item>
-              <Descriptions.Item label="作品发布权限">
-                {currentUser.postStatus === 'forbidden' ? (
-                  <Space size={4}>
-                    <Tag color="error">已禁发作品</Tag>
-                    <Text type="danger" style={{ fontSize: 12 }}>
-                      {formatBanRemainingTime(currentUser.postBanExpireTime).fullDesc}
-                    </Text>
-                  </Space>
-                ) : (
-                  <Tag color="green">正常发布</Tag>
-                )}
-              </Descriptions.Item>
-              <Descriptions.Item label="注册时间">{currentUser.registerTime}</Descriptions.Item>
-              <Descriptions.Item label="最近活跃时间">
-                {currentUser.lastActiveTime}
-              </Descriptions.Item>
-              <Descriptions.Item label="个性签名" span={2}>
-                {currentUser.bio || '这个人很懒，什么都没有留下~'}
+              <Descriptions.Item label="注册时间" span={2}>
+                {currentUser.createTime?.replace('T', ' ') || currentUser.registerTime || '未知'}
               </Descriptions.Item>
             </Descriptions>
           </div>
         )}
       </Drawer>
 
-      {/* 大数据 AI 用户画像抽屉 */}
-      <UserPersonaDrawer
-        open={personaDrawerVisible}
-        user={personaUser}
-        onClose={() => setPersonaDrawerVisible(false)}
-      />
-
-      {/* 违规封禁与期限处置弹窗 */}
+      {/* 违规处罚惩戒弹窗 */}
       <UserBanModal
         open={banModalVisible}
         users={banTargetUsers}
@@ -1414,7 +1250,5 @@ export const UsersPage: React.FC = () => {
     </div>
   );
 };
-
-const { Title } = Typography;
 
 export default UsersPage;

@@ -40,8 +40,8 @@ interface UserPersonaDrawerProps {
 const getDerivedPersona = (user: UserItem): UserPersona => {
   if (user.persona) return user.persona;
 
-  const isHighFollower = user.followerCount > 100000;
-  const isHighPost = user.postCount > 100;
+  const isHighFollower = (user.followerCount || user.fanCount || 0) > 100000;
+  const isHighPost = (user.postCount || 0) > 100;
   const isBanned = user.status === 'banned' || user.status === 'muted';
 
   const creditScore = isBanned ? 480 : isHighFollower ? 820 : 710;

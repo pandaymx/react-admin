@@ -1,53 +1,97 @@
+/**
+ * 用户模块数据模型定义 (与后端 AdminUserRespVO / AdminUserPageReqVO 完全对照)
+ */
+
 export type VerifyStatus = 'unverified' | 'pending' | 'personal' | 'enterprise' | 'creator';
 
 export type UserStatus = 'normal' | 'banned' | 'muted' | 'cancelling' | 'cancelled';
 
-export type UserCommentStatus = 'allowed' | 'forbidden';
+/** 后端实名认证实体 */
+export interface PersonalAuthItem {
+  realName: string; // 脱敏姓名，如 张*三
+  idCard: string; // 脱敏身份证，如 110101********1234
+  authTime: string; // 实名认证通过时间
+}
 
-export type ActiveStatus = 'online' | 'offline' | 'recent';
+/** 后端接口原始响应实体: AdminUserRespVO */
+export interface AdminUserRespVO {
+  id: string;
+  userId: number | string; // 展示号 / UID (如 100001)
+  phoneNumber: string; // 手机号 (如 13800138000)
+  status: 1 | 2 | 3; // 账号状态：1=正常, 2=禁用/封禁, 3=注销
+  nickname: string;
+  avatarUrl: string;
+  qualification?: 1 | 2; // 认证类型：1=个人认证, 2=企业认证
+  certified: boolean; // 是否已实名认证
+  initStatus: 0 | 1; // 0=系统保底, 1=已初始化
+  createTime: string; // 注册时间 (如 2026-09-02T10:45:00)
+  fanCount: number; // 粉丝数
+  followCount: number; // 关注数
+  friendCount: number; // 好友数
+  personalAuths?: PersonalAuthItem[]; // 实名认证信息列表
+}
 
+/** 后端用户统计概览响应实体: UserStatisticsRespVO */
+export interface UserStatisticsRespVO {
+  totalCount: number; // 用户总数
+  normalCount: number; // 正常用户数 (status=1)
+  disabledCount: number; // 禁用/封禁用户数 (status=2)
+  cancelledCount: number; // 已注销用户数 (status=3)
+  todayNewCount: number; // 今日新增用户
+  weekNewCount: number; // 本周新增用户
+  monthNewCount: number; // 本月新增用户
+}
+
+/** 后端分页结果封装 */
+export interface PageResult<T> {
+  list: T[];
+  total: number;
+}
+
+/** 前端用户列表渲染通用模型 (兼容后端 VO 字段与前端治理视图) */
 export interface UserItem {
   id: string;
-  uid: string; // 类似于抖音查询的业务ID
-  username: string;
+  userId: number | string; // 展示号 / UID
+  uid?: string; // 兼容展示
+  username?: string; // 账号名
   nickname: string;
-  avatar: string;
-  gender: 'male' | 'female' | 'unknown';
-  verifyStatus: VerifyStatus;
+  avatar: string; // 头像
+  avatarUrl?: string; // 后端头像字段
+  phoneNumber?: string; // 手机号
+  phone?: string; // 兼容字段
+  status: UserStatus; // 前端枚举 normal | banned | cancelling | cancelled
+  rawStatus?: 1 | 2 | 3; // 后端原始状态：1=正常, 2=禁用, 3=注销
+  qualification?: 1 | 2; // 1=个人, 2=企业
+  certified?: boolean; // 是否实名
+  initStatus?: 0 | 1; // 0=系统保底, 1=已初始化
+  verifyStatus: VerifyStatus; // 视图认证类型 (personal/enterprise/unverified)
   verifyInfo?: string;
-  status: UserStatus;
-  accountBanExpireTime?: string; // 账号封禁到期时间，如 '2026-09-09 13:40:00' 或 'permanent'
-  banReason?: string; // 最近一次封禁处置原因
-  commentCount: number;
-  commentStatus: UserCommentStatus;
-  commentBanExpireTime?: string; // 评论封禁到期时间，如 '2026-09-08 18:00:00' 或 'permanent'
-  postCount: number;
-  postStatus?: 'allowed' | 'forbidden'; // 发帖权限
-  postBanExpireTime?: string; // 发帖封禁到期时间
-  likeCount: number;
-  followerCount: number;
-  activityCount: number;
-  onlineActivityCount?: number; // 参与线上活动场次（如话题挑战赛、直播打榜）
-  offlineActivityCount?: number; // 参与线下活动场次（如创作者沙龙、行业峰会）
-  activityHistory?: Array<{
-    id: string;
-    title: string;
-    type: 'online' | 'offline';
-    date: string;
-    role?: string;
-  }>;
-  lastActiveTime: string;
-  activeStatus: ActiveStatus;
-  registerTime: string;
+  personalAuths?: PersonalAuthItem[]; // 实名认证列表
+  fanCount: number; // 粉丝数
+  followerCount?: number; // 兼容粉丝数字段
+  followCount: number; // 关注数
+  friendCount: number; // 好友数
+  createTime: string; // 注册时间
+  registerTime?: string; // 兼容注册时间
+  accountBanExpireTime?: string; // 封禁到期时间 (永久或具体时间)
+  banReason?: string; // 违规处置原因
+  gender?: 'male' | 'female' | 'unknown';
   email?: string;
-  phone?: string;
   bio?: string;
+  commentCount?: number;
+  postCount?: number;
+  likeCount?: number;
+  activityCount?: number;
+  onlineActivityCount?: number;
+  offlineActivityCount?: number;
+  lastActiveTime?: string;
+  activeStatus?: 'online' | 'offline' | 'recent';
   persona?: UserPersona;
 }
 
 export interface UserPersona {
-  creditScore: number; // 社区信用分 (350 - 950)
-  creatorLevel: number; // 创作者成长等级 (Lv.1 - Lv.10)
+  creditScore: number;
+  creatorLevel: number;
   tags: Array<{
     category: string;
     list: Array<{ name: string; color: string; desc?: string }>;
@@ -64,22 +108,39 @@ export interface UserPersona {
     activePeakTime: string;
   };
   metrics: {
-    avgPlayFinishRate: number; // 完播率 %
-    interactionRate: number; // 互动转化率 %
-    commercialIndex: number; // 商业化价值指数 (0-100)
-    estimatedAdQuote: string; // 预估单条商单合作价
-    violationCount: number; // 历史违规处罚次数
+    avgPlayFinishRate: number;
+    interactionRate: number;
+    commercialIndex: number;
+    estimatedAdQuote: string;
+    violationCount: number;
   };
 }
 
+/** 用户分页检索入参实体: AdminUserPageReqVO */
+export interface AdminUserPageReqVO {
+  userId?: string | number; // 展示号 / UID
+  phoneNumber?: string; // 手机号
+  nickname?: string; // 昵称
+  status?: number; // 账号状态：1正常/2禁用/3注销
+  qualification?: number; // 认证：1个人/2企业
+  certified?: boolean; // 是否实名
+  createTime?: [string, string]; // 注册时间范围
+  pageNo?: number; // 页码
+  pageSize?: number; // 每页条数
+}
+
+/** 用户分页检索参数 (完全对齐 AdminUserPageReqVO) */
 export interface UserQueryParams {
-  keyword?: string;
-  uid?: string;
-  verifyStatus?: VerifyStatus | 'all';
-  status?: UserStatus | 'all';
-  activeStatus?: ActiveStatus | 'all'; // 活跃状态筛选
-  dateRange?: [string, string];
-  page?: number;
+  userId?: string | number; // 展示号 / UID
+  phoneNumber?: string; // 手机号
+  nickname?: string; // 昵称
+  keyword?: string; // 综合关键词
+  status?: number | UserStatus | 'all'; // 状态: 1正常/2禁用/3注销 或 all
+  qualification?: number | 'all'; // 认证类型: 1个人/2企业 或 all
+  certified?: boolean | 'all'; // 实名认证: true/false 或 all
+  dateRange?: [string, string]; // 注册时间范围
+  pageNo?: number; // 页码 (对齐后端 pageNo)
+  page?: number; // 兼容前端 page
   pageSize?: number;
 }
 
