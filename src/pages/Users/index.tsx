@@ -42,6 +42,7 @@ import {
   Tag,
   Tooltip,
   Typography,
+  theme,
 } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -64,7 +65,7 @@ const { RangePicker } = DatePicker;
 const userColumnOptions: ColumnOptionItem[] = [
   { key: 'user', title: '用户信息 (头像/昵称/UID)', required: true },
   { key: 'verifyStatus', title: '认证状态' },
-  { key: 'status', title: '账号状态' },
+  { key: 'status', title: '账号状态与封禁处罚' },
   { key: 'activeStatus', title: '在线状态与活跃时间' },
   { key: 'comment', title: '评论数与禁言状态' },
   { key: 'post', title: '作品数与获赞' },
@@ -73,6 +74,7 @@ const userColumnOptions: ColumnOptionItem[] = [
 ];
 
 export const UsersPage: React.FC = () => {
+  const { token } = theme.useToken();
   const { checkedKeys, ColumnSettingComponent } = useColumnSettings(
     'users_table',
     userColumnOptions,
@@ -450,17 +452,125 @@ export const UsersPage: React.FC = () => {
     return tag;
   };
 
-  // 账号状态 Badge 渲染
-  const renderAccountStatus = (status: UserStatus) => {
+  // 账号状态 Badge 渲染及具体封禁惩处信息
+  const renderAccountStatus = (record: UserItem) => {
+    const status = record.status;
+    const banInfo = formatBanRemainingTime(
+      record.accountBanExpireTime || record.commentBanExpireTime || record.postBanExpireTime,
+    );
+
     switch (status) {
       case 'normal':
         return <Badge status="success" text={<Text type="success">正常</Text>} />;
-      case 'banned':
-        return <Badge status="error" text={<Text type="danger">已封禁</Text>} />;
-      case 'muted':
-        return <Badge status="warning" text={<Text style={{ color: '#fa8c16' }}>已禁言</Text>} />;
+      case 'banned': {
+        const tooltipContent = (
+          <div style={{ fontSize: 12 }}>
+            <div style={{ fontWeight: 600, color: '#ff4d4f', marginBottom: 2 }}>
+              🚫 账号全量封禁管控中
+            </div>
+            <div>处罚原因: {record.banReason || '违反平台社区公约与安全规定'}</div>
+            <div>
+              到期时间:{' '}
+              {record.accountBanExpireTime === 'permanent'
+                ? '永久封禁'
+                : record.accountBanExpireTime || '永久'}
+            </div>
+            {banInfo.text && <div>剩余时间: {banInfo.text}</div>}
+          </div>
+        );
+        return (
+          <div>
+            <Tooltip title={tooltipContent}>
+              <Space size={4} style={{ cursor: 'help' }}>
+                <Badge
+                  status="error"
+                  text={
+                    <Text type="danger" strong>
+                      已封禁
+                    </Text>
+                  }
+                />
+                <Tag color="error" style={{ fontSize: 10, padding: '0 3px', margin: 0 }}>
+                  {banInfo.text || '永久'}
+                </Tag>
+              </Space>
+            </Tooltip>
+            {record.banReason && (
+              <Tooltip title={`封禁原因: ${record.banReason}`}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: '#ff4d4f',
+                    marginTop: 2,
+                    maxWidth: 135,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {record.banReason}
+                </div>
+              </Tooltip>
+            )}
+          </div>
+        );
+      }
+      case 'muted': {
+        const tooltipContent = (
+          <div style={{ fontSize: 12 }}>
+            <div style={{ fontWeight: 600, color: '#fa8c16', marginBottom: 2 }}>
+              ⚠️ 账号处于违规禁言中
+            </div>
+            <div>禁言原因: {record.banReason || '违规言论/评论区不当发言'}</div>
+            <div>
+              解封时间:{' '}
+              {record.commentBanExpireTime === 'permanent'
+                ? '永久禁言'
+                : record.commentBanExpireTime || '限制中'}
+            </div>
+            {banInfo.text && <div>剩余时间: {banInfo.text}</div>}
+          </div>
+        );
+        return (
+          <div>
+            <Tooltip title={tooltipContent}>
+              <Space size={4} style={{ cursor: 'help' }}>
+                <Badge
+                  status="warning"
+                  text={<Text style={{ color: '#fa8c16', fontWeight: 600 }}>已禁言</Text>}
+                />
+                <Tag color="warning" style={{ fontSize: 10, padding: '0 3px', margin: 0 }}>
+                  {banInfo.text || '7天'}
+                </Tag>
+              </Space>
+            </Tooltip>
+            {record.banReason && (
+              <Tooltip title={`禁言原因: ${record.banReason}`}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: '#fa8c16',
+                    marginTop: 2,
+                    maxWidth: 135,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {record.banReason}
+                </div>
+              </Tooltip>
+            )}
+          </div>
+        );
+      }
       case 'cancelling':
-        return <Badge status="warning" text={<Text style={{ color: '#d46b08' }}>注销中</Text>} />;
+        return (
+          <div>
+            <Badge status="warning" text={<Text style={{ color: '#d46b08' }}>注销中</Text>} />
+            <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>冷静期可撤销</div>
+          </div>
+        );
       case 'cancelled':
         return <Badge status="default" text={<Text type="secondary">已注销</Text>} />;
       default:
@@ -551,8 +661,8 @@ export const UsersPage: React.FC = () => {
       title: '账号状态',
       dataIndex: 'status',
       key: 'status',
-      width: 110,
-      render: (status: UserStatus) => renderAccountStatus(status),
+      width: 170,
+      render: (_, record) => renderAccountStatus(record),
     },
     {
       title: '在线状态',
@@ -1060,43 +1170,138 @@ export const UsersPage: React.FC = () => {
               </div>
             </div>
 
+            {/* 违规处罚置顶预警横幅 */}
+            {(currentUser.status === 'banned' || currentUser.status === 'muted') && (
+              <Card
+                size="small"
+                style={{
+                  background: token.colorFillAlter,
+                  border: `1px solid ${currentUser.status === 'banned' ? '#ff4d4f' : '#faad14'}`,
+                  borderRadius: 8,
+                  marginBottom: 16,
+                }}
+              >
+                <div
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <Space>
+                    <StopOutlined
+                      style={{
+                        color: currentUser.status === 'banned' ? '#ff4d4f' : '#faad14',
+                        fontSize: 20,
+                      }}
+                    />
+                    <div>
+                      <Text
+                        strong
+                        style={{
+                          color: currentUser.status === 'banned' ? '#ff4d4f' : '#faad14',
+                          fontSize: 14,
+                        }}
+                      >
+                        {currentUser.status === 'banned'
+                          ? '当前账号已被全站封禁'
+                          : '当前账号处于违规禁言惩戒中'}
+                      </Text>
+                      <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 2 }}>
+                        <span>
+                          处罚原因: {currentUser.banReason || '违反平台社区公约与安全规定'}
+                        </span>
+                        <span style={{ margin: '0 6px' }}>·</span>
+                        <span>
+                          封禁期限:{' '}
+                          {currentUser.accountBanExpireTime === 'permanent'
+                            ? '永久封禁'
+                            : currentUser.accountBanExpireTime || '限制中'}{' '}
+                          (
+                          {formatBanRemainingTime(
+                            currentUser.accountBanExpireTime || currentUser.commentBanExpireTime,
+                          ).text || '生效中'}
+                          )
+                        </span>
+                      </div>
+                    </div>
+                  </Space>
+                  <Button
+                    size="small"
+                    danger
+                    onClick={() => handleOpenBanModal([currentUser], 'account')}
+                  >
+                    修改处置
+                  </Button>
+                </div>
+              </Card>
+            )}
+
             <Row gutter={16} style={{ marginBottom: 24 }}>
               <Col span={6}>
-                <Card size="small" variant="borderless" style={{ background: '#f6ffed' }}>
+                <Card
+                  size="small"
+                  variant="borderless"
+                  style={{
+                    background: token.colorFillAlter,
+                    border: `1px solid ${token.colorBorderSecondary}`,
+                    borderRadius: 8,
+                  }}
+                >
                   <Statistic
                     title="作品发帖数"
                     value={currentUser.postCount}
-                    valueStyle={{ color: '#3f8600' }}
+                    valueStyle={{ color: '#52c41a', fontWeight: 600 }}
                     suffix="篇"
                   />
                 </Card>
               </Col>
               <Col span={6}>
-                <Card size="small" variant="borderless" style={{ background: '#e6f4ff' }}>
+                <Card
+                  size="small"
+                  variant="borderless"
+                  style={{
+                    background: token.colorFillAlter,
+                    border: `1px solid ${token.colorBorderSecondary}`,
+                    borderRadius: 8,
+                  }}
+                >
                   <Statistic
                     title="获赞总数"
                     value={currentUser.likeCount}
-                    valueStyle={{ color: '#0958d9' }}
+                    valueStyle={{ color: '#1677ff', fontWeight: 600 }}
                     formatter={(val) => `${(Number(val) / 10000).toFixed(1)}w`}
                   />
                 </Card>
               </Col>
               <Col span={6}>
-                <Card size="small" variant="borderless" style={{ background: '#fff7e6' }}>
+                <Card
+                  size="small"
+                  variant="borderless"
+                  style={{
+                    background: token.colorFillAlter,
+                    border: `1px solid ${token.colorBorderSecondary}`,
+                    borderRadius: 8,
+                  }}
+                >
                   <Statistic
                     title="粉丝总数"
                     value={currentUser.followerCount}
-                    valueStyle={{ color: '#d46b08' }}
+                    valueStyle={{ color: '#fa8c16', fontWeight: 600 }}
                     formatter={(val) => `${(Number(val) / 10000).toFixed(1)}w`}
                   />
                 </Card>
               </Col>
               <Col span={6}>
-                <Card size="small" variant="borderless" style={{ background: '#f9f0ff' }}>
+                <Card
+                  size="small"
+                  variant="borderless"
+                  style={{
+                    background: token.colorFillAlter,
+                    border: `1px solid ${token.colorBorderSecondary}`,
+                    borderRadius: 8,
+                  }}
+                >
                   <Statistic
                     title="评论互动数"
                     value={currentUser.commentCount}
-                    valueStyle={{ color: '#531dab' }}
+                    valueStyle={{ color: '#722ed1', fontWeight: 600 }}
                   />
                 </Card>
               </Col>
@@ -1106,7 +1311,7 @@ export const UsersPage: React.FC = () => {
 
             <Descriptions title="基本资料" column={2} bordered size="small">
               <Descriptions.Item label="账号状态">
-                {renderAccountStatus(currentUser.status)}
+                {renderAccountStatus(currentUser)}
               </Descriptions.Item>
               <Descriptions.Item label="认证类型">
                 {renderVerifyTag(currentUser.verifyStatus, currentUser.verifyInfo)}
