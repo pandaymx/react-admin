@@ -30,11 +30,11 @@ import { formatBanRemainingTime } from '@/utils/time';
 const { Text } = Typography;
 const { TextArea } = Input;
 
-export type BanPunishType = 'account' | 'comment' | 'post';
+export type BanPunishType = 'account' | 'comment' | 'post' | 'warning' | 'credit_deduct';
 
 export interface UserBanModalProps {
   open: boolean;
-  users: UserItem[]; // 支持单个或多个用户批量封禁
+  users: UserItem[]; // 支持单个或多个用户批量处置
   defaultPunishType?: BanPunishType;
   onCancel: () => void;
   onOk: (values: {
@@ -76,6 +76,19 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
 
   // 计算预计到期时间
   const calculateExpireTime = (): { expireTime: string; desc: string } => {
+    if (punishType === 'warning') {
+      return {
+        expireTime: 'immediate',
+        desc: '即刻下发官方违规警告通知，记录违规 1 次，不限制日常功能权限',
+      };
+    }
+    if (punishType === 'credit_deduct') {
+      return {
+        expireTime: 'immediate',
+        desc: '即刻扣除社区信用分 80 分并限制推荐权重，不限制日常功能权限',
+      };
+    }
+
     if (duration === 'permanent') {
       return { expireTime: 'permanent', desc: '永久限制该权限，不设自动解封' };
     }
@@ -108,7 +121,12 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
   const { expireTime, desc: previewDesc } = calculateExpireTime();
 
   const handleFinish = async (values: any) => {
-    if (duration === 'custom' && !customDate) {
+    if (
+      punishType !== 'warning' &&
+      punishType !== 'credit_deduct' &&
+      duration === 'custom' &&
+      !customDate
+    ) {
       form.setFields([{ name: 'customDate', errors: ['请选择自定义到期时间'] }]);
       return;
     }
@@ -136,7 +154,7 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
         <Space>
           <ExclamationCircleFilled style={{ color: '#ff4d4f', fontSize: 18 }} />
           <span>
-            {isBatch ? `批量违规处置 (${users.length} 名用户)` : '用户违规处置与封禁设置'}
+            {isBatch ? `批量违规处置 (${users.length} 名用户)` : '用户违规处置与惩处设置'}
           </span>
         </Space>
       }
@@ -146,7 +164,7 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
       confirmLoading={submitting}
       okText="确认执行处置"
       okButtonProps={{ danger: true }}
-      width={580}
+      width={600}
       destroyOnClose
     >
       <div>
@@ -172,7 +190,7 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
 
         {isBatch && (
           <Alert
-            message={`当前已选中 ${users.length} 名用户进行批量封禁处置`}
+            message={`当前已选中 ${users.length} 名用户进行批量处置`}
             description={
               <div style={{ maxHeight: 60, overflowY: 'auto', marginTop: 4 }}>
                 <Space wrap size={4}>
@@ -193,55 +211,61 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
         <Form form={form} layout="vertical" onFinish={handleFinish}>
           {/* 处罚类型 */}
           <Form.Item
-            label="处罚权限范围"
+            label="处罚措施与权限类型"
             name="punishType"
             rules={[{ required: true, message: '请选择处罚类型' }]}
           >
             <Radio.Group
               buttonStyle="solid"
               onChange={(e) => setPunishType(e.target.value)}
-              style={{ width: '100%', display: 'flex' }}
+              style={{ width: '100%' }}
             >
-              <Radio.Button value="account" style={{ flex: 1, textAlign: 'center' }}>
-                <LockOutlined style={{ marginRight: 4 }} />
-                账号全量封禁
-              </Radio.Button>
-              <Radio.Button value="comment" style={{ flex: 1, textAlign: 'center' }}>
-                <StopOutlined style={{ marginRight: 4 }} />
-                仅评论禁言
-              </Radio.Button>
-              <Radio.Button value="post" style={{ flex: 1, textAlign: 'center' }}>
-                <AlertOutlined style={{ marginRight: 4 }} />
-                仅作品禁发
-              </Radio.Button>
+              <Space wrap size={[8, 8]}>
+                <Radio.Button value="account">
+                  <LockOutlined style={{ marginRight: 4 }} />
+                  账号全量封禁
+                </Radio.Button>
+                <Radio.Button value="comment">
+                  <StopOutlined style={{ marginRight: 4 }} />
+                  社区评论禁言
+                </Radio.Button>
+                <Radio.Button value="post">
+                  <AlertOutlined style={{ marginRight: 4 }} />
+                  作品投稿禁发
+                </Radio.Button>
+                <Radio.Button value="warning">📢 违规官方警告</Radio.Button>
+                <Radio.Button value="credit_deduct">📉 信用扣分降权</Radio.Button>
+              </Space>
             </Radio.Group>
           </Form.Item>
 
           {/* 封禁时长 */}
-          <Form.Item
-            label="封禁期限设置"
-            name="duration"
-            rules={[{ required: true, message: '请选择封禁时长' }]}
-          >
-            <Radio.Group
-              onChange={(e) => setDuration(e.target.value)}
-              value={duration}
-              style={{ width: '100%' }}
+          {punishType !== 'warning' && punishType !== 'credit_deduct' && (
+            <Form.Item
+              label="封禁期限设置"
+              name="duration"
+              rules={[{ required: true, message: '请选择封禁时长' }]}
             >
-              <Space wrap size={[8, 8]}>
-                <Radio.Button value="1d">1 天 (24h)</Radio.Button>
-                <Radio.Button value="3d">3 天</Radio.Button>
-                <Radio.Button value="7d">7 天 (1周)</Radio.Button>
-                <Radio.Button value="15d">15 天</Radio.Button>
-                <Radio.Button value="30d">30 天 (1月)</Radio.Button>
-                <Radio.Button value="180d">180 天 (半年)</Radio.Button>
-                <Radio.Button value="permanent" style={{ color: '#ff4d4f' }}>
-                  永久封禁
-                </Radio.Button>
-                <Radio.Button value="custom">自定义时间</Radio.Button>
-              </Space>
-            </Radio.Group>
-          </Form.Item>
+              <Radio.Group
+                onChange={(e) => setDuration(e.target.value)}
+                value={duration}
+                style={{ width: '100%' }}
+              >
+                <Space wrap size={[8, 8]}>
+                  <Radio.Button value="1d">1 天 (24h)</Radio.Button>
+                  <Radio.Button value="3d">3 天</Radio.Button>
+                  <Radio.Button value="7d">7 天 (1周)</Radio.Button>
+                  <Radio.Button value="15d">15 天</Radio.Button>
+                  <Radio.Button value="30d">30 天 (1月)</Radio.Button>
+                  <Radio.Button value="180d">180 天 (半年)</Radio.Button>
+                  <Radio.Button value="permanent" style={{ color: '#ff4d4f' }}>
+                    永久封禁
+                  </Radio.Button>
+                  <Radio.Button value="custom">自定义时间</Radio.Button>
+                </Space>
+              </Radio.Group>
+            </Form.Item>
+          )}
 
           {/* 自定义时间选择器 */}
           {duration === 'custom' && (

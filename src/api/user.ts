@@ -447,7 +447,7 @@ export const batchUpdateUserStatus = async (
 
 export interface ExecuteBanParams {
   userIds: string[];
-  punishType: 'account' | 'comment' | 'post';
+  punishType: 'account' | 'comment' | 'post' | 'warning' | 'credit_deduct';
   duration: string;
   expireTime: string; // 'permanent' 或 'YYYY-MM-DD HH:mm:ss'
   reason: string;
@@ -456,7 +456,7 @@ export interface ExecuteBanParams {
 }
 
 /**
- * 执行按时间周期的违规封禁/禁言/禁发处置
+ * 执行按时间周期的违规封禁/禁言/禁发/警告/降权处置
  */
 export const executeUserBan = async (
   params: ExecuteBanParams,
@@ -493,6 +493,18 @@ export const executeUserBan = async (
           banReason: params.reason,
         };
       }
+      if (params.punishType === 'warning') {
+        return {
+          ...u,
+          banReason: `官方违规警告: ${params.reason}`,
+        };
+      }
+      if (params.punishType === 'credit_deduct') {
+        return {
+          ...u,
+          banReason: `信用扣分降权: ${params.reason}`,
+        };
+      }
     }
     return u;
   });
@@ -500,7 +512,7 @@ export const executeUserBan = async (
   return {
     code: 200,
     data: { updatedCount: params.userIds.length },
-    message: '封禁处置执行成功',
+    message: '违规处罚执行成功',
   };
 };
 
