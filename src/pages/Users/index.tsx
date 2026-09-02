@@ -775,7 +775,7 @@ export const UsersPage: React.FC = () => {
       >
         <Form
           form={form}
-          layout="horizontal"
+          layout="vertical"
           onFinish={handleSearch}
           initialValues={{
             verifyStatus: 'all',
@@ -783,68 +783,77 @@ export const UsersPage: React.FC = () => {
             activeStatus: 'all',
           }}
         >
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12} md={8} lg={5}>
+          <Row gutter={[16, 12]}>
+            <Col xs={24} sm={12} md={8} lg={6}>
               <Form.Item label="用户搜索" name="keyword" style={{ marginBottom: 0 }}>
                 <Input
-                  placeholder="搜索昵称 / @用户名"
+                  placeholder="搜索昵称 / @用户名 / UID"
                   allowClear
                   prefix={<UserOutlined style={{ color: '#bfbfbf' }} />}
                 />
               </Form.Item>
             </Col>
 
-            <Col xs={24} sm={12} md={8} lg={4}>
+            <Col xs={24} sm={12} md={8} lg={6}>
               <Form.Item label="认证状态" name="verifyStatus" style={{ marginBottom: 0 }}>
                 <Select
                   options={[
-                    { label: '全部认证', value: 'all' },
-                    { label: '认证审核中', value: 'pending' },
-                    { label: '未认证', value: 'unverified' },
-                    { label: '实名认证', value: 'personal' },
-                    { label: '企业认证(蓝V)', value: 'enterprise' },
-                    { label: '达人认证(黄V)', value: 'creator' },
+                    { label: '全部认证状态', value: 'all' },
+                    { label: '⏳ 认证审核中', value: 'pending' },
+                    { label: '⚪ 未认证', value: 'unverified' },
+                    { label: '🟢 个人实名认证', value: 'personal' },
+                    { label: '🔵 企业认证(蓝V)', value: 'enterprise' },
+                    { label: '🟡 达人认证(黄V)', value: 'creator' },
                   ]}
                 />
               </Form.Item>
             </Col>
 
-            <Col xs={24} sm={12} md={8} lg={4}>
+            <Col xs={24} sm={12} md={8} lg={6}>
               <Form.Item label="账号状态" name="status" style={{ marginBottom: 0 }}>
                 <Select
                   options={[
-                    { label: '全部状态', value: 'all' },
-                    { label: '正常', value: 'normal' },
-                    { label: '已封禁', value: 'banned' },
-                    { label: '已禁言', value: 'muted' },
-                    { label: '注销中', value: 'cancelling' },
-                    { label: '已注销', value: 'cancelled' },
+                    { label: '全部账号状态', value: 'all' },
+                    { label: '🟢 正常状态', value: 'normal' },
+                    { label: '🔴 已封禁', value: 'banned' },
+                    { label: '🟠 已禁言', value: 'muted' },
+                    { label: '⏳ 注销冷静期中', value: 'cancelling' },
+                    { label: '⚪ 已注销', value: 'cancelled' },
                   ]}
                 />
               </Form.Item>
             </Col>
 
-            <Col xs={24} sm={12} md={8} lg={4}>
-              <Form.Item label="在线状态" name="activeStatus" style={{ marginBottom: 0 }}>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item label="在线活跃状态" name="activeStatus" style={{ marginBottom: 0 }}>
                 <Select
                   options={[
-                    { label: '全部状态', value: 'all' },
-                    { label: '当前在线', value: 'online' },
-                    { label: '最近在线', value: 'recent' },
-                    { label: '长期离线', value: 'offline' },
+                    { label: '全部活跃状态', value: 'all' },
+                    { label: '🟢 当前在线', value: 'online' },
+                    { label: '🔵 最近在线', value: 'recent' },
+                    { label: '⚪ 长期离线', value: 'offline' },
                   ]}
                 />
               </Form.Item>
             </Col>
 
-            <Col xs={24} sm={12} md={8} lg={4}>
-              <Form.Item label="注册日期" name="dateRange" style={{ marginBottom: 0 }}>
-                <RangePicker style={{ width: '100%' }} />
+            <Col xs={24} sm={16} md={14} lg={12}>
+              <Form.Item label="用户注册时间范围" name="dateRange" style={{ marginBottom: 0 }}>
+                <RangePicker
+                  style={{ width: '100%' }}
+                  placeholder={['注册起始日期', '注册截止日期']}
+                />
               </Form.Item>
             </Col>
 
-            <Col xs={24} sm={12} md={8} lg={3}>
-              <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+            <Col
+              xs={24}
+              sm={8}
+              md={10}
+              lg={12}
+              style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end' }}
+            >
+              <Space size="middle" style={{ marginBottom: 0 }}>
                 <Button
                   type="primary"
                   htmlType="submit"
