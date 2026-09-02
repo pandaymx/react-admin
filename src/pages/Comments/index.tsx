@@ -37,13 +37,28 @@ import {
   updateCommentStatus,
 } from '@/api/comment';
 import { updateUserStatus } from '@/api/user';
+import { type ColumnOptionItem, useColumnSettings } from '@/components/ColumnSetting';
 import type { CommentItem, CommentQueryParams, CommentRiskTag, CommentStatus } from '@/types';
 import { exportToCsv } from '@/utils/export';
 
 const { Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
 
+const commentColumnOptions: ColumnOptionItem[] = [
+  { key: 'user', title: '发评人信息 (头像/昵称/账号)', required: true },
+  { key: 'content', title: '评论内容与互动数', required: true },
+  { key: 'post', title: '所属作品信息' },
+  { key: 'status', title: '评论审核状态' },
+  { key: 'riskTags', title: 'AI 风险识别标签' },
+  { key: 'createTime', title: '发表时间' },
+  { key: 'action', title: '操作列', required: true },
+];
+
 export const CommentsPage: React.FC = () => {
+  const { checkedKeys, ColumnSettingComponent } = useColumnSettings(
+    'comments_table',
+    commentColumnOptions,
+  );
   const [form] = Form.useForm();
   const [loading, setLoading] = useState<boolean>(false);
   const [exportLoading, setExportLoading] = useState<boolean>(false);
@@ -526,6 +541,7 @@ export const CommentsPage: React.FC = () => {
             <Button icon={<DownloadOutlined />} onClick={handleExport} loading={exportLoading}>
               导出评论数据
             </Button>
+            {ColumnSettingComponent}
             <Tooltip title="刷新列表">
               <Button icon={<ReloadOutlined />} onClick={() => fetchData()} loading={loading} />
             </Tooltip>
@@ -534,7 +550,7 @@ export const CommentsPage: React.FC = () => {
       >
         <Table<CommentItem>
           rowKey="id"
-          columns={columns}
+          columns={columns.filter((col) => !col.key || checkedKeys.includes(col.key as string))}
           dataSource={commentList}
           loading={loading}
           scroll={{ x: 1200 }}

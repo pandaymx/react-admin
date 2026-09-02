@@ -51,6 +51,7 @@ import {
   getUserList,
   updateUserStatus,
 } from '@/api/user';
+import { type ColumnOptionItem, useColumnSettings } from '@/components/ColumnSetting';
 import type { ActiveStatus, UserItem, UserQueryParams, UserStatus, VerifyStatus } from '@/types';
 import { exportToCsv } from '@/utils/export';
 import { formatBanRemainingTime } from '@/utils/time';
@@ -60,7 +61,22 @@ import { UserPersonaDrawer } from './components/UserPersonaDrawer';
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
 
+const userColumnOptions: ColumnOptionItem[] = [
+  { key: 'user', title: '用户信息 (头像/昵称/UID)', required: true },
+  { key: 'verifyStatus', title: '认证状态' },
+  { key: 'status', title: '账号状态' },
+  { key: 'activeStatus', title: '在线状态与活跃时间' },
+  { key: 'comment', title: '评论数与禁言状态' },
+  { key: 'post', title: '作品数与获赞' },
+  { key: 'activity', title: '活动参与明细' },
+  { key: 'action', title: '操作列', required: true },
+];
+
 export const UsersPage: React.FC = () => {
+  const { checkedKeys, ColumnSettingComponent } = useColumnSettings(
+    'users_table',
+    userColumnOptions,
+  );
   const [form] = Form.useForm();
   const [loading, setLoading] = useState<boolean>(false);
   const [exportLoading, setExportLoading] = useState<boolean>(false);
@@ -950,15 +966,17 @@ export const UsersPage: React.FC = () => {
               导出全部数据
             </Button>
 
-            <Tooltip title="刷新当前列表">
-              <Button icon={<ReloadOutlined />} onClick={() => fetchData()} loading={loading} />
+            {ColumnSettingComponent}
+
+            <Tooltip title="刷新列表">
+              <Button icon={<ReloadOutlined />} onClick={() => fetchData(currentPage, pageSize)} />
             </Tooltip>
           </Space>
         }
       >
         <Table<UserItem>
           rowKey="id"
-          columns={columns}
+          columns={columns.filter((col) => !col.key || checkedKeys.includes(col.key as string))}
           dataSource={userList}
           loading={loading}
           scroll={{ x: 1200 }}

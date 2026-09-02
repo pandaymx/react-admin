@@ -45,6 +45,7 @@ import {
   getAppealList,
   handleAppeal,
 } from '@/api/appeal';
+import { type ColumnOptionItem, useColumnSettings } from '@/components/ColumnSetting';
 import type { AppealItem, AppealQueryParams, AppealStatus, AppealType } from '@/types';
 import { exportToCsv } from '@/utils/export';
 import { AppealDetailDrawer } from './components/AppealDetailDrawer';
@@ -52,7 +53,22 @@ import { AppealDetailDrawer } from './components/AppealDetailDrawer';
 const { Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
 
+const appealColumnOptions: ColumnOptionItem[] = [
+  { key: 'id', title: '申诉单号 / 提交时间', required: true },
+  { key: 'user', title: '申诉人信息', required: true },
+  { key: 'appealType', title: '申诉业务类型' },
+  { key: 'originalPunishReason', title: '原始处罚原因与期限' },
+  { key: 'appealReason', title: '申诉理由与证据材料' },
+  { key: 'status', title: '处理状态' },
+  { key: 'review', title: '审核结论 / 审核人' },
+  { key: 'action', title: '操作列', required: true },
+];
+
 export const AppealsPage: React.FC = () => {
+  const { checkedKeys, ColumnSettingComponent } = useColumnSettings(
+    'appeals_table',
+    appealColumnOptions,
+  );
   const { token } = theme.useToken();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState<boolean>(false);
@@ -768,6 +784,8 @@ export const AppealsPage: React.FC = () => {
               导出全部报表
             </Button>
 
+            {ColumnSettingComponent}
+
             <Tooltip title="刷新列表">
               <Button icon={<ReloadOutlined />} onClick={() => fetchData()} loading={loading} />
             </Tooltip>
@@ -776,7 +794,7 @@ export const AppealsPage: React.FC = () => {
       >
         <Table<AppealItem>
           rowKey="id"
-          columns={columns}
+          columns={columns.filter((col) => !col.key || checkedKeys.includes(col.key as string))}
           dataSource={appealList}
           loading={loading}
           scroll={{ x: 1300 }}

@@ -32,6 +32,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { getReportList } from '@/api/report';
+import { type ColumnOptionItem, useColumnSettings } from '@/components/ColumnSetting';
 import type {
   ReportItem,
   ReportQueryParams,
@@ -46,7 +47,21 @@ import { ReportDetailDrawer } from './components/ReportDetailDrawer';
 const { Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
 
+const reportColumnOptions: ColumnOptionItem[] = [
+  { key: 'target', title: '被举报主体与目标', required: true },
+  { key: 'reporter', title: '举报人信息' },
+  { key: 'reason', title: '违规原因及详细说明' },
+  { key: 'evidence', title: '证据截图' },
+  { key: 'status', title: '处理状态' },
+  { key: 'createTime', title: '举报提交时间' },
+  { key: 'action', title: '操作列', required: true },
+];
+
 export const ReportsPage: React.FC = () => {
+  const { checkedKeys, ColumnSettingComponent } = useColumnSettings(
+    'reports_table',
+    reportColumnOptions,
+  );
   const [form] = Form.useForm();
   const [activeTab, setActiveTab] = useState<ReportTargetType | 'all'>('all');
   const [loading, setLoading] = useState<boolean>(false);
@@ -518,6 +533,7 @@ export const ReportsPage: React.FC = () => {
             <Button icon={<DownloadOutlined />} onClick={handleExport} loading={exportLoading}>
               导出举报报表
             </Button>
+            {ColumnSettingComponent}
             <Tooltip title="刷新列表">
               <Button icon={<ReloadOutlined />} onClick={() => fetchData()} loading={loading} />
             </Tooltip>
@@ -526,7 +542,7 @@ export const ReportsPage: React.FC = () => {
       >
         <Table<ReportItem>
           rowKey="id"
-          columns={columns}
+          columns={columns.filter((col) => !col.key || checkedKeys.includes(col.key as string))}
           dataSource={reportList}
           loading={loading}
           scroll={{ x: 1300 }}
