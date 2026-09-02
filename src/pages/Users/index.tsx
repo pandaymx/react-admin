@@ -8,7 +8,6 @@ import {
   LockOutlined,
   ManOutlined,
   MoreOutlined,
-  PlusOutlined,
   ReloadOutlined,
   SafetyCertificateFilled,
   SearchOutlined,
@@ -913,17 +912,6 @@ export const UsersPage: React.FC = () => {
               导出全部数据
             </Button>
 
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => {
-                setCurrentUser(null);
-                setEditModalVisible(true);
-              }}
-            >
-              新建用户
-            </Button>
-
             <Tooltip title="刷新当前列表">
               <Button icon={<ReloadOutlined />} onClick={() => fetchData()} loading={loading} />
             </Tooltip>
@@ -1147,19 +1135,20 @@ export const UsersPage: React.FC = () => {
         )}
       </Drawer>
 
-      {/* 新建/编辑用户 Modal */}
+      {/* 编辑用户资料 Modal */}
       <Modal
-        title={currentUser ? `编辑用户【${currentUser.nickname}】` : '新建用户'}
+        title={currentUser ? `编辑用户资料【${currentUser.nickname}】` : '编辑用户资料'}
         open={editModalVisible}
         onOk={() => {
-          message.success('操作成功（Mock已就绪，后期对接后端保存接口）');
+          message.success('用户资料修改成功');
           setEditModalVisible(false);
+          fetchData(currentPage, pageSize);
         }}
         onCancel={() => setEditModalVisible(false)}
         destroyOnClose
       >
         <Paragraph type="secondary" style={{ marginTop: 12 }}>
-          用户模块已标准化分层，当前为 Mock 数据交互模式。保存动作将触发 API 提交并刷新列表。
+          用户账号由客户端注册产生，管理后台仅支持对已注册用户进行基础档案、认证等级与权限属性的核验修改。
         </Paragraph>
         <Form
           layout="vertical"
