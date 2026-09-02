@@ -2,6 +2,7 @@ import {
   CheckCircleFilled,
   ClockCircleOutlined,
   DownloadOutlined,
+  EyeInvisibleOutlined,
   EyeOutlined,
   LockOutlined,
   ManOutlined,
@@ -67,12 +68,22 @@ export const UsersPage: React.FC = () => {
   const [pageSize, setPageSize] = useState<number>(10);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
-  // 抽屉详情状态
+  // 详情抽屉状态
   const [drawerVisible, setDrawerVisible] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<UserItem | null>(null);
+  const [isPhoneRevealed, setIsPhoneRevealed] = useState<boolean>(false);
 
   // 新建/编辑弹窗占位
   const [editModalVisible, setEditModalVisible] = useState<boolean>(false);
+
+  // 手机号脱敏工具函数
+  const formatMaskedPhone = (phone?: string, isRevealed = false) => {
+    if (!phone) return '未绑定';
+    if (isRevealed) return phone;
+    return phone
+      .replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2')
+      .replace(/^(\d{3,4}-)\d{4}(\d{4})$/, '$1****$2');
+  };
 
   // 获取用户数据
   const fetchData = useCallback(
@@ -247,7 +258,7 @@ export const UsersPage: React.FC = () => {
           { title: '参与活动数', key: 'activityCount' },
           { title: '最后活跃时间', key: 'lastActiveTime' },
           { title: '注册时间', key: 'registerTime' },
-          { title: '联系电话', key: 'phone' },
+          { title: '联系电话', key: 'phone', render: (r) => formatMaskedPhone(r.phone, false) },
           { title: '电子邮箱', key: 'email' },
         ],
         exportData,
@@ -886,7 +897,22 @@ export const UsersPage: React.FC = () => {
                 {currentUser.activityCount} 场
               </Descriptions.Item>
               <Descriptions.Item label="联系电话">
-                {currentUser.phone || '未绑定'}
+                <Space size={6}>
+                  <Text code copyable={currentUser.phone ? { text: currentUser.phone } : false}>
+                    {formatMaskedPhone(currentUser.phone, isPhoneRevealed)}
+                  </Text>
+                  {currentUser.phone && (
+                    <Tooltip title={isPhoneRevealed ? '隐藏真实手机号' : '查看完整手机号'}>
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={isPhoneRevealed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                        onClick={() => setIsPhoneRevealed((prev) => !prev)}
+                        style={{ color: '#1677ff', padding: '0 4px' }}
+                      />
+                    </Tooltip>
+                  )}
+                </Space>
               </Descriptions.Item>
               <Descriptions.Item label="电子邮箱">
                 {currentUser.email || '未绑定'}
