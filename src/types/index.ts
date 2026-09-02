@@ -19,6 +19,7 @@ export interface MenuItem {
   path?: string;
 }
 
+export * from './appeal';
 export * from './comment';
 export * from './post';
 export * from './report';

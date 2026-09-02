@@ -1,6 +1,7 @@
 import type React from 'react';
 import { createHashRouter, Navigate } from 'react-router-dom';
 import BasicLayout from '@/layouts/BasicLayout';
+import AppealsPage from '@/pages/Appeals';
 import CommentsPage from '@/pages/Comments';
 import DashboardPage from '@/pages/Dashboard';
 import LoginPage from '@/pages/Login';
@@ -60,6 +61,10 @@ export const router = createHashRouter([
       {
         path: 'reports',
         element: <ReportsPage />,
+      },
+      {
+        path: 'appeals',
+        element: <AppealsPage />,
       },
     ],
   },

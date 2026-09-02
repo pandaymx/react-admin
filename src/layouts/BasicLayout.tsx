@@ -1,4 +1,5 @@
 import {
+  AuditOutlined,
   CheckOutlined,
   CommentOutlined,
   DashboardOutlined,
@@ -72,6 +73,11 @@ const menuItems = [
     key: '/reports',
     icon: <ExclamationCircleOutlined />,
     label: '举报管理',
+  },
+  {
+    key: '/appeals',
+    icon: <AuditOutlined />,
+    label: '申诉管理',
   },
 ];
 
@@ -160,6 +166,8 @@ export const BasicLayout: React.FC = () => {
         return ['认证管理'];
       case '/reports':
         return ['举报管理'];
+      case '/appeals':
+        return ['申诉管理'];
       default:
         return ['仪表盘'];
     }
