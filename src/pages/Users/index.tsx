@@ -48,6 +48,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import {
   batchUpdateUserStatus,
+  executeUserBan,
   getAllFilteredUsers,
   getUserList,
   updateUserStatus,
@@ -55,6 +56,7 @@ import {
 import type { ActiveStatus, UserItem, UserQueryParams, UserStatus, VerifyStatus } from '@/types';
 import { exportToCsv } from '@/utils/export';
 import { formatBanRemainingTime } from '@/utils/time';
+import { type BanPunishType, UserBanModal } from './components/UserBanModal';
 import { UserPersonaDrawer } from './components/UserPersonaDrawer';
 
 const { Text, Paragraph } = Typography;
@@ -78,6 +80,11 @@ export const UsersPage: React.FC = () => {
   // 大数据 AI 用户画像抽屉状态
   const [personaDrawerVisible, setPersonaDrawerVisible] = useState<boolean>(false);
   const [personaUser, setPersonaUser] = useState<UserItem | null>(null);
+
+  // 封禁处置弹窗状态
+  const [banModalVisible, setBanModalVisible] = useState<boolean>(false);
+  const [banTargetUsers, setBanTargetUsers] = useState<UserItem[]>([]);
+  const [banDefaultPunishType, setBanDefaultPunishType] = useState<BanPunishType>('account');
 
   // 新建/编辑弹窗占位
   const [editModalVisible, setEditModalVisible] = useState<boolean>(false);
@@ -139,25 +146,71 @@ export const UsersPage: React.FC = () => {
     fetchData(1, pageSize);
   };
 
-  // 重置
+  // 重置搜索
   const handleReset = () => {
     form.resetFields();
     fetchData(1, pageSize);
   };
 
-  // 切换用户状态 (正常 / 封禁 / 禁言 / 注销)
-  const handleStatusChange = async (record: UserItem, newStatus: UserStatus) => {
+  // 打开封禁处置弹窗
+  const handleOpenBanModal = (users: UserItem[], defaultType: BanPunishType = 'account') => {
+    if (!users.length) return;
+    setBanTargetUsers(users);
+    setBanDefaultPunishType(defaultType);
+    setBanModalVisible(true);
+  };
+
+  // 确认执行封禁处置
+  const handleConfirmBan = async (values: {
+    punishType: BanPunishType;
+    duration: string;
+    expireTime: string;
+    reason: string;
+    remark?: string;
+    notifyUser: boolean;
+  }) => {
     try {
-      const res = await updateUserStatus(record.id, newStatus);
-      if (res.code === 200) {
-        message.success(`已将用户【${record.nickname}】状态更新`);
-        fetchData(currentPage, pageSize);
-        if (currentUser?.id === record.id) {
-          setCurrentUser({ ...currentUser, status: newStatus });
-        }
+      const userIds = banTargetUsers.map((u) => u.id);
+      await executeUserBan({
+        userIds,
+        ...values,
+      });
+      const typeDesc =
+        values.punishType === 'account'
+          ? '账号全量封禁'
+          : values.punishType === 'comment'
+            ? '评论禁言'
+            : '作品禁发';
+      message.success(`已成功对 ${banTargetUsers.length} 名用户执行【${typeDesc}】`);
+      setBanModalVisible(false);
+      if (currentUser && userIds.includes(currentUser.id)) {
+        setDrawerVisible(false);
       }
-    } catch {
-      message.error('更新用户状态失败');
+      setSelectedRowKeys([]);
+      fetchData(currentPage, pageSize);
+    } catch (err: any) {
+      message.error(err.message || '封禁处置执行失败');
+    }
+  };
+
+  // 状态变更操作 (解封/恢复正常/申请注销)
+  const handleStatusChange = async (record: UserItem, nextStatus: UserStatus) => {
+    try {
+      await updateUserStatus(record.id, nextStatus);
+      const statusMap: Record<UserStatus, string> = {
+        normal: '正常',
+        banned: '已封禁',
+        muted: '已禁言',
+        cancelling: '注销中',
+        cancelled: '已注销',
+      };
+      message.success(`用户【${record.nickname}】状态已更新为：${statusMap[nextStatus]}`);
+      if (currentUser?.id === record.id) {
+        setCurrentUser({ ...currentUser, status: nextStatus });
+      }
+      fetchData(currentPage, pageSize);
+    } catch (err: any) {
+      message.error(err.message || '更新状态失败');
     }
   };
 
@@ -646,7 +699,7 @@ export const UsersPage: React.FC = () => {
             icon: <StopOutlined />,
             label: '禁言用户',
             disabled: record.status === 'muted',
-            onClick: () => handleStatusChange(record, 'muted'),
+            onClick: () => handleOpenBanModal([record], 'comment'),
           },
           {
             key: 'status-cancelling',
@@ -661,7 +714,7 @@ export const UsersPage: React.FC = () => {
             label: '封禁账号',
             danger: true,
             disabled: record.status === 'banned',
-            onClick: () => handleStatusChange(record, 'banned'),
+            onClick: () => handleOpenBanModal([record], 'account'),
           },
         ];
 
@@ -691,18 +744,14 @@ export const UsersPage: React.FC = () => {
                 </Button>
               </Popconfirm>
             ) : (
-              <Popconfirm
-                title="封禁确认"
-                description={`确定要封禁用户【${record.nickname}】吗？封禁后用户无法登录互动。`}
-                onConfirm={() => handleStatusChange(record, 'banned')}
-                okText="确定封禁"
-                cancelText="取消"
-                okButtonProps={{ danger: true }}
+              <Button
+                type="link"
+                size="small"
+                danger
+                onClick={() => handleOpenBanModal([record], 'account')}
               >
-                <Button type="link" size="small" danger>
-                  封禁
-                </Button>
-              </Popconfirm>
+                封禁
+              </Button>
             )}
             <Dropdown menu={{ items: moreMenuItems }} trigger={['click']} placement="bottomRight">
               <Button type="text" size="small" icon={<MoreOutlined />} />
@@ -712,6 +761,8 @@ export const UsersPage: React.FC = () => {
       },
     },
   ];
+
+  const selectedUsers = userList.filter((item) => selectedRowKeys.includes(item.id));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -830,11 +881,18 @@ export const UsersPage: React.FC = () => {
             {selectedRowKeys.length > 0 && (
               <Space>
                 <Text type="secondary">已选择 {selectedRowKeys.length} 项</Text>
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => handleOpenBanModal(selectedUsers, 'account')}
+                >
+                  批量封禁
+                </Button>
+                <Button size="small" onClick={() => handleOpenBanModal(selectedUsers, 'comment')}>
+                  批量禁言
+                </Button>
                 <Button size="small" onClick={() => handleBatchStatus('normal')}>
                   批量恢复正常
-                </Button>
-                <Button size="small" danger onClick={() => handleBatchStatus('banned')}>
-                  批量封禁
                 </Button>
                 <Button
                   size="small"
@@ -927,7 +985,7 @@ export const UsersPage: React.FC = () => {
                   撤销注销申请（恢复正常）
                 </Button>
               ) : (
-                <Button danger onClick={() => handleStatusChange(currentUser, 'banned')}>
+                <Button danger onClick={() => handleOpenBanModal([currentUser], 'account')}>
                   封禁账号
                 </Button>
               )}
@@ -1146,6 +1204,15 @@ export const UsersPage: React.FC = () => {
         open={personaDrawerVisible}
         user={personaUser}
         onClose={() => setPersonaDrawerVisible(false)}
+      />
+
+      {/* 违规封禁与期限处置弹窗 */}
+      <UserBanModal
+        open={banModalVisible}
+        users={banTargetUsers}
+        defaultPunishType={banDefaultPunishType}
+        onCancel={() => setBanModalVisible(false)}
+        onOk={handleConfirmBan}
       />
     </div>
   );
