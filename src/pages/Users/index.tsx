@@ -349,7 +349,7 @@ export const UsersPage: React.FC = () => {
       title: '用户',
       dataIndex: 'nickname',
       key: 'user',
-      width: 240,
+      width: 260,
       render: (_, record) => (
         <Space size={12} orientation="horizontal" align="center">
           <Avatar
@@ -370,7 +370,11 @@ export const UsersPage: React.FC = () => {
                 <WomanOutlined style={{ color: '#eb2f96', fontSize: 12 }} />
               )}
             </Space>
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <Text
+              type="secondary"
+              copyable={{ text: `@${record.username}`, tooltips: ['复制用户名', '已复制'] }}
+              style={{ fontSize: 12 }}
+            >
               @{record.username}
             </Text>
           </div>
@@ -384,27 +388,6 @@ export const UsersPage: React.FC = () => {
       width: 130,
       render: (verifyStatus: VerifyStatus, record) =>
         renderVerifyTag(verifyStatus, record.verifyInfo),
-    },
-    {
-      title: 'ID (UID)',
-      dataIndex: 'uid',
-      key: 'uid',
-      width: 160,
-      render: (uid: string) => (
-        <Text
-          code
-          copyable={{ tooltips: ['复制抖音UID', '已复制!'] }}
-          style={{
-            fontSize: 13,
-            fontWeight: 500,
-            background: '#fafafa',
-            borderColor: '#e8e8e8',
-            color: '#0958d9',
-          }}
-        >
-          {uid}
-        </Text>
-      ),
     },
     {
       title: '账号状态',
@@ -607,16 +590,10 @@ export const UsersPage: React.FC = () => {
             <Col xs={24} sm={12} md={8} lg={6}>
               <Form.Item label="用户搜索" name="keyword" style={{ marginBottom: 0 }}>
                 <Input
-                  placeholder="输入昵称 / 用户名"
+                  placeholder="搜索昵称 / @用户名"
                   allowClear
                   prefix={<UserOutlined style={{ color: '#bfbfbf' }} />}
                 />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <Form.Item label="用户 UID" name="uid" style={{ marginBottom: 0 }}>
-                <Input placeholder="输入抖音 UID，如 dy_xxx" allowClear />
               </Form.Item>
             </Col>
 
@@ -648,7 +625,13 @@ export const UsersPage: React.FC = () => {
               </Form.Item>
             </Col>
 
-            <Col xs={24} sm={12} md={8} lg={4}>
+            <Col xs={24} sm={12} md={10} lg={6}>
+              <Form.Item label="注册日期" name="dateRange" style={{ marginBottom: 0 }}>
+                <RangePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} sm={12} md={6} lg={4}>
               <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
                 <Button
                   type="primary"
@@ -662,14 +645,6 @@ export const UsersPage: React.FC = () => {
                   重置
                 </Button>
               </Space>
-            </Col>
-          </Row>
-
-          <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-            <Col xs={24} sm={12} md={10} lg={8}>
-              <Form.Item label="注册日期" name="dateRange" style={{ marginBottom: 0 }}>
-                <RangePicker style={{ width: '100%' }} />
-              </Form.Item>
             </Col>
           </Row>
         </Form>
