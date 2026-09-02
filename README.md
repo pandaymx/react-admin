@@ -23,6 +23,14 @@
 - **现代化后台布局**：左侧侧边栏（`Sider` 菜单树）和顶栏（`Header`）固定常驻视口（`100vh`），右侧主体内容独立平滑滚动；
 - **高质感即输即查搜索栏**：垂直标签体系（`layout="vertical"`）搭配自适应宽松栅格；支持**输入即刻检索（300ms 智能防抖自动触发）**与下拉选择即时联动响应，免去繁琐的频繁点击。
 
+### 2. 🔐 管理员认证与令牌自动续期 (`/login`)
+- **标准后台鉴权**（接口契约详见 [docs/login-api.md](file:///home/panda/code/react-admin/docs/login-api.md) 与 [docs/login-api-quickref.md](file:///home/panda/code/react-admin/docs/login-api-quickref.md)）：
+  - **管理员账号密码登录**：`POST /admin-api/system/auth/login`（提交 `username` / `password`，获取 `accessToken`、`refreshToken`）；
+  - **请求拦截器 Bearer 鉴权**：所有 `/admin-api` 请求统一携带 `Authorization: Bearer {accessToken}`；
+  - **401 静默自动续期**：遇到 401 状态自动通过 `POST /admin-api/system/auth/refresh-token` 换取新令牌并重试请求；
+  - **管理员权限与信息获取**：`GET /admin-api/system/auth/get-permission-info`；
+  - **安全登出**：`POST /admin-api/system/auth/logout` 并清空本地存储。
+
 ### 2. ⚡ 运营与内容安全控制大盘 (`/dashboard`)
 - **全域业务 5 大核心 KPI 指标卡**：
   - 全站注册用户与日增活跃（带日环比增长与创作者达人池监控，点击直达 `/users`）；

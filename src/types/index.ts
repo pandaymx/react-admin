@@ -1,14 +1,17 @@
 export interface ApiResponse<T = any> {
   code: number;
   data: T;
-  message: string;
+  message?: string;
+  msg?: string;
 }
 
 export interface UserInfo {
   id: string;
   username: string;
+  nickname?: string;
   avatar?: string;
   roles: string[];
+  permissions?: string[];
 }
 
 export interface MenuItem {
@@ -20,6 +23,7 @@ export interface MenuItem {
 }
 
 export * from './appeal';
+export * from './auth';
 export * from './comment';
 export * from './dashboard';
 export * from './post';
