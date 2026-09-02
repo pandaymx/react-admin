@@ -43,7 +43,7 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   batchUpdateUserStatus,
   executeUserBan,
@@ -136,13 +136,48 @@ export const UsersPage: React.FC = () => {
     fetchData(1, 10);
   }, [fetchData]);
 
-  // 搜索
+  // 防抖自动检索定时器引用
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 清理防抖定时器
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  // 表单字段变动即刻触发查询（输入框 300ms 防抖，下拉框/日期立即触发）
+  const handleFormValuesChange = (changedValues: any) => {
+    if ('keyword' in changedValues) {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(() => {
+        fetchData(1, pageSize);
+      }, 300);
+    } else {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      fetchData(1, pageSize);
+    }
+  };
+
+  // 手动点击搜索
   const handleSearch = () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
     fetchData(1, pageSize);
   };
 
   // 重置搜索
   const handleReset = () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
     form.resetFields();
     fetchData(1, pageSize);
   };
@@ -770,6 +805,7 @@ export const UsersPage: React.FC = () => {
           form={form}
           layout="vertical"
           onFinish={handleSearch}
+          onValuesChange={handleFormValuesChange}
           initialValues={{
             verifyStatus: 'all',
             status: 'all',
