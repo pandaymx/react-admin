@@ -3,6 +3,7 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  SafetyCertificateOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
@@ -24,6 +25,11 @@ const menuItems = [
     key: '/users',
     icon: <UserOutlined />,
     label: '用户管理',
+  },
+  {
+    key: '/verifications',
+    icon: <SafetyCertificateOutlined />,
+    label: '认证管理',
   },
 ];
 
@@ -132,7 +138,14 @@ export const BasicLayout: React.FC = () => {
             <Breadcrumb
               items={[
                 { title: '首页' },
-                { title: location.pathname === '/users' ? '用户管理' : '仪表盘' },
+                {
+                  title:
+                    location.pathname === '/users'
+                      ? '用户管理'
+                      : location.pathname === '/verifications'
+                        ? '认证管理'
+                        : '仪表盘',
+                },
               ]}
             />
           </div>
