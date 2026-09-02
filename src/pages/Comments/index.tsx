@@ -54,9 +54,7 @@ export const CommentsPage: React.FC = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
   const fetchData = useCallback(
-    async (page?: number, size?: number) => {
-      const targetPage = page ?? currentPage;
-      const targetSize = size ?? pageSize;
+    async (page = 1, size = 10) => {
       setLoading(true);
       try {
         const values = form.getFieldsValue();
@@ -66,8 +64,8 @@ export const CommentsPage: React.FC = () => {
           postId: values.postId,
           status: values.status,
           riskTag: values.riskTag,
-          page: targetPage,
-          pageSize: targetSize,
+          page,
+          pageSize: size,
         };
 
         if (values.dateRange && values.dateRange.length === 2) {
@@ -81,8 +79,8 @@ export const CommentsPage: React.FC = () => {
         if (res.code === 200) {
           setCommentList(res.data.list);
           setTotal(res.data.total);
-          setCurrentPage(targetPage);
-          setPageSize(targetSize);
+          setCurrentPage(page);
+          setPageSize(size);
         }
       } catch (err: any) {
         message.error(err.message || '获取评论列表失败');
@@ -90,21 +88,19 @@ export const CommentsPage: React.FC = () => {
         setLoading(false);
       }
     },
-    [currentPage, pageSize, form],
+    [form],
   );
 
   useEffect(() => {
-    fetchData(1, pageSize);
-  }, [fetchData, pageSize]);
+    fetchData(1, 10);
+  }, [fetchData]);
 
   const handleSearch = () => {
-    setCurrentPage(1);
     fetchData(1, pageSize);
   };
 
   const handleReset = () => {
     form.resetFields();
-    setCurrentPage(1);
     fetchData(1, pageSize);
   };
 

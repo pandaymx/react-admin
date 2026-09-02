@@ -71,9 +71,7 @@ export const PersonalVerification: React.FC = () => {
 
   // 数据拉取
   const fetchData = useCallback(
-    async (page?: number, size?: number) => {
-      const targetPage = page ?? currentPage;
-      const targetSize = size ?? pageSize;
+    async (page = 1, size = 10) => {
       setLoading(true);
       try {
         const values = form.getFieldsValue();
@@ -83,8 +81,8 @@ export const PersonalVerification: React.FC = () => {
           idCardNo: values.idCardNo,
           idCardType: values.idCardType,
           status: values.status,
-          page: targetPage,
-          pageSize: targetSize,
+          page,
+          pageSize: size,
         };
 
         if (values.dateRange && values.dateRange.length === 2) {
@@ -98,8 +96,8 @@ export const PersonalVerification: React.FC = () => {
         if (res.code === 200) {
           setDataList(res.data.list);
           setTotal(res.data.total);
-          setCurrentPage(targetPage);
-          setPageSize(targetSize);
+          setCurrentPage(page);
+          setPageSize(size);
         }
       } catch (err: any) {
         message.error(err.message || '获取个人认证列表失败');
@@ -107,21 +105,19 @@ export const PersonalVerification: React.FC = () => {
         setLoading(false);
       }
     },
-    [currentPage, pageSize, form],
+    [form],
   );
 
   useEffect(() => {
-    fetchData(1, pageSize);
-  }, [fetchData, pageSize]);
+    fetchData(1, 10);
+  }, [fetchData]);
 
   const handleSearch = () => {
-    setCurrentPage(1);
     fetchData(1, pageSize);
   };
 
   const handleReset = () => {
     form.resetFields();
-    setCurrentPage(1);
     fetchData(1, pageSize);
   };
 
