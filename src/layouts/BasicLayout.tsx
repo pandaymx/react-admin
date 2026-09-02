@@ -1,6 +1,8 @@
 import {
+  CheckOutlined,
   CommentOutlined,
   DashboardOutlined,
+  DesktopOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
   LogoutOutlined,
@@ -75,7 +77,7 @@ const menuItems = [
 
 export const BasicLayout: React.FC = () => {
   const { collapsed, toggleCollapse, logout, userInfo } = useUserStore();
-  const { mode, toggleTheme } = useThemeStore();
+  const { preference, isDark, setPreference } = useThemeStore();
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -92,6 +94,42 @@ export const BasicLayout: React.FC = () => {
       navigate('/login');
     }
   };
+
+  const themeMenuItems: MenuProps['items'] = [
+    {
+      key: 'light',
+      icon: <SunOutlined style={{ color: '#faad14' }} />,
+      label: (
+        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+          <span>浅色模式</span>
+          {preference === 'light' && <CheckOutlined style={{ color: '#1677ff' }} />}
+        </Space>
+      ),
+      onClick: () => setPreference('light'),
+    },
+    {
+      key: 'dark',
+      icon: <MoonOutlined style={{ color: '#1677ff' }} />,
+      label: (
+        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+          <span>暗黑模式</span>
+          {preference === 'dark' && <CheckOutlined style={{ color: '#1677ff' }} />}
+        </Space>
+      ),
+      onClick: () => setPreference('dark'),
+    },
+    {
+      key: 'system',
+      icon: <DesktopOutlined style={{ color: '#52c41a' }} />,
+      label: (
+        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+          <span>跟随系统自动</span>
+          {preference === 'system' && <CheckOutlined style={{ color: '#1677ff' }} />}
+        </Space>
+      ),
+      onClick: () => setPreference('system'),
+    },
+  ];
 
   const userMenuItems: MenuProps['items'] = [
     {
@@ -129,13 +167,35 @@ export const BasicLayout: React.FC = () => {
 
   const breadcrumbItems = [{ title: '首页' }, ...getBreadcrumbTitle().map((title) => ({ title }))];
 
+  const getThemeButtonIcon = () => {
+    if (preference === 'system') {
+      return isDark ? (
+        <DesktopOutlined style={{ color: '#52c41a', fontSize: 17 }} />
+      ) : (
+        <DesktopOutlined style={{ color: '#52c41a', fontSize: 17 }} />
+      );
+    }
+    return isDark ? (
+      <MoonOutlined style={{ color: '#1677ff', fontSize: 18 }} />
+    ) : (
+      <SunOutlined style={{ color: '#faad14', fontSize: 18 }} />
+    );
+  };
+
+  const getThemeTooltip = () => {
+    if (preference === 'system') {
+      return `当前跟随系统（当前生效: ${isDark ? '暗黑' : '浅色'}）`;
+    }
+    return preference === 'dark' ? '当前暗黑模式' : '当前浅色模式';
+  };
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider
         trigger={null}
         collapsible
         collapsed={collapsed}
-        theme={mode === 'dark' ? 'dark' : 'light'}
+        theme={isDark ? 'dark' : 'light'}
         style={{ borderRight: `1px solid ${colorBorderSecondary}` }}
       >
         <div
@@ -157,7 +217,7 @@ export const BasicLayout: React.FC = () => {
         </div>
         <Menu
           mode="inline"
-          theme={mode === 'dark' ? 'dark' : 'light'}
+          theme={isDark ? 'dark' : 'light'}
           selectedKeys={[location.pathname]}
           defaultOpenKeys={['user-management']}
           items={menuItems}
@@ -184,21 +244,16 @@ export const BasicLayout: React.FC = () => {
           />
 
           <Space size="middle">
-            <Tooltip title={mode === 'dark' ? '切换为亮色模式' : '切换为暗黑模式'}>
-              <Button
-                type="text"
-                shape="circle"
-                icon={
-                  mode === 'dark' ? (
-                    <SunOutlined style={{ color: '#faad14', fontSize: 18 }} />
-                  ) : (
-                    <MoonOutlined style={{ fontSize: 18 }} />
-                  )
-                }
-                onClick={toggleTheme}
-                style={{ width: 40, height: 40 }}
-              />
-            </Tooltip>
+            <Dropdown menu={{ items: themeMenuItems }} placement="bottomRight" trigger={['click']}>
+              <Tooltip title={getThemeTooltip()}>
+                <Button
+                  type="text"
+                  shape="circle"
+                  icon={getThemeButtonIcon()}
+                  style={{ width: 40, height: 40 }}
+                />
+              </Tooltip>
+            </Dropdown>
 
             <Dropdown
               menu={{ items: userMenuItems, onClick: handleUserMenuClick }}
