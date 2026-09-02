@@ -18,3 +18,5 @@ export interface MenuItem {
   children?: MenuItem[];
   path?: string;
 }
+
+export * from './user';
