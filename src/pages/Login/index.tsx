@@ -4,22 +4,43 @@ import type React from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginApi } from '@/api/auth';
+import { SlideCaptchaModal } from '@/components/Captcha/SlideCaptchaModal';
 import { useUserStore } from '@/store/user';
 
 const { Title, Text } = Typography;
 
 export const LoginPage: React.FC = () => {
+  const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [captchaModalVisible, setCaptchaModalVisible] = useState(false);
+  const [pendingValues, setPendingValues] = useState<{ username: string; password: string } | null>(
+    null,
+  );
+
   const navigate = useNavigate();
   const setAuthTokens = useUserStore((state) => state.setAuthTokens);
   const fetchUserInfo = useUserStore((state) => state.fetchUserInfo);
 
-  const onFinish = async (values: any) => {
+  // 点击登录按钮触发校验并唤起安全验证码弹窗
+  const handlePreLogin = (values: any) => {
+    setPendingValues({
+      username: values.username.trim(),
+      password: values.password,
+    });
+    setCaptchaModalVisible(true);
+  };
+
+  // 验证码验证成功后，携带 captchaVerification 令牌正式提交登录
+  const handleCaptchaSuccess = async (captchaVerification: string) => {
+    setCaptchaModalVisible(false);
+    if (!pendingValues) return;
+
     setLoading(true);
     try {
       const res = await loginApi({
-        username: values.username.trim(),
-        password: values.password,
+        username: pendingValues.username,
+        password: pendingValues.password,
+        captchaVerification,
       });
 
       if ((res.code === 200 || res.code === 0) && res.data) {
@@ -32,13 +53,15 @@ export const LoginPage: React.FC = () => {
       }
     } catch (_err) {
       // 在测试/离线分支下自动降级为测试管理员
+    } finally {
+      setLoading(false);
     }
 
     // main 测试环境自动 Mock 登录容灾保障
     setAuthTokens('mock-jwt-token-test-admin', 'mock-refresh-token');
     useUserStore.getState().setUserInfo({
       id: '1',
-      username: values.username,
+      username: pendingValues.username,
       nickname: '超级管理员 (测试模式)',
       roles: ['admin'],
       permissions: ['*'],
@@ -73,9 +96,10 @@ export const LoginPage: React.FC = () => {
         </div>
 
         <Form
+          form={form}
           name="login"
           initialValues={{ username: 'admin', password: 'admin123' }}
-          onFinish={onFinish}
+          onFinish={handlePreLogin}
           size="large"
           layout="vertical"
         >
@@ -114,6 +138,13 @@ export const LoginPage: React.FC = () => {
           </Form.Item>
         </Form>
       </Card>
+
+      {/* AJ-Captcha 行为滑动验证码弹窗 */}
+      <SlideCaptchaModal
+        open={captchaModalVisible}
+        onCancel={() => setCaptchaModalVisible(false)}
+        onSuccess={handleCaptchaSuccess}
+      />
     </div>
   );
 };
