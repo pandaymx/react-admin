@@ -16,6 +16,8 @@ export interface UserItem {
   verifyStatus: VerifyStatus;
   verifyInfo?: string;
   status: UserStatus;
+  accountBanExpireTime?: string; // 账号封禁到期时间，如 '2026-09-09 13:40:00' 或 'permanent'
+  banReason?: string; // 最近一次封禁处置原因
   commentCount: number;
   commentStatus: UserCommentStatus;
   commentBanExpireTime?: string; // 评论封禁到期时间，如 '2026-09-08 18:00:00' 或 'permanent'

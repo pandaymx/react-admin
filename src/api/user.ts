@@ -445,6 +445,65 @@ export const batchUpdateUserStatus = async (
   };
 };
 
+export interface ExecuteBanParams {
+  userIds: string[];
+  punishType: 'account' | 'comment' | 'post';
+  duration: string;
+  expireTime: string; // 'permanent' 或 'YYYY-MM-DD HH:mm:ss'
+  reason: string;
+  remark?: string;
+  notifyUser?: boolean;
+}
+
+/**
+ * 执行按时间周期的违规封禁/禁言/禁发处置
+ */
+export const executeUserBan = async (
+  params: ExecuteBanParams,
+): Promise<ApiResponse<{ updatedCount: number }>> => {
+  await new Promise((resolve) => setTimeout(resolve, 300));
+
+  currentDataset = currentDataset.map((u) => {
+    if (params.userIds.includes(u.id)) {
+      if (params.punishType === 'account') {
+        return {
+          ...u,
+          status: 'banned' as UserStatus,
+          accountBanExpireTime: params.expireTime,
+          banReason: params.reason,
+          commentStatus: 'forbidden' as const,
+          commentBanExpireTime: params.expireTime,
+          postStatus: 'forbidden' as const,
+          postBanExpireTime: params.expireTime,
+        };
+      }
+      if (params.punishType === 'comment') {
+        return {
+          ...u,
+          commentStatus: 'forbidden' as const,
+          commentBanExpireTime: params.expireTime,
+          banReason: params.reason,
+        };
+      }
+      if (params.punishType === 'post') {
+        return {
+          ...u,
+          postStatus: 'forbidden' as const,
+          postBanExpireTime: params.expireTime,
+          banReason: params.reason,
+        };
+      }
+    }
+    return u;
+  });
+
+  return {
+    code: 200,
+    data: { updatedCount: params.userIds.length },
+    message: '封禁处置执行成功',
+  };
+};
+
 /**
  * 获取用于全量导出的用户数据
  */
