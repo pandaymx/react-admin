@@ -346,36 +346,69 @@ export const UsersPage: React.FC = () => {
       dataIndex: 'nickname',
       key: 'user',
       width: 260,
-      render: (_, record) => (
-        <Space size={12} orientation="horizontal" align="center">
-          <Avatar
-            src={record.avatar}
-            size={44}
-            icon={<UserOutlined />}
-            style={{ border: '2px solid #f0f0f0', flexShrink: 0 }}
-          />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <Space size={4}>
-              <Text strong style={{ fontSize: 14 }}>
-                {record.nickname}
+      render: (_, record) => {
+        const handleOpenDetail = () => {
+          setCurrentUser(record);
+          setDrawerVisible(true);
+        };
+
+        return (
+          <Space size={12} orientation="horizontal" align="center">
+            <Avatar
+              src={record.avatar}
+              size={44}
+              icon={<UserOutlined />}
+              onClick={handleOpenDetail}
+              style={{
+                border: '2px solid #f0f0f0',
+                flexShrink: 0,
+                cursor: 'pointer',
+              }}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <Space size={4}>
+                <button
+                  type="button"
+                  onClick={handleOpenDetail}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    margin: 0,
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: 'inherit',
+                    textAlign: 'left',
+                    textDecoration: 'none',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = '#1677ff';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'inherit';
+                  }}
+                >
+                  {record.nickname}
+                </button>
+                {record.gender === 'male' && (
+                  <ManOutlined style={{ color: '#1677ff', fontSize: 12 }} />
+                )}
+                {record.gender === 'female' && (
+                  <WomanOutlined style={{ color: '#eb2f96', fontSize: 12 }} />
+                )}
+              </Space>
+              <Text
+                type="secondary"
+                copyable={{ text: record.username, tooltips: ['复制用户名', '已复制'] }}
+                style={{ fontSize: 12 }}
+              >
+                @{record.username}
               </Text>
-              {record.gender === 'male' && (
-                <ManOutlined style={{ color: '#1677ff', fontSize: 12 }} />
-              )}
-              {record.gender === 'female' && (
-                <WomanOutlined style={{ color: '#eb2f96', fontSize: 12 }} />
-              )}
-            </Space>
-            <Text
-              type="secondary"
-              copyable={{ text: record.username, tooltips: ['复制用户名', '已复制'] }}
-              style={{ fontSize: 12 }}
-            >
-              @{record.username}
-            </Text>
-          </div>
-        </Space>
-      ),
+            </div>
+          </Space>
+        );
+      },
     },
     {
       title: '认证状态',
