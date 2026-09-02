@@ -264,9 +264,7 @@ export const CommentsPage: React.FC = () => {
       width: 280,
       render: (_, record) => (
         <div>
-          <Paragraph style={{ margin: 0, fontSize: 13, color: '#1f1f1f' }}>
-            {record.content}
-          </Paragraph>
+          <Paragraph style={{ margin: 0, fontSize: 13 }}>{record.content}</Paragraph>
           <Space size="middle" style={{ marginTop: 4, fontSize: 11, color: '#8c8c8c' }}>
             {record.ipLocation && <span>IP: {record.ipLocation}</span>}
             <span>赞 {record.likeCount}</span>

@@ -21,6 +21,7 @@ import {
   Tag,
   Tooltip,
   Typography,
+  theme,
 } from 'antd';
 import type React from 'react';
 import type { UserItem, UserPersona } from '@/types';
@@ -127,6 +128,7 @@ const getDerivedPersona = (user: UserItem): UserPersona => {
 };
 
 export const UserPersonaDrawer: React.FC<UserPersonaDrawerProps> = ({ open, user, onClose }) => {
+  const { token } = theme.useToken();
   if (!user) return null;
 
   const persona = getDerivedPersona(user);
@@ -238,13 +240,18 @@ export const UserPersonaDrawer: React.FC<UserPersonaDrawerProps> = ({ open, user
             <Card
               size="small"
               variant="borderless"
-              style={{ background: '#f6ffed', textAlign: 'center' }}
+              style={{
+                background: token.colorFillAlter,
+                border: `1px solid ${token.colorBorderSecondary}`,
+                textAlign: 'center',
+                borderRadius: 8,
+              }}
             >
               <Statistic
                 title="预估平均完播率"
                 value={persona.metrics.avgPlayFinishRate}
                 suffix="%"
-                valueStyle={{ color: '#3f8600', fontSize: 18 }}
+                valueStyle={{ color: '#52c41a', fontSize: 18, fontWeight: 600 }}
               />
             </Card>
           </Col>
@@ -252,13 +259,18 @@ export const UserPersonaDrawer: React.FC<UserPersonaDrawerProps> = ({ open, user
             <Card
               size="small"
               variant="borderless"
-              style={{ background: '#e6f4ff', textAlign: 'center' }}
+              style={{
+                background: token.colorFillAlter,
+                border: `1px solid ${token.colorBorderSecondary}`,
+                textAlign: 'center',
+                borderRadius: 8,
+              }}
             >
               <Statistic
                 title="互动转化指数"
                 value={persona.metrics.interactionRate}
                 suffix="%"
-                valueStyle={{ color: '#1677ff', fontSize: 18 }}
+                valueStyle={{ color: '#1677ff', fontSize: 18, fontWeight: 600 }}
               />
             </Card>
           </Col>
@@ -266,12 +278,17 @@ export const UserPersonaDrawer: React.FC<UserPersonaDrawerProps> = ({ open, user
             <Card
               size="small"
               variant="borderless"
-              style={{ background: '#fff7e6', textAlign: 'center' }}
+              style={{
+                background: token.colorFillAlter,
+                border: `1px solid ${token.colorBorderSecondary}`,
+                textAlign: 'center',
+                borderRadius: 8,
+              }}
             >
               <Statistic
                 title="商业化价值指数"
                 value={persona.metrics.commercialIndex}
-                valueStyle={{ color: '#fa8c16', fontSize: 18 }}
+                valueStyle={{ color: '#fa8c16', fontSize: 18, fontWeight: 600 }}
               />
             </Card>
           </Col>
@@ -279,15 +296,21 @@ export const UserPersonaDrawer: React.FC<UserPersonaDrawerProps> = ({ open, user
             <Card
               size="small"
               variant="borderless"
-              style={{ background: '#fff1f0', textAlign: 'center' }}
+              style={{
+                background: token.colorFillAlter,
+                border: `1px solid ${token.colorBorderSecondary}`,
+                textAlign: 'center',
+                borderRadius: 8,
+              }}
             >
               <Statistic
                 title="历史违规惩罚"
                 value={persona.metrics.violationCount}
                 suffix="次"
                 valueStyle={{
-                  color: persona.metrics.violationCount > 0 ? '#cf1322' : '#3f8600',
+                  color: persona.metrics.violationCount > 0 ? '#ff4d4f' : '#52c41a',
                   fontSize: 18,
+                  fontWeight: 600,
                 }}
               />
             </Card>

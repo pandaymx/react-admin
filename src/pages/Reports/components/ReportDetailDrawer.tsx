@@ -16,6 +16,7 @@ import {
   Space,
   Tag,
   Typography,
+  theme,
 } from 'antd';
 import type React from 'react';
 
@@ -42,6 +43,7 @@ export const ReportDetailDrawer: React.FC<ReportDetailDrawerProps> = ({
   onClose,
   onHandleClick,
 }) => {
+  const { token } = theme.useToken();
   const renderReasonTag = (reason: ReportReason) => {
     const map: Record<ReportReason, { label: string; color: string }> = {
       illegal: { label: '违法违禁', color: 'red' },
@@ -142,7 +144,7 @@ export const ReportDetailDrawer: React.FC<ReportDetailDrawerProps> = ({
           {/* 状态与基础概览 */}
           <Card
             size="small"
-            style={{ marginBottom: 16, backgroundColor: '#fafafa', borderRadius: 8 }}
+            style={{ marginBottom: 16, backgroundColor: token.colorFillAlter, borderRadius: 8 }}
           >
             <Descriptions column={2} size="small">
               <Descriptions.Item label="举报工单号">
