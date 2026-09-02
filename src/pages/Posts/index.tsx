@@ -79,9 +79,7 @@ export const PostsPage: React.FC = () => {
   const [previewPost, setPreviewPost] = useState<PostItem | null>(null);
 
   const fetchData = useCallback(
-    async (page?: number, size?: number) => {
-      const targetPage = page ?? currentPage;
-      const targetSize = size ?? pageSize;
+    async (page = 1, size = 10) => {
       setLoading(true);
       try {
         const values = form.getFieldsValue();
@@ -91,8 +89,8 @@ export const PostsPage: React.FC = () => {
           type: values.type,
           status: values.status,
           commentPermission: values.commentPermission,
-          page: targetPage,
-          pageSize: targetSize,
+          page,
+          pageSize: size,
         };
 
         if (values.dateRange && values.dateRange.length === 2) {
@@ -106,8 +104,8 @@ export const PostsPage: React.FC = () => {
         if (res.code === 200) {
           setPostList(res.data.list);
           setTotal(res.data.total);
-          setCurrentPage(targetPage);
-          setPageSize(targetSize);
+          setCurrentPage(page);
+          setPageSize(size);
         }
       } catch (err: any) {
         message.error(err.message || '获取帖子列表失败');
@@ -115,21 +113,19 @@ export const PostsPage: React.FC = () => {
         setLoading(false);
       }
     },
-    [currentPage, pageSize, form],
+    [form],
   );
 
   useEffect(() => {
-    fetchData(1, pageSize);
-  }, [fetchData, pageSize]);
+    fetchData(1, 10);
+  }, [fetchData]);
 
   const handleSearch = () => {
-    setCurrentPage(1);
     fetchData(1, pageSize);
   };
 
   const handleReset = () => {
     form.resetFields();
-    setCurrentPage(1);
     fetchData(1, pageSize);
   };
 

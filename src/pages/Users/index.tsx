@@ -75,9 +75,7 @@ export const UsersPage: React.FC = () => {
 
   // 获取用户数据
   const fetchData = useCallback(
-    async (page?: number, size?: number) => {
-      const targetPage = page ?? currentPage;
-      const targetSize = size ?? pageSize;
+    async (page = 1, size = 10) => {
       setLoading(true);
       try {
         const formValues = form.getFieldsValue();
@@ -86,8 +84,8 @@ export const UsersPage: React.FC = () => {
           uid: formValues.uid,
           verifyStatus: formValues.verifyStatus,
           status: formValues.status,
-          page: targetPage,
-          pageSize: targetSize,
+          page,
+          pageSize: size,
         };
 
         if (formValues.dateRange && formValues.dateRange.length === 2) {
@@ -110,23 +108,21 @@ export const UsersPage: React.FC = () => {
         setLoading(false);
       }
     },
-    [currentPage, pageSize, form],
+    [form],
   );
 
   useEffect(() => {
-    fetchData(1, pageSize);
-  }, [fetchData, pageSize]);
+    fetchData(1, 10);
+  }, [fetchData]);
 
   // 搜索
   const handleSearch = () => {
-    setCurrentPage(1);
     fetchData(1, pageSize);
   };
 
   // 重置
   const handleReset = () => {
     form.resetFields();
-    setCurrentPage(1);
     fetchData(1, pageSize);
   };
 
@@ -136,7 +132,7 @@ export const UsersPage: React.FC = () => {
       const res = await updateUserStatus(record.id, newStatus);
       if (res.code === 200) {
         message.success(`已将用户【${record.nickname}】状态更新`);
-        fetchData();
+        fetchData(currentPage, pageSize);
         if (currentUser?.id === record.id) {
           setCurrentUser({ ...currentUser, status: newStatus });
         }
@@ -158,7 +154,7 @@ export const UsersPage: React.FC = () => {
       if (res.code === 200) {
         message.success(res.message);
         setSelectedRowKeys([]);
-        fetchData();
+        fetchData(currentPage, pageSize);
       }
     } catch {
       message.error('批量操作失败');

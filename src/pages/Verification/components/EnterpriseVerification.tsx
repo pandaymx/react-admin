@@ -55,9 +55,7 @@ export const EnterpriseVerification: React.FC = () => {
   const [auditTarget, setAuditTarget] = useState<EnterpriseVerificationItem | null>(null);
 
   const fetchData = useCallback(
-    async (page?: number, size?: number) => {
-      const targetPage = page ?? currentPage;
-      const targetSize = size ?? pageSize;
+    async (page = 1, size = 10) => {
       setLoading(true);
       try {
         const values = form.getFieldsValue();
@@ -65,16 +63,16 @@ export const EnterpriseVerification: React.FC = () => {
           keyword: values.keyword,
           uid: values.uid,
           status: values.status,
-          page: targetPage,
-          pageSize: targetSize,
+          page,
+          pageSize: size,
         };
 
         const res = await getEnterpriseVerificationList(params);
         if (res.code === 200) {
           setDataList(res.data.list);
           setTotal(res.data.total);
-          setCurrentPage(targetPage);
-          setPageSize(targetSize);
+          setCurrentPage(page);
+          setPageSize(size);
         }
       } catch (err: any) {
         message.error(err.message || '获取企业认证列表失败');
@@ -82,21 +80,19 @@ export const EnterpriseVerification: React.FC = () => {
         setLoading(false);
       }
     },
-    [currentPage, pageSize, form],
+    [form],
   );
 
   useEffect(() => {
-    fetchData(1, pageSize);
-  }, [fetchData, pageSize]);
+    fetchData(1, 10);
+  }, [fetchData]);
 
   const handleSearch = () => {
-    setCurrentPage(1);
     fetchData(1, pageSize);
   };
 
   const handleReset = () => {
     form.resetFields();
-    setCurrentPage(1);
     fetchData(1, pageSize);
   };
 

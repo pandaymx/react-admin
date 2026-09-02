@@ -67,9 +67,7 @@ export const ReportsPage: React.FC = () => {
   const [currentRecord, setCurrentRecord] = useState<ReportItem | null>(null);
 
   const fetchData = useCallback(
-    async (page?: number, size?: number, targetType = activeTab) => {
-      const targetPage = page ?? currentPage;
-      const targetSize = size ?? pageSize;
+    async (page = 1, size = 10, targetType = activeTab) => {
       setLoading(true);
       try {
         const values = form.getFieldsValue();
@@ -78,8 +76,8 @@ export const ReportsPage: React.FC = () => {
           targetType: targetType === 'all' ? undefined : targetType,
           reason: values.reason,
           status: values.status,
-          page: targetPage,
-          pageSize: targetSize,
+          page,
+          pageSize: size,
         };
 
         if (values.dateRange && values.dateRange.length === 2) {
@@ -93,8 +91,8 @@ export const ReportsPage: React.FC = () => {
         if (res.code === 200) {
           setReportList(res.data.list);
           setTotal(res.data.total);
-          setCurrentPage(targetPage);
-          setPageSize(targetSize);
+          setCurrentPage(page);
+          setPageSize(size);
         }
       } catch (err: any) {
         message.error(err.message || '获取举报列表失败');
@@ -102,28 +100,25 @@ export const ReportsPage: React.FC = () => {
         setLoading(false);
       }
     },
-    [currentPage, pageSize, activeTab, form],
+    [activeTab, form],
   );
 
   useEffect(() => {
-    fetchData(1, pageSize, activeTab);
-  }, [fetchData, pageSize, activeTab]);
+    fetchData(1, 10, activeTab);
+  }, [fetchData, activeTab]);
 
   const handleTabChange = (key: string) => {
     const tabKey = key as ReportTargetType | 'all';
     setActiveTab(tabKey);
-    setCurrentPage(1);
     fetchData(1, pageSize, tabKey);
   };
 
   const handleSearch = () => {
-    setCurrentPage(1);
     fetchData(1, pageSize);
   };
 
   const handleReset = () => {
     form.resetFields();
-    setCurrentPage(1);
     fetchData(1, pageSize);
   };
 
