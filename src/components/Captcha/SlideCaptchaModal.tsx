@@ -14,9 +14,12 @@ interface SlideCaptchaModalProps {
   onSuccess: (captchaVerification: string) => void;
 }
 
+// AJ-Captcha 官方标准尺寸：背景宽 310px，高 155px；滑块宽 47px，高 155px
 const CANVAS_WIDTH = 310;
+const CANVAS_HEIGHT = 155;
+const JIGSAW_WIDTH = 47;
 const SLIDER_HANDLE_WIDTH = 40;
-const MAX_MOVE = CANVAS_WIDTH - SLIDER_HANDLE_WIDTH;
+const MAX_MOVE = CANVAS_WIDTH - JIGSAW_WIDTH; // 263px
 
 export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
   open,
@@ -195,6 +198,11 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
     };
   }, [isDragging, sliderLeft, verifyPosition]);
 
+  const getImgSrc = (base64Str?: string) => {
+    if (!base64Str) return '';
+    return base64Str.startsWith('data:') ? base64Str : `data:image/png;base64,${base64Str}`;
+  };
+
   return (
     <Modal
       open={open}
@@ -243,12 +251,13 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
       <div
         style={{
           position: 'relative',
-          width: CANVAS_WIDTH,
-          height: 155,
+          width: `${CANVAS_WIDTH}px`,
+          height: `${CANVAS_HEIGHT}px`,
           margin: '0 auto',
           background: '#f5f5f5',
           borderRadius: 8,
           overflow: 'hidden',
+          boxSizing: 'content-box',
         }}
       >
         {loading ? (
@@ -265,33 +274,38 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
           </div>
         ) : captchaData?.originalImageBase64 ? (
           <>
-            {/* 背景大图 */}
+            {/* 背景大图：精准 310x155 像素 1:1 渲染 */}
             <img
-              src={
-                captchaData.originalImageBase64.startsWith('data:')
-                  ? captchaData.originalImageBase64
-                  : `data:image/png;base64,${captchaData.originalImageBase64}`
-              }
+              src={getImgSrc(captchaData.originalImageBase64)}
               alt="captcha-bg"
-              style={{ width: CANVAS_WIDTH, height: 155, display: 'block', objectFit: 'cover' }}
+              width={CANVAS_WIDTH}
+              height={CANVAS_HEIGHT}
+              style={{
+                width: `${CANVAS_WIDTH}px`,
+                height: `${CANVAS_HEIGHT}px`,
+                display: 'block',
+                userSelect: 'none',
+                pointerEvents: 'none',
+              }}
             />
 
-            {/* 拼图滑块 */}
+            {/* 拼图滑块：GPU 硬件加速 transform 移动，清晰可见 */}
             <img
-              src={
-                captchaData.jigsawImageBase64.startsWith('data:')
-                  ? captchaData.jigsawImageBase64
-                  : `data:image/png;base64,${captchaData.jigsawImageBase64}`
-              }
+              src={getImgSrc(captchaData.jigsawImageBase64)}
               alt="captcha-block"
+              width={JIGSAW_WIDTH}
+              height={CANVAS_HEIGHT}
               style={{
                 position: 'absolute',
                 top: 0,
-                left: sliderLeft,
-                height: 155,
-                zIndex: 2,
+                left: 0,
+                width: `${JIGSAW_WIDTH}px`,
+                height: `${CANVAS_HEIGHT}px`,
+                transform: `translateX(${sliderLeft}px)`,
+                zIndex: 10,
                 pointerEvents: 'none',
-                transition: isDragging ? 'none' : 'left 0.2s ease',
+                userSelect: 'none',
+                transition: isDragging ? 'none' : 'transform 0.2s ease',
               }}
             />
           </>
@@ -335,7 +349,7 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
               color: '#fff',
               fontSize: 16,
               fontWeight: 600,
-              zIndex: 10,
+              zIndex: 20,
             }}
           >
             <CheckCircleFilled style={{ fontSize: 24, marginRight: 8 }} /> 验证成功
@@ -348,13 +362,14 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
         ref={trackRef}
         style={{
           position: 'relative',
-          width: CANVAS_WIDTH,
-          height: 40,
+          width: `${CANVAS_WIDTH}px`,
+          height: '40px',
           margin: '16px auto 0',
           background: '#f0f0f0',
           borderRadius: 20,
           userSelect: 'none',
           overflow: 'hidden',
+          boxSizing: 'border-box',
           border: `1px solid ${status === 'error' ? '#ff4d4f' : status === 'success' ? '#52c41a' : '#d9d9d9'}`,
         }}
       >
@@ -365,7 +380,7 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
             left: 0,
             top: 0,
             height: '100%',
-            width: sliderLeft + SLIDER_HANDLE_WIDTH / 2,
+            width: `${sliderLeft + SLIDER_HANDLE_WIDTH / 2}px`,
             background:
               status === 'error'
                 ? '#ff4d4f30'
@@ -407,10 +422,10 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
           onTouchStart={handleMouseDown}
           style={{
             position: 'absolute',
-            left: sliderLeft,
+            left: 0,
             top: 0,
-            width: SLIDER_HANDLE_WIDTH,
-            height: 38,
+            width: `${SLIDER_HANDLE_WIDTH}px`,
+            height: '38px',
             borderRadius: 19,
             background:
               status === 'error'
@@ -424,8 +439,9 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
             justifyContent: 'center',
             cursor: isDragging ? 'grabbing' : 'grab',
             boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-            zIndex: 5,
-            transition: isDragging ? 'none' : 'left 0.2s ease',
+            zIndex: 15,
+            transform: `translateX(${sliderLeft}px)`,
+            transition: isDragging ? 'none' : 'transform 0.2s ease',
           }}
         >
           {status === 'success' ? '✓' : status === 'error' ? '✕' : '➔'}
