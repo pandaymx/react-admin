@@ -141,7 +141,7 @@ export const UsersPage: React.FC = () => {
   const fetchSummary = useCallback(async () => {
     try {
       const res = await getUserStatisticsSummary();
-      if (res.code === 200 && res.data) {
+      if ((res.code === 200 || res.code === 0) && res.data) {
         setSummary(res.data);
       }
     } catch {
@@ -174,11 +174,11 @@ export const UsersPage: React.FC = () => {
         }
 
         const res = await getUserList(params);
-        if (res.code === 200 && res.data) {
+        if ((res.code === 200 || res.code === 0) && res.data) {
           setUserList(res.data.list);
           setTotal(res.data.total);
-          setCurrentPage(res.data.page);
-          setPageSize(res.data.pageSize);
+          setCurrentPage(res.data.page || page);
+          setPageSize(res.data.pageSize || size);
         }
       } catch (err: any) {
         message.error(err.message || '获取用户列表失败');
@@ -233,7 +233,7 @@ export const UsersPage: React.FC = () => {
   const handleStatusChange = async (record: UserItem, newStatus: UserStatus) => {
     try {
       const res = await updateUserStatus(record.id, newStatus);
-      if (res.code === 200) {
+      if (res.code === 200 || res.code === 0) {
         message.success('账号状态更新成功');
         fetchData(currentPage, pageSize);
         fetchSummary();
@@ -252,7 +252,7 @@ export const UsersPage: React.FC = () => {
     try {
       const ids = selectedRowKeys as string[];
       const res = await batchUpdateUserStatus(ids, status);
-      if (res.code === 200) {
+      if (res.code === 200 || res.code === 0) {
         message.success(res.message);
         setSelectedRowKeys([]);
         fetchData(currentPage, pageSize);
@@ -286,7 +286,7 @@ export const UsersPage: React.FC = () => {
     try {
       const userIds = banTargetUsers.map((u) => u.id);
       const res = await executeUserBan({ ...values, userIds });
-      if (res.code === 200) {
+      if (res.code === 200 || res.code === 0) {
         message.success(res.message);
         setBanModalVisible(false);
         setSelectedRowKeys([]);

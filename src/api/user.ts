@@ -300,9 +300,13 @@ export const getUserList = async (
 ): Promise<ApiResponse<UserListResult>> => {
   try {
     const reqVo: AdminUserPageReqVO = {
-      userId: params.userId,
-      phoneNumber: params.phoneNumber,
-      nickname: params.nickname || params.keyword,
+      userId: params.userId !== undefined && params.userId !== '' ? params.userId : undefined,
+      phoneNumber: params.phoneNumber ? String(params.phoneNumber).trim() : undefined,
+      nickname: params.nickname
+        ? String(params.nickname).trim()
+        : params.keyword
+          ? String(params.keyword).trim()
+          : undefined,
       status:
         params.status !== undefined && params.status !== 'all'
           ? mapFrontendStatusToBackend(params.status)
@@ -315,7 +319,7 @@ export const getUserList = async (
         params.certified !== undefined && params.certified !== 'all'
           ? Boolean(params.certified)
           : undefined,
-      createTime: params.dateRange,
+      createTime: params.dateRange && params.dateRange.length === 2 ? params.dateRange : undefined,
       pageNo: params.pageNo || params.page || 1,
       pageSize: params.pageSize || 10,
     };
