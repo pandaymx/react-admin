@@ -38,7 +38,7 @@ import {
   Typography,
 } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   batchUpdatePostStatus,
@@ -62,13 +62,14 @@ const { Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
 
 const postColumnOptions: ColumnOptionItem[] = [
-  { key: 'post', title: '作品基本信息 (封面/标题/作者)', required: true },
+  { key: 'content', title: '作品内容与封面', required: true },
+  { key: 'author', title: '发布作者' },
   { key: 'type', title: '作品形式 (短视频/图文)' },
-  { key: 'status', title: '发布与上架状态' },
+  { key: 'interaction', title: '互动数据 (点赞/评论/分享)' },
   { key: 'commentPermission', title: '评论权限管控' },
-  { key: 'stats', title: '点赞/收藏/分享互动数' },
-  { key: 'commentCount', title: '评论总数' },
-  { key: 'createTime', title: '发布时间' },
+  { key: 'status', title: '发布与上架状态' },
+  { key: 'publishTime', title: '发布时间' },
+  { key: 'id', title: '作品编号 (ID)' },
   { key: 'action', title: '操作列', required: true },
 ];
 
@@ -85,6 +86,17 @@ export const PostsPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+
+  // 防抖定时器引用
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   // 评论抽屉状态
   const [commentDrawerOpen, setCommentDrawerOpen] = useState<boolean>(false);
@@ -137,12 +149,34 @@ export const PostsPage: React.FC = () => {
   }, [fetchData]);
 
   const handleSearch = () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
     fetchData(1, pageSize);
   };
 
   const handleReset = () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
     form.resetFields();
     fetchData(1, pageSize);
+  };
+
+  const handleFormValuesChange = (changedValues: any) => {
+    if ('keyword' in changedValues || 'uid' in changedValues) {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(() => {
+        fetchData(1, pageSize);
+      }, 300);
+    } else {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      fetchData(1, pageSize);
+    }
   };
 
   // 切换置顶
@@ -151,7 +185,7 @@ export const PostsPage: React.FC = () => {
       const res = await togglePostTop(record.id);
       if (res.code === 200) {
         message.success(res.message);
-        fetchData();
+        fetchData(currentPage, pageSize);
       }
     } catch {
       message.error('切换置顶失败');
@@ -164,7 +198,7 @@ export const PostsPage: React.FC = () => {
       const res = await updatePostStatus(record.id, newStatus);
       if (res.code === 200) {
         message.success(res.message);
-        fetchData();
+        fetchData(currentPage, pageSize);
       }
     } catch {
       message.error('更新状态失败');
@@ -177,7 +211,7 @@ export const PostsPage: React.FC = () => {
       const res = await updatePostCommentPermission(record.id, perm);
       if (res.code === 200) {
         message.success(res.message);
-        fetchData();
+        fetchData(currentPage, pageSize);
       }
     } catch {
       message.error('更新评论权限失败');
@@ -196,7 +230,7 @@ export const PostsPage: React.FC = () => {
       if (res.code === 200) {
         message.success(res.message);
         setSelectedRowKeys([]);
-        fetchData();
+        fetchData(currentPage, pageSize);
       }
     } catch {
       message.error('批量更新失败');
@@ -480,22 +514,13 @@ export const PostsPage: React.FC = () => {
       title: '操作',
       key: 'action',
       fixed: 'right',
-      width: 200,
+      width: 230,
       render: (_, record) => {
         const moreMenus = [
           {
-            key: 'preview',
-            icon: <EyeOutlined />,
-            label: '预览作品内容',
-            onClick: () => {
-              setPreviewPost(record);
-              setPreviewModalOpen(true);
-            },
-          },
-          {
             key: 'top',
-            icon: record.isTop ? <StarOutlined /> : <StarFilled />,
-            label: record.isTop ? '取消置顶' : '推荐置顶',
+            icon: record.isTop ? <StarOutlined /> : <StarFilled style={{ color: '#faad14' }} />,
+            label: record.isTop ? '取消置顶推荐' : '推荐置顶作品',
             onClick: () => handleToggleTop(record),
           },
           {
@@ -503,19 +528,19 @@ export const PostsPage: React.FC = () => {
           },
           {
             key: 'perm-open',
-            label: '允许全员评论',
+            label: '评论: 允许全员互动',
             disabled: record.commentPermission === 'open',
             onClick: () => handleCommentPermissionChange(record, 'open'),
           },
           {
             key: 'perm-fans',
-            label: '仅允许粉丝评论',
+            label: '评论: 仅允许粉丝互动',
             disabled: record.commentPermission === 'fans_only',
             onClick: () => handleCommentPermissionChange(record, 'fans_only'),
           },
           {
             key: 'perm-close',
-            label: '关闭该作品评论',
+            label: '评论: 关闭评论互动',
             disabled: record.commentPermission === 'closed',
             onClick: () => handleCommentPermissionChange(record, 'closed'),
           },
@@ -525,7 +550,7 @@ export const PostsPage: React.FC = () => {
           {
             key: 'status-ban',
             icon: <LockOutlined />,
-            label: '违规下架',
+            label: '违规下架作品',
             danger: true,
             disabled: record.status === 'banned',
             onClick: () => handleStatusChange(record, 'banned'),
@@ -553,11 +578,25 @@ export const PostsPage: React.FC = () => {
               管理评论
             </Button>
 
+            <Button
+              type="link"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => {
+                setPreviewPost(record);
+                setPreviewModalOpen(true);
+              }}
+            >
+              预览
+            </Button>
+
             {record.status === 'banned' ? (
               <Popconfirm
-                title="恢复作品"
+                title="恢复作品展示确认"
                 description="确定恢复该作品公开展示吗？"
                 onConfirm={() => handleStatusChange(record, 'published')}
+                okText="恢复"
+                cancelText="取消"
               >
                 <Button type="link" size="small" style={{ color: '#52c41a' }}>
                   恢复
@@ -565,9 +604,11 @@ export const PostsPage: React.FC = () => {
               </Popconfirm>
             ) : (
               <Popconfirm
-                title="下架作品"
-                description="确定下架该违规作品吗？"
+                title="下架作品确认"
+                description="确定下架该违规作品并限制展示吗？"
                 onConfirm={() => handleStatusChange(record, 'banned')}
+                okText="确认下架"
+                cancelText="取消"
                 okButtonProps={{ danger: true }}
               >
                 <Button type="link" size="small" danger>
@@ -599,6 +640,7 @@ export const PostsPage: React.FC = () => {
           form={form}
           layout="horizontal"
           onFinish={handleSearch}
+          onValuesChange={handleFormValuesChange}
           initialValues={{
             type: 'all',
             status: 'all',
