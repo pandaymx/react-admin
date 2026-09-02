@@ -10,6 +10,7 @@ import type {
   UserStatisticsRespVO,
   UserStatus,
 } from '@/types';
+import { formatDateTime } from '@/utils/time';
 
 /**
  * 转换后端 UserStatus 映射
@@ -81,8 +82,8 @@ export const getUserList = async (
       vo.qualification === 2 ? 'enterprise' : vo.qualification === 1 ? 'personal' : 'unverified',
     certified: vo.certified,
     initStatus: vo.initStatus,
-    createTime: vo.createTime,
-    registerTime: vo.createTime ? vo.createTime.replace('T', ' ').slice(0, 19) : '',
+    createTime: formatDateTime(vo.createTime),
+    registerTime: formatDateTime(vo.createTime),
     fanCount: vo.fanCount || 0,
     followCount: vo.followCount || 0,
     friendCount: vo.friendCount || 0,

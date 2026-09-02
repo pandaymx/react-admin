@@ -71,7 +71,7 @@ export interface UserItem {
   followerCount?: number; // 兼容粉丝数字段
   followCount: number; // 关注数
   friendCount: number; // 好友数
-  createTime: string; // 注册时间
+  createTime: string | number; // 注册时间 (支持 ISO 字符串或毫秒时间戳)
   registerTime?: string; // 兼容注册时间
   accountBanExpireTime?: string; // 封禁到期时间 (永久或具体时间)
   banReason?: string; // 违规处置原因

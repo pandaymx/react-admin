@@ -63,7 +63,7 @@ import type {
   VerifyStatus,
 } from '@/types';
 import { exportToCsv } from '@/utils/export';
-import { formatBanRemainingTime } from '@/utils/time';
+import { formatBanRemainingTime, formatDateTime } from '@/utils/time';
 import { type BanPunishType, UserBanModal } from './components/UserBanModal';
 
 const { Text, Title } = Typography;
@@ -359,7 +359,11 @@ export const UsersPage: React.FC = () => {
           { title: '粉丝数', key: 'fanCount' },
           { title: '关注数', key: 'followCount' },
           { title: '好友数', key: 'friendCount' },
-          { title: '注册时间', key: 'createTime' },
+          {
+            title: '注册时间',
+            key: 'createTime',
+            render: (r) => formatDateTime(r.createTime || r.registerTime),
+          },
         ],
         dataToExport,
         '用户管理数据报表',
@@ -603,9 +607,8 @@ export const UsersPage: React.FC = () => {
       dataIndex: 'createTime',
       key: 'createTime',
       width: 160,
-      render: (time: string, record) => {
-        const t = time || record.registerTime || '';
-        return <Text style={{ fontSize: 12 }}>{t.replace('T', ' ').slice(0, 19)}</Text>;
+      render: (time: any, record) => {
+        return <Text style={{ fontSize: 12 }}>{formatDateTime(time || record.registerTime)}</Text>;
       },
     },
     {
@@ -1232,7 +1235,7 @@ export const UsersPage: React.FC = () => {
                 )}
               </Descriptions.Item>
               <Descriptions.Item label="注册时间" span={2}>
-                {currentUser.createTime?.replace('T', ' ') || currentUser.registerTime || '未知'}
+                {formatDateTime(currentUser.createTime || currentUser.registerTime)}
               </Descriptions.Item>
             </Descriptions>
           </div>
