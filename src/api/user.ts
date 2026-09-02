@@ -279,6 +279,29 @@ const mockUsers: UserItem[] = [
     phone: '13988776655',
     bio: '用镜头守护大地生灵，记录大自然的壮美与真实 🦁🦅',
   },
+  {
+    id: '13',
+    uid: 'dy_77889900',
+    username: 'leaving_soon_user',
+    nickname: '风清云淡_待注销',
+    avatar:
+      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    gender: 'male',
+    verifyStatus: 'unverified',
+    status: 'cancelling',
+    commentCount: 88,
+    commentStatus: 'forbidden',
+    postCount: 5,
+    likeCount: 620,
+    followerCount: 230,
+    activityCount: 1,
+    lastActiveTime: '2026-09-01 15:30:00',
+    activeStatus: 'offline',
+    registerTime: '2024-03-15 10:00:00',
+    email: 'leaving_user@qq.com',
+    phone: '13866554433',
+    bio: '用户已于 2026-09-01 申请账号注销，当前处于 15 天注销冷静期中。',
+  },
 ];
 
 let currentDataset = [...mockUsers];

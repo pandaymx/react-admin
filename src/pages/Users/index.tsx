@@ -14,6 +14,7 @@ import {
   StarFilled,
   StopOutlined,
   UnlockOutlined,
+  UserDeleteOutlined,
   UserOutlined,
   WomanOutlined,
 } from '@ant-design/icons';
@@ -241,6 +242,7 @@ export const UsersPage: React.FC = () => {
                 normal: '正常',
                 banned: '已封禁',
                 muted: '已禁言',
+                cancelling: '注销中',
                 cancelled: '已注销',
               };
               return map[r.status] || '未知';
@@ -321,6 +323,8 @@ export const UsersPage: React.FC = () => {
         return <Badge status="error" text={<Text type="danger">已封禁</Text>} />;
       case 'muted':
         return <Badge status="warning" text={<Text style={{ color: '#fa8c16' }}>已禁言</Text>} />;
+      case 'cancelling':
+        return <Badge status="warning" text={<Text style={{ color: '#d46b08' }}>注销中</Text>} />;
       case 'cancelled':
         return <Badge status="default" text={<Text type="secondary">已注销</Text>} />;
       default:
@@ -558,6 +562,13 @@ export const UsersPage: React.FC = () => {
             onClick: () => handleStatusChange(record, 'muted'),
           },
           {
+            key: 'status-cancelling',
+            icon: <UserDeleteOutlined />,
+            label: '申请注销',
+            disabled: record.status === 'cancelling' || record.status === 'cancelled',
+            onClick: () => handleStatusChange(record, 'cancelling'),
+          },
+          {
             key: 'status-banned',
             icon: <LockOutlined />,
             label: '封禁账号',
@@ -668,6 +679,7 @@ export const UsersPage: React.FC = () => {
                     { label: '正常', value: 'normal' },
                     { label: '已封禁', value: 'banned' },
                     { label: '已禁言', value: 'muted' },
+                    { label: '注销中', value: 'cancelling' },
                     { label: '已注销', value: 'cancelled' },
                   ]}
                 />
@@ -799,6 +811,10 @@ export const UsersPage: React.FC = () => {
               {currentUser.status === 'banned' ? (
                 <Button type="primary" onClick={() => handleStatusChange(currentUser, 'normal')}>
                   解封账号
+                </Button>
+              ) : currentUser.status === 'cancelling' ? (
+                <Button type="primary" onClick={() => handleStatusChange(currentUser, 'normal')}>
+                  撤销注销申请（恢复正常）
                 </Button>
               ) : (
                 <Button danger onClick={() => handleStatusChange(currentUser, 'banned')}>
