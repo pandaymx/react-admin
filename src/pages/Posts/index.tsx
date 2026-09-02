@@ -47,6 +47,7 @@ import {
   updatePostCommentPermission,
   updatePostStatus,
 } from '@/api/post';
+import { type ColumnOptionItem, useColumnSettings } from '@/components/ColumnSetting';
 import type {
   CommentPermission,
   PostAuditStatus,
@@ -60,7 +61,22 @@ import { PostCommentsDrawer } from './components/PostCommentsDrawer';
 const { Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
 
+const postColumnOptions: ColumnOptionItem[] = [
+  { key: 'post', title: '作品基本信息 (封面/标题/作者)', required: true },
+  { key: 'type', title: '作品形式 (短视频/图文)' },
+  { key: 'status', title: '发布与上架状态' },
+  { key: 'commentPermission', title: '评论权限管控' },
+  { key: 'stats', title: '点赞/收藏/分享互动数' },
+  { key: 'commentCount', title: '评论总数' },
+  { key: 'createTime', title: '发布时间' },
+  { key: 'action', title: '操作列', required: true },
+];
+
 export const PostsPage: React.FC = () => {
+  const { checkedKeys, ColumnSettingComponent } = useColumnSettings(
+    'posts_table',
+    postColumnOptions,
+  );
   const [form] = Form.useForm();
   const [loading, setLoading] = useState<boolean>(false);
   const [exportLoading, setExportLoading] = useState<boolean>(false);
@@ -697,6 +713,7 @@ export const PostsPage: React.FC = () => {
             <Button icon={<DownloadOutlined />} onClick={handleExport} loading={exportLoading}>
               导出作品数据
             </Button>
+            {ColumnSettingComponent}
             <Tooltip title="刷新列表">
               <Button icon={<ReloadOutlined />} onClick={() => fetchData()} loading={loading} />
             </Tooltip>
@@ -705,7 +722,7 @@ export const PostsPage: React.FC = () => {
       >
         <Table<PostItem>
           rowKey="id"
-          columns={columns}
+          columns={columns.filter((col) => !col.key || checkedKeys.includes(col.key as string))}
           dataSource={postList}
           loading={loading}
           scroll={{ x: 1300 }}
