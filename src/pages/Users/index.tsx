@@ -44,9 +44,7 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
-
 import {
   batchUpdateUserStatus,
   getAllFilteredUsers,
@@ -55,6 +53,7 @@ import {
 } from '@/api/user';
 import type { ActiveStatus, UserItem, UserQueryParams, UserStatus, VerifyStatus } from '@/types';
 import { exportToCsv } from '@/utils/export';
+import { formatBanRemainingTime } from '@/utils/time';
 
 const { Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
@@ -250,11 +249,22 @@ export const UsersPage: React.FC = () => {
           },
           { title: '评论数', key: 'commentCount' },
           {
-            title: '评论状态',
+            title: '评论权限',
             key: 'commentStatus',
-            render: (r) => (r.commentStatus === 'allowed' ? '正常发言' : '已禁评'),
+            render: (r) =>
+              r.commentStatus === 'allowed'
+                ? '正常互动'
+                : `已禁言(${formatBanRemainingTime(r.commentBanExpireTime).text || '限制中'})`,
           },
           { title: '作品数', key: 'postCount' },
+          {
+            title: '发帖权限',
+            key: 'postStatus',
+            render: (r) =>
+              r.postStatus === 'forbidden'
+                ? `已禁发(${formatBanRemainingTime(r.postBanExpireTime).text || '限制中'})`
+                : '正常发布',
+          },
           { title: '获赞总数', key: 'likeCount' },
           { title: '粉丝数', key: 'followerCount' },
           { title: '参与活动数', key: 'activityCount' },
@@ -452,55 +462,87 @@ export const UsersPage: React.FC = () => {
       title: '评论',
       dataIndex: 'commentCount',
       key: 'comment',
-      width: 140,
+      width: 155,
       sorter: (a, b) => a.commentCount - b.commentCount,
-      render: (count: number, record) => (
-        <div>
+      render: (count: number, record) => {
+        const banInfo = formatBanRemainingTime(record.commentBanExpireTime);
+        return (
           <div>
-            <Text strong style={{ fontSize: 13 }}>
-              {count.toLocaleString()}
-            </Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {' '}
-              条
-            </Text>
+            <div>
+              <Text strong style={{ fontSize: 13 }}>
+                {count.toLocaleString()}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {' '}
+                条
+              </Text>
+            </div>
+            <div>
+              {record.commentStatus === 'allowed' ? (
+                <Tag color="green" style={{ fontSize: 11, padding: '0 4px', margin: 0 }}>
+                  正常互动
+                </Tag>
+              ) : (
+                <Tooltip title={banInfo.fullDesc}>
+                  <Space size={2} style={{ cursor: 'help' }}>
+                    <Tag color="error" style={{ fontSize: 11, padding: '0 4px', margin: 0 }}>
+                      已禁言
+                    </Tag>
+                    {banInfo.text && (
+                      <Text type="danger" style={{ fontSize: 11 }}>
+                        ({banInfo.text})
+                      </Text>
+                    )}
+                  </Space>
+                </Tooltip>
+              )}
+            </div>
           </div>
-          <div>
-            {record.commentStatus === 'allowed' ? (
-              <Tag color="green" style={{ fontSize: 11, padding: '0 4px', margin: 0 }}>
-                正常互动
-              </Tag>
-            ) : (
-              <Tag color="error" style={{ fontSize: 11, padding: '0 4px', margin: 0 }}>
-                已禁言评论
-              </Tag>
-            )}
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       title: '发帖',
       dataIndex: 'postCount',
       key: 'post',
-      width: 140,
+      width: 155,
       sorter: (a, b) => a.postCount - b.postCount,
-      render: (count: number, record) => (
-        <div>
+      render: (count: number, record) => {
+        const banInfo = formatBanRemainingTime(record.postBanExpireTime);
+        return (
           <div>
-            <Text strong style={{ fontSize: 13 }}>
-              {count.toLocaleString()}
-            </Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {' '}
-              篇作品
-            </Text>
+            <div>
+              <Text strong style={{ fontSize: 13 }}>
+                {count.toLocaleString()}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {' '}
+                篇作品
+              </Text>
+            </div>
+            <div>
+              {record.postStatus === 'forbidden' ? (
+                <Tooltip title={banInfo.fullDesc}>
+                  <Space size={2} style={{ cursor: 'help' }}>
+                    <Tag color="error" style={{ fontSize: 11, padding: '0 4px', margin: 0 }}>
+                      已禁发
+                    </Tag>
+                    {banInfo.text && (
+                      <Text type="danger" style={{ fontSize: 11 }}>
+                        ({banInfo.text})
+                      </Text>
+                    )}
+                  </Space>
+                </Tooltip>
+              ) : (
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  获赞 {(record.likeCount / 10000).toFixed(1)}w
+                </Text>
+              )}
+            </div>
           </div>
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            获赞 {(record.likeCount / 10000).toFixed(1)}w
-          </Text>
-        </div>
-      ),
+        );
+      },
     },
     {
       title: '活动',
@@ -932,6 +974,30 @@ export const UsersPage: React.FC = () => {
               </Descriptions.Item>
               <Descriptions.Item label="电子邮箱">
                 {currentUser.email || '未绑定'}
+              </Descriptions.Item>
+              <Descriptions.Item label="评论互动权限">
+                {currentUser.commentStatus === 'allowed' ? (
+                  <Tag color="green">正常发言</Tag>
+                ) : (
+                  <Space size={4}>
+                    <Tag color="error">已禁言</Tag>
+                    <Text type="danger" style={{ fontSize: 12 }}>
+                      {formatBanRemainingTime(currentUser.commentBanExpireTime).fullDesc}
+                    </Text>
+                  </Space>
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label="作品发布权限">
+                {currentUser.postStatus === 'forbidden' ? (
+                  <Space size={4}>
+                    <Tag color="error">已禁发作品</Tag>
+                    <Text type="danger" style={{ fontSize: 12 }}>
+                      {formatBanRemainingTime(currentUser.postBanExpireTime).fullDesc}
+                    </Text>
+                  </Space>
+                ) : (
+                  <Tag color="green">正常发布</Tag>
+                )}
               </Descriptions.Item>
               <Descriptions.Item label="注册时间">{currentUser.registerTime}</Descriptions.Item>
               <Descriptions.Item label="最近活跃时间">
