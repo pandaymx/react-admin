@@ -137,6 +137,15 @@ export const PersonalVerification: React.FC = () => {
     return `${prefix}${mask}${suffix}`;
   };
 
+  // 手机号脱敏
+  const formatMaskedPhone = (phone?: string, isRevealed = false) => {
+    if (!phone) return '未绑定';
+    if (isRevealed) return phone;
+    return phone
+      .replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2')
+      .replace(/^(\d{3,4}-)\d{4}(\d{4})$/, '$1****$2');
+  };
+
   // 证件类型 Tag
   const renderIdCardTypeTag = (type: IdCardType) => {
     switch (type) {
@@ -251,7 +260,7 @@ export const PersonalVerification: React.FC = () => {
             },
           },
           { title: '认证申请时间', key: 'verifyTime' },
-          { title: '联系电话', key: 'phone' },
+          { title: '联系电话', key: 'phone', render: (r) => formatMaskedPhone(r.phone, false) },
           { title: '审核人员', key: 'auditor' },
           { title: '审核时间', key: 'auditTime' },
           { title: '审核说明/原因', key: 'auditRemark' },
@@ -302,7 +311,7 @@ export const PersonalVerification: React.FC = () => {
               {nickname}
             </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              {record.phone || '未绑手机'}
+              {formatMaskedPhone(record.phone, false)}
             </Text>
           </div>
         </Space>
@@ -603,7 +612,9 @@ export const PersonalVerification: React.FC = () => {
                 </Text>
               </Descriptions.Item>
               <Descriptions.Item label="联系电话">
-                {currentRecord.phone || '未填写'}
+                <Text code copyable={currentRecord.phone ? { text: currentRecord.phone } : false}>
+                  {formatMaskedPhone(currentRecord.phone, false)}
+                </Text>
               </Descriptions.Item>
               <Descriptions.Item label="提交申请时间">{currentRecord.verifyTime}</Descriptions.Item>
               <Descriptions.Item label="审核人">{currentRecord.auditor || '-'}</Descriptions.Item>
