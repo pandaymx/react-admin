@@ -368,7 +368,7 @@ export const UsersPage: React.FC = () => {
             </Space>
             <Text
               type="secondary"
-              copyable={{ text: `@${record.username}`, tooltips: ['复制用户名', '已复制'] }}
+              copyable={{ text: record.username, tooltips: ['复制用户名', '已复制'] }}
               style={{ fontSize: 12 }}
             >
               @{record.username}
