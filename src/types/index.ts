@@ -21,5 +21,6 @@ export interface MenuItem {
 
 export * from './comment';
 export * from './post';
+export * from './report';
 export * from './user';
 export * from './verification';

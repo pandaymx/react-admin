@@ -1,6 +1,7 @@
 import {
   CommentOutlined,
   DashboardOutlined,
+  ExclamationCircleOutlined,
   FileTextOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
@@ -51,6 +52,11 @@ const menuItems = [
     icon: <SafetyCertificateOutlined />,
     label: '认证管理',
   },
+  {
+    key: '/reports',
+    icon: <ExclamationCircleOutlined />,
+    label: '举报管理',
+  },
 ];
 
 export const BasicLayout: React.FC = () => {
@@ -99,6 +105,8 @@ export const BasicLayout: React.FC = () => {
         return ['用户管理', '评论管理'];
       case '/verifications':
         return ['认证管理'];
+      case '/reports':
+        return ['举报管理'];
       default:
         return ['仪表盘'];
     }
