@@ -1,32 +1,56 @@
-# React + TypeScript + Vite
+# React Admin 后台管理系统
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+基于 **Bun + React 19 + TypeScript + Vite** 构建的现代化后台管理系统初始化脚手架。
 
-Currently, two official plugins are available:
+## 🛠️ 技术栈
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **包管理器 / 运行时**: [Bun](https://bun.sh/)
+- **核心框架**: React 19 + TypeScript
+- **构建工具**: [Vite](https://vite.dev/)
+- **代码规范与格式化**: [Biome](https://biomejs.dev/)
+- **Git 提交规范与钩子**: Husky + Commitlint + Lint-staged
 
-## React Compiler
+## 📦 常用脚本指令
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+# 安装依赖
+bun install
 
-## Expanding the Oxlint configuration
+# 启动开发服务器
+bun run dev
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+# 构建生产包 (TypeScript 检查 + Vite 打包)
+bun run build
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+# 代码检查
+bun run lint
+
+# 代码自动修复与格式化
+bun run lint:fix
+bun run format
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## 📝 Git 提交规范
+
+项目配置了 Husky 与 Commitlint 钩子，要求遵循 Conventional Commits 规范，支持中文描述：
+
+格式：`<type>: <描述>`
+
+支持的 `type`:
+- `feat`: 新增功能
+- `fix`: 修复 bug
+- `docs`: 文档变更
+- `style`: 代码格式变化（不影响逻辑）
+- `refactor`: 代码重构
+- `perf`: 性能优化
+- `test`: 测试相关
+- `build`: 构建系统或外部依赖变动
+- `ci`: CI 配置或脚本变动
+- `chore`: 构建过程或辅助工具变动
+- `revert`: 回退提交
+
+示例：
+```bash
+git commit -m "feat: 新增用户管理模块"
+git commit -m "chore: 配置 Biome 与 Git Hooks"
+```
