@@ -2,7 +2,7 @@ export type VerifyStatus = 'unverified' | 'personal' | 'enterprise' | 'creator';
 
 export type UserStatus = 'normal' | 'banned' | 'muted' | 'cancelled';
 
-export type CommentStatus = 'allowed' | 'forbidden';
+export type UserCommentStatus = 'allowed' | 'forbidden';
 
 export type ActiveStatus = 'online' | 'offline' | 'recent';
 
@@ -17,7 +17,7 @@ export interface UserItem {
   verifyInfo?: string;
   status: UserStatus;
   commentCount: number;
-  commentStatus: CommentStatus;
+  commentStatus: UserCommentStatus;
   postCount: number;
   likeCount: number;
   followerCount: number;

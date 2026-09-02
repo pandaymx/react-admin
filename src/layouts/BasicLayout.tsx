@@ -1,9 +1,12 @@
 import {
+  CommentOutlined,
   DashboardOutlined,
+  FileTextOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   SafetyCertificateOutlined,
+  TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
@@ -22,9 +25,26 @@ const menuItems = [
     label: '仪表盘',
   },
   {
-    key: '/users',
-    icon: <UserOutlined />,
+    key: 'user-management',
+    icon: <TeamOutlined />,
     label: '用户管理',
+    children: [
+      {
+        key: '/users',
+        icon: <UserOutlined />,
+        label: '用户列表',
+      },
+      {
+        key: '/posts',
+        icon: <FileTextOutlined />,
+        label: '帖子管理',
+      },
+      {
+        key: '/comments',
+        icon: <CommentOutlined />,
+        label: '评论管理',
+      },
+    ],
   },
   {
     key: '/verifications',
@@ -69,6 +89,23 @@ export const BasicLayout: React.FC = () => {
     },
   ];
 
+  const getBreadcrumbTitle = () => {
+    switch (location.pathname) {
+      case '/users':
+        return ['用户管理', '用户列表'];
+      case '/posts':
+        return ['用户管理', '帖子管理'];
+      case '/comments':
+        return ['用户管理', '评论管理'];
+      case '/verifications':
+        return ['认证管理'];
+      default:
+        return ['仪表盘'];
+    }
+  };
+
+  const breadcrumbItems = [{ title: '首页' }, ...getBreadcrumbTitle().map((title) => ({ title }))];
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider
@@ -98,6 +135,7 @@ export const BasicLayout: React.FC = () => {
         <Menu
           mode="inline"
           selectedKeys={[location.pathname]}
+          defaultOpenKeys={['user-management']}
           items={menuItems}
           onClick={handleMenuClick}
           style={{ borderRight: 0 }}
@@ -135,19 +173,7 @@ export const BasicLayout: React.FC = () => {
         </Header>
         <Content style={{ margin: '24px 24px', minHeight: 280 }}>
           <div style={{ marginBottom: 16 }}>
-            <Breadcrumb
-              items={[
-                { title: '首页' },
-                {
-                  title:
-                    location.pathname === '/users'
-                      ? '用户管理'
-                      : location.pathname === '/verifications'
-                        ? '认证管理'
-                        : '仪表盘',
-                },
-              ]}
-            />
+            <Breadcrumb items={breadcrumbItems} />
           </div>
           <div
             style={{
