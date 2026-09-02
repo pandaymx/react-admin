@@ -108,14 +108,19 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
           const repCode = (res as any)?.repCode || (res as any)?.data?.repCode;
           const rawData =
             (res as any)?.repData || (res as any)?.data?.repData || (res as any)?.data;
-          const verification = rawData?.captchaVerification;
+          const isCheckPass = repCode === '0000' || rawData?.result === true;
 
-          // 必须后端明确返回 0000 且含有合法 captchaVerification
-          if (repCode === '0000' && verification) {
+          // 后端校验通过
+          if (isCheckPass) {
+            // AJ-Captcha 官方协议：生成 AES(token + "---" + pointJson) 作为最终登录验证凭据
+            const captchaVerification =
+              rawData?.captchaVerification ||
+              encryptCaptchaPoint(`${captchaData.token}---${pointJson}`, captchaData.secretKey);
+
             setStatus('success');
             message.success('安全验证通过');
             setTimeout(() => {
-              onSuccess(verification);
+              onSuccess(captchaVerification);
             }, 300);
             return;
           }
