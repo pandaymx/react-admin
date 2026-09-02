@@ -44,8 +44,13 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
     try {
       const res = await getCaptchaApi({ captchaType: 'blockPuzzle' });
       const rawData = (res as any)?.repData || (res as any)?.data?.repData || (res as any)?.data;
+      const repCode = (res as any)?.repCode || (res as any)?.data?.repCode;
 
-      if (rawData && (rawData.originalImageBase64 || rawData.jigsawImageBase64)) {
+      if (
+        (repCode === '0000' || res.code === 200 || res.code === 0) &&
+        rawData &&
+        (rawData.originalImageBase64 || rawData.jigsawImageBase64)
+      ) {
         setCaptchaData(rawData);
       } else {
         // 服务端离线或测试模式容灾
@@ -97,17 +102,13 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
             token: captchaData.token,
           });
 
+          const repCode = (res as any)?.repCode || (res as any)?.data?.repCode;
           const rawData =
             (res as any)?.repData || (res as any)?.data?.repData || (res as any)?.data;
-          const verification =
-            rawData?.captchaVerification || `${captchaData.token}---${encryptedPoint}`;
-          const isSuccess =
-            (res as any)?.repCode === '0000' ||
-            (res as any)?.data?.repCode === '0000' ||
-            res.code === 200 ||
-            res.code === 0;
+          const verification = rawData?.captchaVerification;
 
-          if (isSuccess && verification) {
+          // 必须后端明确返回 0000 且含有合法 captchaVerification
+          if (repCode === '0000' && verification) {
             setStatus('success');
             message.success('安全验证通过');
             setTimeout(() => {
@@ -115,6 +116,16 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
             }, 300);
             return;
           }
+
+          // 验证失败（滑块未对齐）
+          setStatus('error');
+          const failMsg =
+            (res as any)?.repMsg || (res as any)?.data?.repMsg || '滑动未对准缺口，请重试';
+          message.error(failMsg);
+          setTimeout(() => {
+            loadCaptcha();
+          }, 600);
+          return;
         } else {
           // 离线/演示容灾：滑动超过 50px 即判定通过
           if (moveX > 50) {
