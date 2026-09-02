@@ -40,6 +40,34 @@ export interface UserItem {
   email?: string;
   phone?: string;
   bio?: string;
+  persona?: UserPersona;
+}
+
+export interface UserPersona {
+  creditScore: number; // 社区信用分 (350 - 950)
+  creatorLevel: number; // 创作者成长等级 (Lv.1 - Lv.10)
+  tags: Array<{
+    category: string;
+    list: Array<{ name: string; color: string; desc?: string }>;
+  }>;
+  dimensions: Array<{
+    subject: string;
+    score: number;
+    fullMark: number;
+  }>;
+  audience: {
+    genderRatio: { male: number; female: number };
+    ageDistribution: Array<{ range: string; percent: number }>;
+    topRegions: Array<{ region: string; percent: number }>;
+    activePeakTime: string;
+  };
+  metrics: {
+    avgPlayFinishRate: number; // 完播率 %
+    interactionRate: number; // 互动转化率 %
+    commercialIndex: number; // 商业化价值指数 (0-100)
+    estimatedAdQuote: string; // 预估单条商单合作价
+    violationCount: number; // 历史违规处罚次数
+  };
 }
 
 export interface UserQueryParams {
