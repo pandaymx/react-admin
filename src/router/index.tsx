@@ -6,6 +6,7 @@ import DashboardPage from '@/pages/Dashboard';
 import LoginPage from '@/pages/Login';
 import NotFoundPage from '@/pages/NotFound';
 import PostsPage from '@/pages/Posts';
+import ReportsPage from '@/pages/Reports';
 import UsersPage from '@/pages/Users';
 import VerificationPage from '@/pages/Verification';
 import { useUserStore } from '@/store/user';
@@ -55,6 +56,10 @@ export const router = createBrowserRouter([
       {
         path: 'verifications',
         element: <VerificationPage />,
+      },
+      {
+        path: 'reports',
+        element: <ReportsPage />,
       },
     ],
   },
