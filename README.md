@@ -6,6 +6,10 @@
 
 - **包管理器 / 运行时**: [Bun](https://bun.sh/)
 - **核心框架**: React 19 + TypeScript
+- **UI 组件库**: [Ant Design (antd)](https://ant.design/) + [@ant-design/icons](https://ant.design/components/icon-cn)
+- **路由管理**: [React Router](https://reactrouter.com/) (v7)
+- **状态管理**: [Zustand](https://zustand-demo.pmnd.rs/)
+- **网络请求**: [Axios](https://axios-http.com/)
 - **构建工具**: [Vite](https://vite.dev/)
 - **代码规范与格式化**: [Biome](https://biomejs.dev/)
 - **Git 提交规范与钩子**: Husky + Commitlint + Lint-staged
