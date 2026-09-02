@@ -1,4 +1,34 @@
 /**
+ * 格式化后端返回的时间字段 (兼容毫秒时间戳 number、ISO 字符串 string、LocalDateTime 数组 [y,m,d,h,m,s]、null/undefined)
+ */
+export const formatDateTime = (val: any): string => {
+  if (val === null || val === undefined || val === '') return '-';
+
+  // 数字时间戳 (如 1725264300000 或秒级时间戳 1725264300)
+  if (typeof val === 'number') {
+    const timestamp = val < 10000000000 ? val * 1000 : val;
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return String(val);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  }
+
+  // 数组格式 [2026, 9, 2, 10, 45, 0] (Java LocalDateTime 默认 Jackson 序列化数组)
+  if (Array.isArray(val)) {
+    const [y, m, d, h = 0, min = 0, s = 0] = val;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${y}-${pad(m)}-${pad(d)} ${pad(h)}:${pad(min)}:${pad(s)}`;
+  }
+
+  // 字符串格式 (如 2026-09-02T10:45:00 或 2026-09-02 10:45:00)
+  if (typeof val === 'string') {
+    return val.replace('T', ' ').slice(0, 19);
+  }
+
+  return String(val);
+};
+
+/**
  * 计算封禁到期剩余时间
  */
 export interface BanRemainingInfo {
@@ -28,7 +58,6 @@ export const formatBanRemainingTime = (expireTime?: string): BanRemainingInfo =>
   }
 
   const expire = new Date(expireTime).getTime();
-  // 模拟当前基准时间（2026-09-02）或实时时间
   const now = Date.now();
   const diff = expire - now;
 

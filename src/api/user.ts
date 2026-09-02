@@ -10,6 +10,7 @@ import type {
   UserStatisticsRespVO,
   UserStatus,
 } from '@/types';
+import { formatDateTime } from '@/utils/time';
 
 // 测试环境模拟数据集 (完全对应后端 AdminUserRespVO 结构)
 const mockUsers: UserItem[] = [
@@ -347,8 +348,8 @@ export const getUserList = async (
               : 'unverified',
         certified: vo.certified,
         initStatus: vo.initStatus,
-        createTime: vo.createTime,
-        registerTime: vo.createTime ? vo.createTime.replace('T', ' ').slice(0, 19) : '',
+        createTime: formatDateTime(vo.createTime),
+        registerTime: formatDateTime(vo.createTime),
         fanCount: vo.fanCount || 0,
         followCount: vo.followCount || 0,
         friendCount: vo.friendCount || 0,
@@ -469,7 +470,7 @@ export const getUserDetail = async (id: string | number): Promise<ApiResponse<Ad
       qualification: user.qualification,
       certified: user.certified || false,
       initStatus: user.initStatus || 1,
-      createTime: user.createTime,
+      createTime: formatDateTime(user.createTime),
       fanCount: user.fanCount,
       followCount: user.followCount,
       friendCount: user.friendCount,
