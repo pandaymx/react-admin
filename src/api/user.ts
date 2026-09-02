@@ -241,7 +241,8 @@ const mockUsers: UserItem[] = [
     avatar:
       'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80',
     gender: 'male',
-    verifyStatus: 'unverified',
+    verifyStatus: 'pending',
+    verifyInfo: '个人实名认证身份材料审核中',
     status: 'normal',
     commentCount: 420,
     commentStatus: 'allowed',

@@ -1,4 +1,4 @@
-export type VerifyStatus = 'unverified' | 'personal' | 'enterprise' | 'creator';
+export type VerifyStatus = 'unverified' | 'pending' | 'personal' | 'enterprise' | 'creator';
 
 export type UserStatus = 'normal' | 'banned' | 'muted' | 'cancelled';
 
