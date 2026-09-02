@@ -4,22 +4,43 @@ import type React from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginApi } from '@/api/auth';
+import { SlideCaptchaModal } from '@/components/Captcha/SlideCaptchaModal';
 import { useUserStore } from '@/store/user';
 
 const { Title, Text } = Typography;
 
 export const LoginPage: React.FC = () => {
+  const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [captchaModalVisible, setCaptchaModalVisible] = useState(false);
+  const [pendingValues, setPendingValues] = useState<{ username: string; password: string } | null>(
+    null,
+  );
+
   const navigate = useNavigate();
   const setAuthTokens = useUserStore((state) => state.setAuthTokens);
   const fetchUserInfo = useUserStore((state) => state.fetchUserInfo);
 
-  const onFinish = async (values: any) => {
+  // 点击登录按钮触发校验并唤起安全验证码弹窗
+  const handlePreLogin = (values: any) => {
+    setPendingValues({
+      username: values.username.trim(),
+      password: values.password,
+    });
+    setCaptchaModalVisible(true);
+  };
+
+  // 验证码验证成功后，携带 captchaVerification 令牌正式提交登录
+  const handleCaptchaSuccess = async (captchaVerification: string) => {
+    setCaptchaModalVisible(false);
+    if (!pendingValues) return;
+
     setLoading(true);
     try {
       const res = await loginApi({
-        username: values.username.trim(),
-        password: values.password,
+        username: pendingValues.username,
+        password: pendingValues.password,
+        captchaVerification,
       });
 
       if ((res.code === 200 || res.code === 0) && res.data) {
@@ -32,7 +53,7 @@ export const LoginPage: React.FC = () => {
         message.error(res.msg || res.message || '登录失败，请检查账号密码');
       }
     } catch (_err) {
-      // 拦截器已展示 message.error
+      // 拦截器统一处理错误提示
     } finally {
       setLoading(false);
     }
@@ -63,9 +84,10 @@ export const LoginPage: React.FC = () => {
         </div>
 
         <Form
+          form={form}
           name="login"
           initialValues={{ username: 'admin', password: 'admin123' }}
-          onFinish={onFinish}
+          onFinish={handlePreLogin}
           size="large"
           layout="vertical"
         >
@@ -104,6 +126,13 @@ export const LoginPage: React.FC = () => {
           </Form.Item>
         </Form>
       </Card>
+
+      {/* AJ-Captcha 行为滑动验证码弹窗 */}
+      <SlideCaptchaModal
+        open={captchaModalVisible}
+        onCancel={() => setCaptchaModalVisible(false)}
+        onSuccess={handleCaptchaSuccess}
+      />
     </div>
   );
 };

@@ -28,6 +28,7 @@ export interface AuthPermissionInfoRespVO {
 
 export interface CaptchaGetReqVO {
   captchaType: 'blockPuzzle' | 'clickWord';
+  clientUid?: string;
 }
 
 export interface CaptchaGetRespVO {
@@ -38,5 +39,19 @@ export interface CaptchaGetRespVO {
     jigsawImageBase64: string;
     token: string;
     secretKey?: string;
+  };
+}
+
+export interface CaptchaCheckReqVO {
+  captchaType: 'blockPuzzle' | 'clickWord';
+  pointJson: string;
+  token: string;
+}
+
+export interface CaptchaCheckRespVO {
+  repCode?: string;
+  repMsg?: string;
+  repData?: {
+    captchaVerification: string;
   };
 }

@@ -4,6 +4,8 @@ import type {
   AuthLoginReqVO,
   AuthLoginRespVO,
   AuthPermissionInfoRespVO,
+  CaptchaCheckReqVO,
+  CaptchaCheckRespVO,
   CaptchaGetReqVO,
   CaptchaGetRespVO,
 } from '@/types';
@@ -59,6 +61,19 @@ export const getCaptchaApi = async (
 ): Promise<ApiResponse<CaptchaGetRespVO>> => {
   return request<CaptchaGetRespVO>({
     url: '/system/captcha/get',
+    method: 'POST',
+    data,
+  });
+};
+
+/**
+ * 校验 AJ-Captcha 滑动验证码 (POST /admin-api/system/captcha/check)
+ */
+export const checkCaptchaApi = async (
+  data: CaptchaCheckReqVO,
+): Promise<ApiResponse<CaptchaCheckRespVO>> => {
+  return request<CaptchaCheckRespVO>({
+    url: '/system/captcha/check',
     method: 'POST',
     data,
   });
