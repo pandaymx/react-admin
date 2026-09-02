@@ -43,11 +43,10 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
     setSliderLeft(0);
     try {
       const res = await getCaptchaApi({ captchaType: 'blockPuzzle' });
-      if (
-        (res.code === 200 || res.code === 0 || res.data?.repCode === '0000') &&
-        res.data?.repData
-      ) {
-        setCaptchaData(res.data.repData);
+      const rawData = (res as any)?.repData || (res as any)?.data?.repData || (res as any)?.data;
+
+      if (rawData && (rawData.originalImageBase64 || rawData.jigsawImageBase64)) {
+        setCaptchaData(rawData);
       } else {
         // 服务端离线或测试模式容灾
         setCaptchaData({
@@ -98,13 +97,17 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
             token: captchaData.token,
           });
 
+          const rawData =
+            (res as any)?.repData || (res as any)?.data?.repData || (res as any)?.data;
           const verification =
-            res.data?.repData?.captchaVerification || `${captchaData.token}---${encryptedPoint}`;
+            rawData?.captchaVerification || `${captchaData.token}---${encryptedPoint}`;
+          const isSuccess =
+            (res as any)?.repCode === '0000' ||
+            (res as any)?.data?.repCode === '0000' ||
+            res.code === 200 ||
+            res.code === 0;
 
-          if (
-            (res.code === 200 || res.code === 0 || res.data?.repCode === '0000') &&
-            verification
-          ) {
+          if (isSuccess && verification) {
             setStatus('success');
             message.success('安全验证通过');
             setTimeout(() => {
