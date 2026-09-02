@@ -49,7 +49,7 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
       ) {
         setCaptchaData(res.data.repData);
       } else {
-        // 若服务端未配置验证码，生成前端模拟拼图容灾
+        // 服务端离线或测试模式容灾
         setCaptchaData({
           originalImageBase64: '',
           jigsawImageBase64: '',
@@ -98,7 +98,9 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
             token: captchaData.token,
           });
 
-          const verification = res.data?.repData?.captchaVerification;
+          const verification =
+            res.data?.repData?.captchaVerification || `${captchaData.token}---${encryptedPoint}`;
+
           if (
             (res.code === 200 || res.code === 0 || res.data?.repCode === '0000') &&
             verification
@@ -107,17 +109,17 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
             message.success('安全验证通过');
             setTimeout(() => {
               onSuccess(verification);
-            }, 400);
+            }, 300);
             return;
           }
         } else {
-          // 离线/演示容灾：只要滑动超过 50px 即判定成功
+          // 离线/演示容灾：滑动超过 50px 即判定通过
           if (moveX > 50) {
             setStatus('success');
             const mockVerification = `${captchaData.token}---mock_verification_${Date.now()}`;
             setTimeout(() => {
               onSuccess(mockVerification);
-            }, 400);
+            }, 300);
             return;
           }
         }
@@ -126,12 +128,12 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
         setStatus('error');
         setTimeout(() => {
           loadCaptcha();
-        }, 600);
+        }, 500);
       } catch {
         setStatus('error');
         setTimeout(() => {
           loadCaptcha();
-        }, 600);
+        }, 500);
       } finally {
         setChecking(false);
       }
@@ -186,7 +188,7 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
       closable={false}
       width={360}
       centered
-      destroyOnClose
+      destroyOnHidden
       styles={{
         body: {
           padding: '20px 24px',
@@ -245,7 +247,7 @@ export const SlideCaptchaModal: React.FC<SlideCaptchaModalProps> = ({
               justifyContent: 'center',
             }}
           >
-            <Spin tip="加载验证码中..." />
+            <Spin description="加载验证码中..." />
           </div>
         ) : captchaData?.originalImageBase64 ? (
           <>
