@@ -349,7 +349,12 @@ export const getUserList = async (
     filtered = filtered.filter((item) => item.status === params.status);
   }
 
-  // 5. 注册时间范围过滤
+  // 5. 活跃在线状态过滤
+  if (params.activeStatus && params.activeStatus !== 'all') {
+    filtered = filtered.filter((item) => item.activeStatus === params.activeStatus);
+  }
+
+  // 6. 注册时间范围过滤
   if (params.dateRange && params.dateRange.length === 2) {
     const [start, end] = params.dateRange;
     if (start && end) {

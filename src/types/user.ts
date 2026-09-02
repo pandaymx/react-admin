@@ -25,6 +25,15 @@ export interface UserItem {
   likeCount: number;
   followerCount: number;
   activityCount: number;
+  onlineActivityCount?: number; // 参与线上活动场次（如话题挑战赛、直播打榜）
+  offlineActivityCount?: number; // 参与线下活动场次（如创作者沙龙、行业峰会）
+  activityHistory?: Array<{
+    id: string;
+    title: string;
+    type: 'online' | 'offline';
+    date: string;
+    role?: string;
+  }>;
   lastActiveTime: string;
   activeStatus: ActiveStatus;
   registerTime: string;
@@ -38,6 +47,7 @@ export interface UserQueryParams {
   uid?: string;
   verifyStatus?: VerifyStatus | 'all';
   status?: UserStatus | 'all';
+  activeStatus?: ActiveStatus | 'all'; // 活跃状态筛选
   dateRange?: [string, string];
   page?: number;
   pageSize?: number;
