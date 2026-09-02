@@ -1,5 +1,6 @@
 import {
   CheckCircleFilled,
+  ClockCircleOutlined,
   DownloadOutlined,
   EyeOutlined,
   LockOutlined,
@@ -214,6 +215,7 @@ export const UsersPage: React.FC = () => {
                 creator: '达人认证',
                 enterprise: '企业认证',
                 personal: '个人实名',
+                pending: '认证审核中',
                 unverified: '未认证',
               };
               return map[r.verifyStatus] || '未认证';
@@ -263,7 +265,13 @@ export const UsersPage: React.FC = () => {
   // 认证状态 Tag 渲染
   const renderVerifyTag = (verifyStatus: VerifyStatus, verifyInfo?: string) => {
     let tag = <Tag color="default">未认证</Tag>;
-    if (verifyStatus === 'creator') {
+    if (verifyStatus === 'pending') {
+      tag = (
+        <Tag color="processing" icon={<ClockCircleOutlined />} style={{ borderRadius: 10 }}>
+          审核中
+        </Tag>
+      );
+    } else if (verifyStatus === 'creator') {
       tag = (
         <Tag color="gold" icon={<StarFilled />} style={{ borderRadius: 10 }}>
           达人认证
@@ -631,6 +639,7 @@ export const UsersPage: React.FC = () => {
                 <Select
                   options={[
                     { label: '全部认证', value: 'all' },
+                    { label: '认证审核中', value: 'pending' },
                     { label: '未认证', value: 'unverified' },
                     { label: '实名认证', value: 'personal' },
                     { label: '企业认证(蓝V)', value: 'enterprise' },
