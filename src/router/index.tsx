@@ -1,5 +1,5 @@
 import type React from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createHashRouter, Navigate } from 'react-router-dom';
 import BasicLayout from '@/layouts/BasicLayout';
 import CommentsPage from '@/pages/Comments';
 import DashboardPage from '@/pages/Dashboard';
@@ -20,7 +20,7 @@ const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: '/login',
     element: <LoginPage />,
