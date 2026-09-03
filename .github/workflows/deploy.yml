@@ -24,8 +24,16 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Main Branch
         uses: actions/checkout@v4
+        with:
+          path: main-repo
+
+      - name: Checkout a6e0393 Branch
+        uses: actions/checkout@v4
+        with:
+          ref: compare-a6e0393
+          path: a6e0393-repo
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -35,20 +43,34 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Build with Vite
-        run: bun run build
+      - name: Install Dependencies & Build Main
+        working-directory: main-repo
+        run: |
+          bun install --frozen-lockfile
+          bun run build
         env:
           # 优先读取 GitHub 后台配置的变量，未配置时回退使用正式后端域名
           VITE_API_HOST: ${{ vars.VITE_API_HOST || 'https://qxj.jiancan.fun' }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || '/admin-api' }}
 
+      - name: Install Dependencies & Build a6e0393
+        working-directory: a6e0393-repo
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+        env:
+          VITE_API_HOST: ${{ vars.VITE_API_HOST || 'https://qxj.jiancan.fun' }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || '/admin-api' }}
+
+      - name: Assemble Multi-Version Dist
+        run: |
+          mkdir -p main-repo/dist/a6e0393
+          cp -r a6e0393-repo/dist/* main-repo/dist/a6e0393/
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist'
+          path: 'main-repo/dist'
 
       - name: Deploy to GitHub Pages
         id: deployment
