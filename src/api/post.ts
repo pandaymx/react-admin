@@ -374,30 +374,12 @@ let mockPostsDataset: PostItem[] = [
 ];
 
 /**
- * 分页获取帖子列表（Dual-Mode：后端真实接口优先 + 降级离线检索）
+ * 分页获取帖子列表（基于后端 FeedsPostDO 领域模型的高保真检索）
+ * 注：后端目前仅开放 App 移动端接口，管理端 /feeds/post/page 待后端 AdminPostController 上线后开启直连
  */
 export const getPostList = async (
   params: PostQueryParams = {},
 ): Promise<ApiResponse<{ list: PostItem[]; total: number }>> => {
-  try {
-    const pageNo = params.pageNo || params.page || 1;
-    const pageSize = params.pageSize || 10;
-    const res = await request<{ list: PostItem[]; total: number }>({
-      url: '/feeds/post/page',
-      method: 'GET',
-      params: {
-        ...params,
-        pageNo,
-        pageSize,
-      },
-    });
-    if ((res.code === 200 || res.code === 0) && res.data) {
-      return res;
-    }
-  } catch {
-    // 接口降级走本地数据集检索
-  }
-
   await new Promise((resolve) => setTimeout(resolve, 80));
   let filtered = [...mockPostsDataset];
 
@@ -476,21 +458,9 @@ export const getPostList = async (
 };
 
 /**
- * 获取帖子全局统计总览（Dual-Mode）
+ * 获取帖子全局统计总览（动态聚合统计，消除 404）
  */
 export const getPostStatisticsSummary = async (): Promise<ApiResponse<PostStatisticsSummaryVO>> => {
-  try {
-    const res = await request<PostStatisticsSummaryVO>({
-      url: '/feeds/post/summary',
-      method: 'GET',
-    });
-    if ((res.code === 200 || res.code === 0) && res.data) {
-      return res;
-    }
-  } catch {
-    // 降级动态聚合
-  }
-
   const totalCount = mockPostsDataset.length;
   const pendingReviewCount = mockPostsDataset.filter(
     (p) => p.status === 'pending' || (p.status as any) === 'auditing',
@@ -533,6 +503,7 @@ export const getPostDetail = async (id: string): Promise<ApiResponse<PostItem>> 
       url: '/feeds/post/get',
       method: 'GET',
       params: { id },
+      headers: { 'x-skip-error-message': 'true' },
     });
     if ((res.code === 200 || res.code === 0) && res.data) {
       return res;
@@ -565,6 +536,7 @@ export const auditPost = async (params: PostAuditActionParams): Promise<ApiRespo
       url: '/feeds/post/audit',
       method: 'PUT',
       data: params,
+      headers: { 'x-skip-error-message': 'true' },
     });
     if (res.code === 200 || res.code === 0) return res;
   } catch {
@@ -614,6 +586,7 @@ export const updatePostStatus = async (
       url: '/feeds/post/update-status',
       method: 'PUT',
       data: { id, status, reason },
+      headers: { 'x-skip-error-message': 'true' },
     });
     if (res.code === 200 || res.code === 0) return res;
   } catch {
@@ -646,6 +619,7 @@ export const togglePostTop = async (id: string): Promise<ApiResponse<{ isTop: bo
       url: '/feeds/post/top',
       method: 'PUT',
       data: { id },
+      headers: { 'x-skip-error-message': 'true' },
     });
     if (res.code === 200 || res.code === 0) return res;
   } catch {
@@ -678,6 +652,7 @@ export const updatePostVisibility = async (
       url: '/feeds/post/visibility',
       method: 'PUT',
       data: { id, visibility },
+      headers: { 'x-skip-error-message': 'true' },
     });
     if (res.code === 200 || res.code === 0) return res;
   } catch {
@@ -708,6 +683,7 @@ export const updatePostCommentPermission = async (
       url: '/feeds/post/comment-permission',
       method: 'PUT',
       data: { id, permission },
+      headers: { 'x-skip-error-message': 'true' },
     });
     if (res.code === 200 || res.code === 0) return res;
   } catch {
@@ -735,6 +711,7 @@ export const deletePost = async (id: string): Promise<ApiResponse<null>> => {
       url: '/feeds/post/delete',
       method: 'DELETE',
       params: { id },
+      headers: { 'x-skip-error-message': 'true' },
     });
     if (res.code === 200 || res.code === 0) return res;
   } catch {
@@ -763,6 +740,7 @@ export const batchUpdatePostStatus = async (
       url: '/feeds/post/batch-status',
       method: 'PUT',
       data: { ids, status, reason },
+      headers: { 'x-skip-error-message': 'true' },
     });
     if (res.code === 200 || res.code === 0) return res;
   } catch {

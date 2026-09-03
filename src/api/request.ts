@@ -53,7 +53,12 @@ instance.interceptors.response.use(
       errorMsg = '服务器内部错误';
     }
 
-    message.error(errorMsg);
+    const skipErrorMessage =
+      (error.config as any)?.skipErrorHandler ||
+      error.config?.headers?.['x-skip-error-message'] === 'true';
+    if (!skipErrorMessage) {
+      message.error(errorMsg);
+    }
     return Promise.reject(error);
   },
 );
