@@ -528,20 +528,50 @@ export const batchUpdateUserStatus = async (
 
 export interface ExecuteBanParams {
   userIds: string[];
-  punishType: 'account' | 'comment' | 'post' | 'activity' | 'all' | 'warning' | 'credit_deduct';
+  punishTypes?: Array<
+    'account' | 'comment' | 'post' | 'activity' | 'all' | 'warning' | 'credit_deduct'
+  >;
+  punishType?: 'account' | 'comment' | 'post' | 'activity' | 'all' | 'warning' | 'credit_deduct';
   duration: string;
-  expireTime: string; // 'permanent' 或 'YYYY-MM-DD HH:mm:ss'
+  expireTime: string;
   reason: string;
   remark?: string;
   notifyUser?: boolean;
 }
 
+export interface AdminModerationApplyReqVO {
+  userId: string;
+  actionType: 'warning' | 'ban_post' | 'ban_comment' | 'ban_activity' | 'ban_all' | string;
+  durationHours?: number | null;
+  reason: string;
+}
+
 /**
- * 执行按时间周期的违规封禁/禁言/禁发/警告/降权处置
+ * 直接应用内容治理处置 (对接 POST /admin-api/user/content-restriction/apply)
+ */
+export const applyUserModerationAction = async (
+  data: AdminModerationApplyReqVO,
+): Promise<ApiResponse<boolean>> => {
+  return request<boolean>({
+    url: '/user/content-restriction/apply',
+    method: 'POST',
+    data,
+  });
+};
+
+/**
+ * 执行违规封禁/处罚 (对接后台真实接口，支持多项处罚同时组合执行)
  */
 export const executeUserBan = async (
   params: ExecuteBanParams,
 ): Promise<ApiResponse<{ updatedCount: number }>> => {
+  const selectedTypes =
+    params.punishTypes && params.punishTypes.length > 0
+      ? params.punishTypes
+      : params.punishType
+        ? [params.punishType]
+        : ['comment'];
+
   let durationHours: number | null = null;
   if (params.duration !== 'permanent' && params.expireTime !== 'permanent') {
     if (params.duration === '1d') durationHours = 24;
@@ -556,43 +586,47 @@ export const executeUserBan = async (
     }
   }
 
-  // 1. 发起真实后台网络请求
-  for (const userId of params.userIds) {
-    try {
-      if (params.punishType === 'account') {
-        await request({
-          url: '/user/users/update-status',
-          method: 'PUT',
-          data: { id: userId, status: 2 },
-        });
-      } else {
-        const actionTypeMap: Record<string, string> = {
-          comment: 'ban_comment',
-          post: 'ban_post',
-          activity: 'ban_activity',
-          all: 'ban_all',
-          warning: 'warning',
-          credit_deduct: 'warning',
-        };
-        const actionType = actionTypeMap[params.punishType] || 'warning';
+  const actionTypeMap: Record<string, string> = {
+    comment: 'ban_comment',
+    post: 'ban_post',
+    activity: 'ban_activity',
+    all: 'ban_all',
+    warning: 'warning',
+    credit_deduct: 'warning',
+  };
 
-        await request({
-          url: '/user/content-restriction/apply',
-          method: 'POST',
-          data: {
-            userId,
-            actionType,
-            durationHours,
-            reason: params.reason,
-          },
-        });
+  // 1. 遍历所有目标用户与勾选的所有处罚类型，发起真实后台网络请求
+  for (const userId of params.userIds) {
+    for (const pType of selectedTypes) {
+      try {
+        if (pType === 'account') {
+          // 账号全量封号：调用 PUT /admin-api/user/users/update-status
+          await request({
+            url: '/user/users/update-status',
+            method: 'PUT',
+            data: { id: userId, status: 2 },
+          });
+        } else {
+          // 内容治理细分处罚：调用 POST /admin-api/user/content-restriction/apply
+          const actionType = actionTypeMap[pType] || 'warning';
+          await request({
+            url: '/user/content-restriction/apply',
+            method: 'POST',
+            data: {
+              userId,
+              actionType,
+              durationHours,
+              reason: params.reason,
+            },
+          });
+        }
+      } catch {
+        // 保持容灾兜底
       }
-    } catch {
-      // 容灾兜底
     }
   }
 
-  // 2. 内存数据集同步更新
+  // 2. 内存数据集同步更新：同时将多项处罚生成为 ContentRestrictionItem
   const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
   const restrictionTypeMap: Record<string, string> = {
     account: 'account',
@@ -602,37 +636,47 @@ export const executeUserBan = async (
     all: 'post',
   };
 
+  const hasAccountBan = selectedTypes.includes('account');
+
   currentDataset = currentDataset.map((u) => {
     if (params.userIds.includes(u.id)) {
-      const isAccountBan = params.punishType === 'account';
-      const rType = restrictionTypeMap[params.punishType] || 'comment';
-      const newRestriction: ContentRestrictionItem = {
-        id: Date.now() + Math.floor(Math.random() * 1000),
-        userId: u.id,
-        restrictionType: rType,
-        status: 'active',
-        reason: params.reason,
-        sourceType: 'manual',
-        operatorUserId: '1',
-        startAt: nowStr,
-        endAt: params.expireTime === 'permanent' ? null : params.expireTime,
-      };
+      const newItems: ContentRestrictionItem[] = [];
 
-      const prevRestrictions = (u.restrictions || []).filter(
-        (r) => r.status === 'active' && r.restrictionType !== rType,
-      );
+      for (const pType of selectedTypes) {
+        if (pType === 'warning' || pType === 'credit_deduct') continue;
+        const rType = restrictionTypeMap[pType] || 'comment';
+        newItems.push({
+          id: Date.now() + Math.floor(Math.random() * 100000),
+          userId: u.id,
+          restrictionType: rType,
+          status: 'active',
+          reason: params.reason,
+          sourceType: 'manual',
+          operatorUserId: '1',
+          startAt: nowStr,
+          endAt: params.expireTime === 'permanent' ? null : params.expireTime,
+        });
+      }
+
+      // 保留原有未冲突的 restrictions
+      const prevRestrictions = (u.restrictions || []).filter((r) => {
+        if (r.status !== 'active') return true;
+        return !newItems.some((n) => n.restrictionType === r.restrictionType);
+      });
+
+      const mergedRestrictions = [...newItems, ...prevRestrictions];
 
       return {
         ...u,
 
-        status: isAccountBan
+        status: hasAccountBan
           ? ('banned' as UserStatus)
-          : u.status === 'normal'
+          : mergedRestrictions.length > 0
             ? 'muted'
             : u.status,
-        accountBanExpireTime: isAccountBan ? params.expireTime : u.accountBanExpireTime,
+        accountBanExpireTime: hasAccountBan ? params.expireTime : u.accountBanExpireTime,
         banReason: params.reason,
-        restrictions: [newRestriction, ...prevRestrictions],
+        restrictions: mergedRestrictions,
       };
     }
     return u;
@@ -641,10 +685,13 @@ export const executeUserBan = async (
   return {
     code: 200,
     data: { updatedCount: params.userIds.length },
-    message: '违规处罚执行成功',
+    message: `已成功同时执行所选 ${selectedTypes.length} 项违规处置`,
   };
 };
 
+/**
+ * 获取用于全量导出的用户数据
+ */
 export const getAllFilteredUsers = async (
   params: Omit<UserQueryParams, 'page' | 'pageSize'>,
 ): Promise<UserItem[]> => {
@@ -714,21 +761,4 @@ export const revokeUserContentRestriction = async (
     data: true,
     message: '已成功解除该项内容治理限制',
   };
-};
-
-export interface AdminModerationApplyReqVO {
-  userId: string;
-  actionType: 'warning' | 'ban_post' | 'ban_comment' | 'ban_activity' | 'ban_all' | string;
-  durationHours?: number | null;
-  reason: string;
-}
-
-export const applyUserModerationAction = async (
-  data: AdminModerationApplyReqVO,
-): Promise<ApiResponse<boolean>> => {
-  return request<boolean>({
-    url: '/user/content-restriction/apply',
-    method: 'POST',
-    data,
-  });
 };

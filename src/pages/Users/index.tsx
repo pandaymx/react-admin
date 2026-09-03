@@ -375,7 +375,8 @@ export const UsersPage: React.FC = () => {
 
   // 确认执行封禁处置
   const handleConfirmBan = async (values: {
-    punishType: BanPunishType;
+    punishTypes: BanPunishType[];
+    punishType?: BanPunishType;
     duration: string;
     expireTime: string;
     reason: string;
