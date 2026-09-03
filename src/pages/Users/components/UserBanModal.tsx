@@ -36,14 +36,7 @@ import { formatBanRemainingTime } from '@/utils/time';
 const { Text } = Typography;
 const { TextArea } = Input;
 
-export type BanPunishType =
-  | 'account'
-  | 'comment'
-  | 'post'
-  | 'activity'
-  | 'all'
-  | 'warning'
-  | 'credit_deduct';
+export type BanPunishType = 'account' | 'comment' | 'post' | 'activity' | 'all';
 
 export interface UserBanModalProps {
   open: boolean;
@@ -52,7 +45,7 @@ export interface UserBanModalProps {
   onCancel: () => void;
   onOk: (values: {
     punishTypes: BanPunishType[];
-    punishType?: BanPunishType; // 兼容旧单字段
+    punishType?: BanPunishType;
     duration: string;
     expireTime: string; // 'permanent' 或 'YYYY-MM-DD HH:mm:ss'
     reason: string;
@@ -71,39 +64,43 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
   const { token } = theme.useToken();
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
-  const [punishTypes, setPunishTypes] = useState<BanPunishType[]>([defaultPunishType]);
+
+  // 治理模式：'content' (精准功能限制) 或 'account' (全量封号)
+  const [banMode, setBanMode] = useState<'content' | 'account'>(
+    defaultPunishType === 'account' ? 'account' : 'content',
+  );
+
+  // 精准功能限制多选项 (禁言、禁帖、禁活动)
+  const [contentPenalties, setContentPenalties] = useState<BanPunishType[]>([
+    defaultPunishType === 'account' ? 'comment' : defaultPunishType,
+  ]);
+
+  // 封禁时长 (新增 1h, 3h, 6h, 12h 短时管控)
   const [duration, setDuration] = useState<string>('7d');
   const [customDate, setCustomDate] = useState<dayjs.Dayjs | null>(null);
 
   useEffect(() => {
     if (open) {
-      const initialTypes: BanPunishType[] = [defaultPunishType];
-      setPunishTypes(initialTypes);
+      const isAccount = defaultPunishType === 'account';
+      setBanMode(isAccount ? 'account' : 'content');
+      const initPenalties: BanPunishType[] = isAccount ? ['comment'] : [defaultPunishType];
+      setContentPenalties(initPenalties);
       setDuration('7d');
       setCustomDate(null);
       form.setFieldsValue({
-        punishTypes: initialTypes,
+        banMode: isAccount ? 'account' : 'content',
+        contentPenalties: initPenalties,
         duration: '7d',
-        reason: '发布低俗违规、不当言论或虚假营销引流',
+        reason: '发布低俗违规、不当言论或恶意营销引流',
         notifyUser: true,
       });
     }
   }, [open, defaultPunishType, form]);
 
-  // 计算预计到期时间与联合处罚描述
+  // 计算预计到期时间
   const calculateExpireTime = (): { expireTime: string; desc: string } => {
-    const isOnlyWarningOrCredit =
-      punishTypes.length > 0 && punishTypes.every((t) => t === 'warning' || t === 'credit_deduct');
-
-    if (isOnlyWarningOrCredit) {
-      return {
-        expireTime: 'immediate',
-        desc: '即刻下发官方告警通知或扣除社区信用分，不限制功能时效',
-      };
-    }
-
     if (duration === 'permanent') {
-      return { expireTime: 'permanent', desc: '永久限制已勾选的功能权限，不设自动解封' };
+      return { expireTime: 'permanent', desc: '永久限制已设定的管控权限，不设自动解封' };
     }
 
     if (duration === 'custom') {
@@ -116,33 +113,42 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
     }
 
     const now = new Date();
-    const daysMap: Record<string, number> = {
-      '1d': 1,
-      '3d': 3,
-      '7d': 7,
-      '15d': 15,
-      '30d': 30,
-      '180d': 180,
+    const hoursMap: Record<string, number> = {
+      '1h': 1,
+      '3h': 3,
+      '6h': 6,
+      '12h': 12,
+      '1d': 24,
+      '3d': 72,
+      '7d': 168,
+      '15d': 360,
+      '30d': 720,
     };
-    const days = daysMap[duration] || 7;
-    const future = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+    const hours = hoursMap[duration] || 168;
+    const future = new Date(now.getTime() + hours * 60 * 60 * 1000);
     const pad = (n: number) => String(n).padStart(2, '0');
     const timeStr = `${future.getFullYear()}-${pad(future.getMonth() + 1)}-${pad(future.getDate())} ${pad(future.getHours())}:${pad(future.getMinutes())}:${pad(future.getSeconds())}`;
-    return { expireTime: timeStr, desc: `${timeStr} (统一封禁 ${days} 天)` };
+    const descText = hours < 24 ? `${hours} 小时` : `${Math.round(hours / 24)} 天`;
+    return { expireTime: timeStr, desc: `${timeStr} (统一封禁 ${descText})` };
   };
 
   const { expireTime, desc: previewDesc } = calculateExpireTime();
 
   const handleFinish = async (values: any) => {
-    const selectedTypes: BanPunishType[] = values.punishTypes || punishTypes;
-    if (!selectedTypes || selectedTypes.length === 0) {
-      form.setFields([{ name: 'punishTypes', errors: ['请至少勾选一项违规处罚措施'] }]);
-      return;
+    let finalPunishTypes: BanPunishType[] = [];
+
+    if (banMode === 'account') {
+      // 业务规范：全量封号时，系统自动联动填入并执行全部三项限制 (账号+禁评+禁帖+禁活动)
+      finalPunishTypes = ['account', 'comment', 'post', 'activity'];
+    } else {
+      finalPunishTypes = contentPenalties;
+      if (!finalPunishTypes || finalPunishTypes.length === 0) {
+        form.setFields([{ name: 'contentPenalties', errors: ['请至少勾选一项精准功能限制措施'] }]);
+        return;
+      }
     }
 
-    const hasFunctionalBan = selectedTypes.some((t) => t !== 'warning' && t !== 'credit_deduct');
-
-    if (hasFunctionalBan && duration === 'custom' && !customDate) {
+    if (duration === 'custom' && !customDate) {
       form.setFields([{ name: 'customDate', errors: ['请选择自定义到期时间'] }]);
       return;
     }
@@ -150,8 +156,8 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
     setSubmitting(true);
     try {
       await onOk({
-        punishTypes: selectedTypes,
-        punishType: selectedTypes[0], // 兼容单选
+        punishTypes: finalPunishTypes,
+        punishType: finalPunishTypes[0],
         duration,
         expireTime,
         reason: values.reason,
@@ -165,21 +171,13 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
 
   const isBatch = users.length > 1;
 
-  // 快捷设置预设组合
-  const applyPreset = (types: BanPunishType[]) => {
-    setPunishTypes(types);
-    form.setFieldsValue({ punishTypes: types });
-  };
-
-  const hasFunctionalBan = punishTypes.some((t) => t !== 'warning' && t !== 'credit_deduct');
-
   return (
     <Modal
       title={
         <Space>
           <ExclamationCircleFilled style={{ color: '#ff4d4f', fontSize: 18 }} />
           <span>
-            {isBatch ? `批量多维度违规处置 (${users.length} 名用户)` : '多维度违规处置与惩处设置'}
+            {isBatch ? `批量违规处置 (${users.length} 名用户)` : '用户违规处置与惩处设置'}
           </span>
         </Space>
       }
@@ -187,7 +185,7 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
       onCancel={onCancel}
       onOk={() => form.submit()}
       confirmLoading={submitting}
-      okText="确认同时执行处置"
+      okText="确认执行处置"
       okButtonProps={{ danger: true }}
       width={640}
       destroyOnClose
@@ -223,7 +221,7 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
 
         {isBatch && (
           <Alert
-            message={`当前已选中 ${users.length} 名用户进行批量同时处置`}
+            message={`当前已选中 ${users.length} 名用户进行批量处置`}
             description={
               <div style={{ maxHeight: 60, overflowY: 'auto', marginTop: 4 }}>
                 <Space wrap size={4}>
@@ -242,226 +240,213 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
         )}
 
         <Form form={form} layout="vertical" onFinish={handleFinish}>
-          {/* 处罚类型：支持同时多选 */}
-          <Form.Item
-            label={
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  width: '100%',
-                }}
-              >
-                <span style={{ fontWeight: 600 }}>处罚措施与受限权限（可同时多选）</span>
-                <Space size={4}>
-                  <Button
-                    type="link"
-                    size="small"
-                    style={{ padding: '0 4px', fontSize: 12 }}
-                    onClick={() => applyPreset(['comment', 'post', 'activity'])}
-                  >
-                    全域内容禁封
-                  </Button>
-                  <Button
-                    type="link"
-                    size="small"
-                    style={{ padding: '0 4px', fontSize: 12, color: '#ff4d4f' }}
-                    onClick={() => applyPreset(['account', 'comment', 'post', 'activity'])}
-                  >
-                    顶格全量严惩
-                  </Button>
-                  <Button
-                    type="link"
-                    size="small"
-                    style={{ padding: '0 4px', fontSize: 12, color: '#8c8c8c' }}
-                    onClick={() => applyPreset([])}
-                  >
-                    清空
-                  </Button>
-                </Space>
-              </div>
-            }
-            name="punishTypes"
-            rules={[{ required: true, message: '请至少勾选一项处罚措施' }]}
-          >
-            <Checkbox.Group
-              value={punishTypes}
-              onChange={(vals) => setPunishTypes(vals as BanPunishType[])}
+          {/* 处置模式选择 */}
+          <Form.Item label="管控处置层级" name="banMode" style={{ marginBottom: 12 }}>
+            <Radio.Group
+              buttonStyle="solid"
+              value={banMode}
+              onChange={(e) => setBanMode(e.target.value)}
               style={{ width: '100%' }}
             >
-              <Row gutter={[10, 10]}>
+              <Row gutter={12}>
                 <Col span={12}>
-                  <div
+                  <Radio.Button
+                    value="content"
                     style={{
-                      border: punishTypes.includes('account')
-                        ? '1px solid #ff4d4f'
-                        : '1px solid #d9d9d9',
+                      width: '100%',
+                      textAlign: 'center',
+                      height: 38,
+                      lineHeight: '36px',
                       borderRadius: 6,
-                      padding: '8px 10px',
-                      background: punishTypes.includes('account') ? '#fff1f0' : '#ffffff',
-                      transition: 'all 0.2s',
                     }}
                   >
-                    <Checkbox value="account">
-                      <Space size={6}>
-                        <Tag color="#ff4d4f" icon={<LockOutlined />} style={{ margin: 0 }}>
-                          全量封号
-                        </Tag>
-                        <span style={{ fontSize: 12, color: '#cf1322' }}>账号不可登录</span>
-                      </Space>
-                    </Checkbox>
-                  </div>
+                    🎯 精准功能受限 (禁评/禁发/禁活动)
+                  </Radio.Button>
                 </Col>
-
                 <Col span={12}>
-                  <div
+                  <Radio.Button
+                    value="account"
                     style={{
-                      border: punishTypes.includes('comment')
-                        ? '1px solid #fa8c16'
-                        : '1px solid #d9d9d9',
+                      width: '100%',
+                      textAlign: 'center',
+                      height: 38,
+                      lineHeight: '36px',
                       borderRadius: 6,
-                      padding: '8px 10px',
-                      background: punishTypes.includes('comment') ? '#fff7e6' : '#ffffff',
-                      transition: 'all 0.2s',
+                      color: banMode === 'account' ? '#ffffff' : '#cf1322',
                     }}
                   >
-                    <Checkbox value="comment">
-                      <Space size={6}>
-                        <Tag color="#fa8c16" icon={<StopOutlined />} style={{ margin: 0 }}>
-                          禁止评论
-                        </Tag>
-                        <span style={{ fontSize: 12, color: '#d46b08' }}>禁言管控</span>
-                      </Space>
-                    </Checkbox>
-                  </div>
-                </Col>
-
-                <Col span={12}>
-                  <div
-                    style={{
-                      border: punishTypes.includes('post')
-                        ? '1px solid #eb2f96'
-                        : '1px solid #d9d9d9',
-                      borderRadius: 6,
-                      padding: '8px 10px',
-                      background: punishTypes.includes('post') ? '#fff0f6' : '#ffffff',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    <Checkbox value="post">
-                      <Space size={6}>
-                        <Tag color="#eb2f96" icon={<AlertOutlined />} style={{ margin: 0 }}>
-                          禁发动态
-                        </Tag>
-                        <span style={{ fontSize: 12, color: '#c41d7f' }}>限制作品发帖</span>
-                      </Space>
-                    </Checkbox>
-                  </div>
-                </Col>
-
-                <Col span={12}>
-                  <div
-                    style={{
-                      border: punishTypes.includes('activity')
-                        ? '1px solid #722ed1'
-                        : '1px solid #d9d9d9',
-                      borderRadius: 6,
-                      padding: '8px 10px',
-                      background: punishTypes.includes('activity') ? '#f9f0ff' : '#ffffff',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    <Checkbox value="activity">
-                      <Space size={6}>
-                        <Tag color="#722ed1" icon={<CalendarOutlined />} style={{ margin: 0 }}>
-                          禁发活动
-                        </Tag>
-                        <span style={{ fontSize: 12, color: '#531dab' }}>禁止发起活动</span>
-                      </Space>
-                    </Checkbox>
-                  </div>
-                </Col>
-
-                <Col span={12}>
-                  <div
-                    style={{
-                      border: punishTypes.includes('warning')
-                        ? '1px solid #13c2c2'
-                        : '1px solid #d9d9d9',
-                      borderRadius: 6,
-                      padding: '8px 10px',
-                      background: punishTypes.includes('warning') ? '#e6fffb' : '#ffffff',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    <Checkbox value="warning">
-                      <Space size={6}>
-                        <Tag color="cyan" style={{ margin: 0 }}>
-                          📢 官方警告
-                        </Tag>
-                        <span style={{ fontSize: 12, color: '#8c8c8c' }}>下发站内警告</span>
-                      </Space>
-                    </Checkbox>
-                  </div>
-                </Col>
-
-                <Col span={12}>
-                  <div
-                    style={{
-                      border: punishTypes.includes('credit_deduct')
-                        ? '1px solid #fa541c'
-                        : '1px solid #d9d9d9',
-                      borderRadius: 6,
-                      padding: '8px 10px',
-                      background: punishTypes.includes('credit_deduct') ? '#fff2e8' : '#ffffff',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    <Checkbox value="credit_deduct">
-                      <Space size={6}>
-                        <Tag color="volcano" style={{ margin: 0 }}>
-                          📉 信用扣分
-                        </Tag>
-                        <span style={{ fontSize: 12, color: '#8c8c8c' }}>扣减社区信用</span>
-                      </Space>
-                    </Checkbox>
-                  </div>
+                    🚫 全量封号 (彻底冻结并全功能封禁)
+                  </Radio.Button>
                 </Col>
               </Row>
-            </Checkbox.Group>
+            </Radio.Group>
           </Form.Item>
 
-          {/* 统一封禁时长 */}
-          {hasFunctionalBan && (
+          {/* 全量封号模式提示说明 */}
+          {banMode === 'account' && (
+            <Alert
+              message="全量顶格封号模式"
+              description="用户将被彻底禁止登录系统与 App。系统将自动联动填入并冻结【禁止评论、禁发动态、禁止发布活动】全量内容权限，无需手动逐一勾选。"
+              type="error"
+              showIcon
+              icon={<LockOutlined />}
+              style={{ marginBottom: 16 }}
+            />
+          )}
+
+          {/* 精准功能限制模式：仅在此模式下展示细分受限项 */}
+          {banMode === 'content' && (
             <Form.Item
-              label="统一封禁期限设置（将同时应用于上述所有选中的限制项目）"
-              name="duration"
-              rules={[{ required: true, message: '请选择封禁时长' }]}
+              label={
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                  }}
+                >
+                  <span style={{ fontWeight: 600 }}>细分功能受限选项（可组合多选）</span>
+                  <Space size={4}>
+                    <Button
+                      type="link"
+                      size="small"
+                      style={{ padding: '0 4px', fontSize: 12 }}
+                      onClick={() => {
+                        setContentPenalties(['comment', 'post', 'activity']);
+                        form.setFieldsValue({ contentPenalties: ['comment', 'post', 'activity'] });
+                      }}
+                    >
+                      全选所有功能
+                    </Button>
+                    <Button
+                      type="link"
+                      size="small"
+                      style={{ padding: '0 4px', fontSize: 12, color: '#8c8c8c' }}
+                      onClick={() => {
+                        setContentPenalties([]);
+                        form.setFieldsValue({ contentPenalties: [] });
+                      }}
+                    >
+                      清空
+                    </Button>
+                  </Space>
+                </div>
+              }
+              name="contentPenalties"
+              rules={[{ required: true, message: '请至少勾选一项精准功能限制' }]}
             >
-              <Radio.Group
-                onChange={(e) => setDuration(e.target.value)}
-                value={duration}
+              <Checkbox.Group
+                value={contentPenalties}
+                onChange={(vals) => setContentPenalties(vals as BanPunishType[])}
                 style={{ width: '100%' }}
               >
-                <Space wrap size={[8, 8]}>
-                  <Radio.Button value="1d">1 天 (24h)</Radio.Button>
-                  <Radio.Button value="3d">3 天</Radio.Button>
-                  <Radio.Button value="7d">7 天 (1周)</Radio.Button>
-                  <Radio.Button value="15d">15 天</Radio.Button>
-                  <Radio.Button value="30d">30 天 (1月)</Radio.Button>
-                  <Radio.Button value="180d">180 天 (半年)</Radio.Button>
-                  <Radio.Button value="permanent" style={{ color: '#ff4d4f' }}>
-                    永久封禁
-                  </Radio.Button>
-                  <Radio.Button value="custom">自定义时间</Radio.Button>
-                </Space>
-              </Radio.Group>
+                <Row gutter={[10, 10]}>
+                  <Col span={8}>
+                    <div
+                      style={{
+                        border: contentPenalties.includes('comment')
+                          ? '1px solid #fa8c16'
+                          : '1px solid #d9d9d9',
+                        borderRadius: 6,
+                        padding: '8px 10px',
+                        background: contentPenalties.includes('comment') ? '#fff7e6' : '#ffffff',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <Checkbox value="comment">
+                        <Space size={4}>
+                          <Tag color="#fa8c16" icon={<StopOutlined />} style={{ margin: 0 }}>
+                            禁止评论
+                          </Tag>
+                        </Space>
+                      </Checkbox>
+                    </div>
+                  </Col>
+
+                  <Col span={8}>
+                    <div
+                      style={{
+                        border: contentPenalties.includes('post')
+                          ? '1px solid #eb2f96'
+                          : '1px solid #d9d9d9',
+                        borderRadius: 6,
+                        padding: '8px 10px',
+                        background: contentPenalties.includes('post') ? '#fff0f6' : '#ffffff',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <Checkbox value="post">
+                        <Space size={4}>
+                          <Tag color="#eb2f96" icon={<AlertOutlined />} style={{ margin: 0 }}>
+                            禁发动态
+                          </Tag>
+                        </Space>
+                      </Checkbox>
+                    </div>
+                  </Col>
+
+                  <Col span={8}>
+                    <div
+                      style={{
+                        border: contentPenalties.includes('activity')
+                          ? '1px solid #722ed1'
+                          : '1px solid #d9d9d9',
+                        borderRadius: 6,
+                        padding: '8px 10px',
+                        background: contentPenalties.includes('activity') ? '#f9f0ff' : '#ffffff',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <Checkbox value="activity">
+                        <Space size={4}>
+                          <Tag color="#722ed1" icon={<CalendarOutlined />} style={{ margin: 0 }}>
+                            禁发活动
+                          </Tag>
+                        </Space>
+                      </Checkbox>
+                    </div>
+                  </Col>
+                </Row>
+              </Checkbox.Group>
             </Form.Item>
           )}
 
+          {/* 封禁期限设置：包含 1小时, 3小时, 6小时, 12小时等短时管控 */}
+          <Form.Item
+            label="管控期限设置（将同时应用于上述所有受限制的功能）"
+            name="duration"
+            rules={[{ required: true, message: '请选择管控时长' }]}
+          >
+            <Radio.Group
+              onChange={(e) => setDuration(e.target.value)}
+              value={duration}
+              style={{ width: '100%' }}
+            >
+              <Space wrap size={[8, 8]}>
+                <Radio.Button value="1h" style={{ fontWeight: 500 }}>
+                  ⚡ 1 小时
+                </Radio.Button>
+                <Radio.Button value="3h" style={{ fontWeight: 500 }}>
+                  ⚡ 3 小时
+                </Radio.Button>
+                <Radio.Button value="6h">6 小时</Radio.Button>
+                <Radio.Button value="12h">12 小时</Radio.Button>
+                <Radio.Button value="1d">1 天 (24h)</Radio.Button>
+                <Radio.Button value="3d">3 天</Radio.Button>
+                <Radio.Button value="7d">7 天 (1周)</Radio.Button>
+                <Radio.Button value="15d">15 天</Radio.Button>
+                <Radio.Button value="30d">30 天 (1月)</Radio.Button>
+                <Radio.Button value="permanent" style={{ color: '#ff4d4f' }}>
+                  永久管控
+                </Radio.Button>
+                <Radio.Button value="custom">自定义时间</Radio.Button>
+              </Space>
+            </Radio.Group>
+          </Form.Item>
+
           {/* 自定义时间选择器 */}
-          {hasFunctionalBan && duration === 'custom' && (
+          {duration === 'custom' && (
             <Form.Item
               label="自定义解封到期时间"
               name="customDate"
@@ -492,9 +477,9 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
                   {previewDesc}
                 </Text>
                 <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>
-                  {punishTypes.includes('account')
-                    ? '已选全量封号：用户将彻底无法登录系统，所有前台功能全量冻结。'
-                    : `已选限制措施生效后，系统将在对应权限节点实施精准管控与拦截（共选中 ${punishTypes.length} 项）。`}
+                  {banMode === 'account'
+                    ? '已选全量封号：用户将彻底无法登录系统，评论、发帖与活动发布权限全量冻结。'
+                    : `已选限制措施生效后，系统将在对应权限节点实施精准管控与拦截（共选中 ${contentPenalties.length} 项）。`}
                 </div>
               </div>
             }
