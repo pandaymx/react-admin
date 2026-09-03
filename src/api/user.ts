@@ -1,4 +1,13 @@
-import type { ApiResponse, UserItem, UserListResult, UserQueryParams, UserStatus } from '@/types';
+import type {
+  ApiResponse,
+  ContentRestrictionItem,
+  ContentRestrictionPageReqVO,
+  ModerationRevokeReqVO,
+  UserItem,
+  UserListResult,
+  UserQueryParams,
+  UserStatus,
+} from '@/types';
 
 // 初始模拟测试数据（模拟抖音/社媒等平台真实多维度用户画像）
 const mockUsers: UserItem[] = [
@@ -110,6 +119,49 @@ const mockUsers: UserItem[] = [
     status: 'banned',
     accountBanExpireTime: 'permanent',
     banReason: '发布黑产引流广告及低俗兼职诈骗外链',
+    restrictions: [
+      {
+        id: 501,
+        userId: '5',
+        restrictionType: 'account',
+        status: 'active',
+        reason: '账号涉嫌批量发布黑产引流广告与低俗兼职网络诈骗外链',
+        sourceType: 'manual',
+        operatorUserId: '1',
+        startAt: '2026-08-19 18:22:00',
+        endAt: null,
+      },
+      {
+        id: 502,
+        userId: '5',
+        restrictionType: 'post',
+        status: 'active',
+        reason: '动态中恶意包含涉赌涉诈域名与二维码引流',
+        sourceType: 'rule',
+        startAt: '2026-08-19 18:22:00',
+        endAt: null,
+      },
+      {
+        id: 503,
+        userId: '5',
+        restrictionType: 'comment',
+        status: 'active',
+        reason: '批量在热门作品评论区恶意刷屏发布兼职引流联系方式',
+        sourceType: 'rule',
+        startAt: '2026-08-19 18:22:00',
+        endAt: null,
+      },
+      {
+        id: 504,
+        userId: '5',
+        restrictionType: 'activity_publish',
+        status: 'active',
+        reason: '尝试发起虚假线下兼职活动进行线下涉诈引流',
+        sourceType: 'report',
+        startAt: '2026-08-19 18:22:00',
+        endAt: null,
+      },
+    ],
     commentCount: 340,
     commentStatus: 'forbidden',
     commentBanExpireTime: 'permanent',
@@ -136,6 +188,30 @@ const mockUsers: UserItem[] = [
     status: 'muted',
     accountBanExpireTime: '2026-09-09 19:40:00',
     banReason: '在多个热门作品评论区频繁发布恶意辱骂与人身攻击言论',
+    restrictions: [
+      {
+        id: 601,
+        userId: '6',
+        restrictionType: 'comment',
+        status: 'active',
+        reason: '在多个热门作品评论区频繁发布恶意辱骂与人身攻击言论',
+        sourceType: 'report',
+        operatorUserId: '1',
+        startAt: '2026-09-02 19:40:00',
+        endAt: '2026-09-10 19:40:00',
+      },
+      {
+        id: 602,
+        userId: '6',
+        restrictionType: 'activity_publish',
+        status: 'active',
+        reason: '多次发起违规煽动性线上拉踩活动',
+        sourceType: 'manual',
+        operatorUserId: '1',
+        startAt: '2026-09-02 19:40:00',
+        endAt: '2026-09-16 19:40:00',
+      },
+    ],
     commentCount: 2450,
     commentStatus: 'forbidden',
     commentBanExpireTime: '2026-09-08 19:40:00',
@@ -528,4 +604,68 @@ export const getAllFilteredUsers = async (
 ): Promise<UserItem[]> => {
   const res = await getUserList({ ...params, page: 1, pageSize: 99999 });
   return res.data.list;
+};
+
+/**
+ * 获取用户的内容治理限制记录分页 (对接 GET /admin-api/user/content-restriction/page)
+ */
+export const getUserContentRestrictions = async (
+  params: ContentRestrictionPageReqVO,
+): Promise<ApiResponse<{ list: ContentRestrictionItem[]; total: number }>> => {
+  let list: ContentRestrictionItem[] = [];
+  const targetUser = currentDataset.find((u) => u.id === String(params.userId));
+  if (targetUser?.restrictions) {
+    list = [...targetUser.restrictions];
+    if (params.status && params.status !== 'all') {
+      list = list.filter((r) => r.status === params.status);
+    }
+    if (params.restrictionType && params.restrictionType !== 'all') {
+      list = list.filter((r) => r.restrictionType === params.restrictionType);
+    }
+  }
+
+  return {
+    code: 200,
+    data: {
+      list,
+      total: list.length,
+    },
+    message: 'success',
+  };
+};
+
+/**
+ * 手动解除用户内容治理限制 (对接 PUT /admin-api/user/content-restriction/revoke)
+ */
+export const revokeUserContentRestriction = async (
+  data: ModerationRevokeReqVO,
+): Promise<ApiResponse<boolean>> => {
+  currentDataset = currentDataset.map((u) => {
+    if (u.restrictions) {
+      const updated = u.restrictions.map((r) => {
+        if (String(r.id) === String(data.restrictionId)) {
+          return {
+            ...r,
+            status: 'revoked' as const,
+            revokedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+            revokeReason: data.reason,
+          };
+        }
+        return r;
+      });
+      const hasActive = updated.some((r) => r.status === 'active');
+      return {
+        ...u,
+        restrictions: updated,
+        status: hasActive ? u.status : ('normal' as UserStatus),
+      };
+    }
+    return u;
+  });
+
+  return {
+    code: 200,
+    data: true,
+    message: '已成功解除该项内容治理限制',
+  };
 };

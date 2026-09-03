@@ -7,6 +7,7 @@ export type UserCommentStatus = 'allowed' | 'forbidden';
 export type ActiveStatus = 'online' | 'offline' | 'recent';
 
 export interface UserItem {
+  restrictions?: ContentRestrictionItem[];
   id: string;
   uid: string; // 类似于抖音查询的业务ID
   username: string;
@@ -88,4 +89,40 @@ export interface UserListResult {
   total: number;
   page: number;
   pageSize: number;
+}
+
+export type RestrictionType = 'post' | 'comment' | 'activity_publish' | 'account' | string;
+export type RestrictionStatus = 'active' | 'revoked' | 'expired' | string;
+export type ModerationSourceType = 'manual' | 'report' | 'rule' | string;
+
+export interface ContentRestrictionItem {
+  id: number | string;
+  userId: string;
+  restrictionType: RestrictionType;
+  status: RestrictionStatus;
+  reason: string;
+  sourceType?: ModerationSourceType;
+  sourceId?: string;
+  moderationRecordId?: number;
+  ruleId?: number;
+  operatorUserId?: string;
+  startAt?: string;
+  endAt?: string | null;
+  revokedAt?: string | null;
+  revokeReason?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ContentRestrictionPageReqVO {
+  userId?: string;
+  restrictionType?: string;
+  status?: string;
+  pageNo?: number;
+  pageSize?: number;
+}
+
+export interface ModerationRevokeReqVO {
+  restrictionId: number | string;
+  reason: string;
 }

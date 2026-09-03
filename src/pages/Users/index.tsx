@@ -1,10 +1,14 @@
 import {
   BarChartOutlined,
+  CalendarOutlined,
   CheckCircleFilled,
   ClockCircleOutlined,
+  CommentOutlined,
   DownloadOutlined,
+  ExclamationCircleOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
+  FileTextOutlined,
   LockOutlined,
   ManOutlined,
   MoreOutlined,
@@ -34,6 +38,7 @@ import {
   Input,
   message,
   Popconfirm,
+  Popover,
   Row,
   Select,
   Space,
@@ -49,11 +54,20 @@ import {
   batchUpdateUserStatus,
   executeUserBan,
   getAllFilteredUsers,
+  getUserContentRestrictions,
   getUserList,
+  revokeUserContentRestriction,
   updateUserStatus,
 } from '@/api/user';
 import { type ColumnOptionItem, useColumnSettings } from '@/components/ColumnSetting';
-import type { ActiveStatus, UserItem, UserQueryParams, UserStatus, VerifyStatus } from '@/types';
+import type {
+  ActiveStatus,
+  ContentRestrictionItem,
+  UserItem,
+  UserQueryParams,
+  UserStatus,
+  VerifyStatus,
+} from '@/types';
 import { exportToCsv } from '@/utils/export';
 import { formatBanRemainingTime } from '@/utils/time';
 import { type BanPunishType, UserBanModal } from './components/UserBanModal';
@@ -61,6 +75,69 @@ import { UserPersonaDrawer } from './components/UserPersonaDrawer';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
+
+const RESTRICTION_TYPE_META: Record<
+  string,
+  { label: string; color: string; icon: React.ReactNode; badgeText: string }
+> = {
+  account: {
+    label: '全量封号',
+    color: '#ff4d4f',
+    icon: <StopOutlined />,
+    badgeText: '封号中',
+  },
+  post: {
+    label: '禁发动态',
+    color: '#eb2f96',
+    icon: <FileTextOutlined />,
+    badgeText: '禁发帖',
+  },
+  comment: {
+    label: '禁止评论',
+    color: '#fa8c16',
+    icon: <CommentOutlined />,
+    badgeText: '禁评',
+  },
+  activity_publish: {
+    label: '禁发活动',
+    color: '#722ed1',
+    icon: <CalendarOutlined />,
+    badgeText: '禁发活动',
+  },
+};
+
+const formatRemainingDuration = (
+  endAt?: string | null,
+): { text: string; isPermanent: boolean; isExpired: boolean } => {
+  if (!endAt || endAt === 'permanent') {
+    return { text: '永久管控', isPermanent: true, isExpired: false };
+  }
+  const end = new Date(endAt).getTime();
+  const now = Date.now();
+  const diffMs = end - now;
+
+  if (Number.isNaN(end) || diffMs <= 0) {
+    return { text: '已到期', isPermanent: false, isExpired: true };
+  }
+
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+
+  if (days > 0) {
+    return {
+      text: `剩余 ${days}天${remainingHours > 0 ? ` ${remainingHours}小时` : ''}`,
+      isPermanent: false,
+      isExpired: false,
+    };
+  }
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  return {
+    text: `剩余 ${hours}小时${minutes}分`,
+    isPermanent: false,
+    isExpired: false,
+  };
+};
 
 const userColumnOptions: ColumnOptionItem[] = [
   { key: 'user', title: '用户信息 (头像/昵称/UID)', required: true },
@@ -87,6 +164,95 @@ export const UsersPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+
+  // 子表格展开行与按需缓存状态 (Dual-Mode 策略：优先复用聚合，缺失则懒加载)
+  const [expandedRowKeys, setExpandedRowKeys] = useState<React.Key[]>([]);
+  const [restrictionsMap, setRestrictionsMap] = useState<Record<string, ContentRestrictionItem[]>>(
+    {},
+  );
+  const [restrictionLoadingMap, setRestrictionLoadingMap] = useState<Record<string, boolean>>({});
+
+  // 展开行按需拉取或复用缓存
+  const handleExpand = async (expanded: boolean, record: UserItem) => {
+    if (expanded) {
+      setExpandedRowKeys((prev) => [...prev, record.id]);
+      const restrictions = record.restrictions;
+      if (restrictions && restrictions.length > 0) {
+        setRestrictionsMap((prev) => ({ ...prev, [record.id]: restrictions }));
+        return;
+      }
+      if (!restrictionsMap[record.id]) {
+        setRestrictionLoadingMap((prev) => ({ ...prev, [record.id]: true }));
+        try {
+          const res = await getUserContentRestrictions({ userId: record.id, status: 'active' });
+          if (res.data?.list) {
+            setRestrictionsMap((prev) => ({ ...prev, [record.id]: res.data.list }));
+          }
+        } finally {
+          setRestrictionLoadingMap((prev) => ({ ...prev, [record.id]: false }));
+        }
+      }
+    } else {
+      setExpandedRowKeys((prev) => prev.filter((k) => k !== record.id));
+    }
+  };
+
+  // 快捷解除限制 (带局部乐观更新)
+  const handleRevokeRestriction = async (userId: string, restrictionId: number | string) => {
+    try {
+      const res = await revokeUserContentRestriction({
+        restrictionId,
+        reason: '管理员在控制台子表快捷解封',
+      });
+      if (res.code === 200 || res.code === 0) {
+        message.success('已解除该项内容治理限制');
+
+        setRestrictionsMap((prev) => {
+          const currentList = prev[userId] || [];
+          const nextList = currentList.filter((r) => String(r.id) !== String(restrictionId));
+          return { ...prev, [userId]: nextList };
+        });
+
+        setUserList((prev) =>
+          prev.map((u) => {
+            if (u.id === userId) {
+              const nextRestrictions = (u.restrictions || []).filter(
+                (r) => String(r.id) !== String(restrictionId),
+              );
+              const stillHasActive = nextRestrictions.some((r) => r.status === 'active');
+              return {
+                ...u,
+                restrictions: nextRestrictions,
+                status: stillHasActive ? u.status : ('normal' as UserStatus),
+                accountBanExpireTime: stillHasActive ? u.accountBanExpireTime : undefined,
+                banReason: stillHasActive ? u.banReason : undefined,
+              };
+            }
+            return u;
+          }),
+        );
+
+        setCurrentUser((prev) => {
+          if (prev && prev.id === userId) {
+            const nextRestrictions = (prev.restrictions || []).filter(
+              (r) => String(r.id) !== String(restrictionId),
+            );
+            const stillHasActive = nextRestrictions.some((r) => r.status === 'active');
+            return {
+              ...prev,
+              restrictions: nextRestrictions,
+              status: stillHasActive ? prev.status : ('normal' as UserStatus),
+              accountBanExpireTime: stillHasActive ? prev.accountBanExpireTime : undefined,
+              banReason: stillHasActive ? prev.banReason : undefined,
+            };
+          }
+          return prev;
+        });
+      }
+    } catch (err: any) {
+      message.error(err?.message || '解除限制失败');
+    }
+  };
 
   // 基础档案详情抽屉状态
   const [drawerVisible, setDrawerVisible] = useState<boolean>(false);
@@ -452,130 +618,335 @@ export const UsersPage: React.FC = () => {
     return tag;
   };
 
-  // 账号状态 Badge 渲染及具体封禁惩处信息
+  // 账号状态与多维度处罚胶囊聚合渲染 (前2项外显 + 超出折叠 Popover 聚合，杜绝撑开行高与视觉噪点)
   const renderAccountStatus = (record: UserItem) => {
     const status = record.status;
-    const banInfo = formatBanRemainingTime(
-      record.accountBanExpireTime || record.commentBanExpireTime || record.postBanExpireTime,
+    const userRestrictions = (restrictionsMap[record.id] || record.restrictions || []).filter(
+      (r) => r.status === 'active',
     );
 
-    switch (status) {
-      case 'normal':
-        return <Badge status="success" text={<Text type="success">正常</Text>} />;
-      case 'banned': {
-        const tooltipContent = (
-          <div style={{ fontSize: 12 }}>
-            <div style={{ fontWeight: 600, color: '#ff4d4f', marginBottom: 2 }}>
-              🚫 账号全量封禁管控中
-            </div>
-            <div>处罚原因: {record.banReason || '违反平台社区公约与安全规定'}</div>
-            <div>
-              到期时间:{' '}
-              {record.accountBanExpireTime === 'permanent'
-                ? '永久封禁'
-                : record.accountBanExpireTime || '永久'}
-            </div>
-            {banInfo.text && <div>剩余时间: {banInfo.text}</div>}
-          </div>
-        );
-        return (
-          <div>
-            <Tooltip title={tooltipContent}>
-              <Space size={4} style={{ cursor: 'help' }}>
-                <Badge
-                  status="error"
-                  text={
-                    <Text type="danger" strong>
-                      已封禁
-                    </Text>
-                  }
-                />
-                <Tag color="error" style={{ fontSize: 10, padding: '0 3px', margin: 0 }}>
-                  {banInfo.text || '永久'}
-                </Tag>
-              </Space>
-            </Tooltip>
-            {record.banReason && (
-              <Tooltip title={`封禁原因: ${record.banReason}`}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: '#ff4d4f',
-                    marginTop: 2,
-                    maxWidth: 135,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {record.banReason}
-                </div>
-              </Tooltip>
-            )}
-          </div>
-        );
-      }
-      case 'muted': {
-        const tooltipContent = (
-          <div style={{ fontSize: 12 }}>
-            <div style={{ fontWeight: 600, color: '#fa8c16', marginBottom: 2 }}>
-              ⚠️ 账号处于违规禁言中
-            </div>
-            <div>禁言原因: {record.banReason || '违规言论/评论区不当发言'}</div>
-            <div>
-              解封时间:{' '}
-              {record.commentBanExpireTime === 'permanent'
-                ? '永久禁言'
-                : record.commentBanExpireTime || '限制中'}
-            </div>
-            {banInfo.text && <div>剩余时间: {banInfo.text}</div>}
-          </div>
-        );
-        return (
-          <div>
-            <Tooltip title={tooltipContent}>
-              <Space size={4} style={{ cursor: 'help' }}>
-                <Badge
-                  status="warning"
-                  text={<Text style={{ color: '#fa8c16', fontWeight: 600 }}>已禁言</Text>}
-                />
-                <Tag color="warning" style={{ fontSize: 10, padding: '0 3px', margin: 0 }}>
-                  {banInfo.text || '7天'}
-                </Tag>
-              </Space>
-            </Tooltip>
-            {record.banReason && (
-              <Tooltip title={`禁言原因: ${record.banReason}`}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: '#fa8c16',
-                    marginTop: 2,
-                    maxWidth: 135,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {record.banReason}
-                </div>
-              </Tooltip>
-            )}
-          </div>
-        );
-      }
-      case 'cancelling':
-        return (
-          <div>
-            <Badge status="warning" text={<Text style={{ color: '#d46b08' }}>注销中</Text>} />
-            <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>冷静期可撤销</div>
-          </div>
-        );
-      case 'cancelled':
-        return <Badge status="default" text={<Text type="secondary">已注销</Text>} />;
-      default:
-        return <Badge status="default" text="未知" />;
+    if (status === 'normal' && userRestrictions.length === 0) {
+      return <Badge status="success" text={<Text type="success">正常</Text>} />;
     }
+
+    if (status === 'cancelled') {
+      return <Badge status="default" text={<Text type="secondary">已注销</Text>} />;
+    }
+
+    const allItems: Array<{
+      id: string | number;
+      type: string;
+      label: string;
+      color: string;
+      icon: React.ReactNode;
+      badgeText: string;
+      reason: string;
+      endAt?: string | null;
+    }> = [];
+
+    if (userRestrictions.length > 0) {
+      for (const r of userRestrictions) {
+        const meta = RESTRICTION_TYPE_META[r.restrictionType] || {
+          label: r.restrictionType,
+          color: 'volcano',
+          icon: <ExclamationCircleOutlined />,
+          badgeText: r.restrictionType,
+        };
+        allItems.push({
+          id: r.id,
+          type: r.restrictionType,
+          label: meta.label,
+          color: meta.color,
+          icon: meta.icon,
+          badgeText: meta.badgeText,
+          reason: r.reason,
+          endAt: r.endAt,
+        });
+      }
+    } else if (status === 'banned') {
+      allItems.push({
+        id: 'mock-account',
+        type: 'account',
+        label: '全量封号',
+        color: '#ff4d4f',
+        icon: <StopOutlined />,
+        badgeText: '封号中',
+        reason: record.banReason || '违反平台社区公约与治理规定',
+        endAt: record.accountBanExpireTime,
+      });
+    } else if (status === 'muted') {
+      allItems.push({
+        id: 'mock-comment',
+        type: 'comment',
+        label: '违规禁评',
+        color: '#fa8c16',
+        icon: <CommentOutlined />,
+        badgeText: '禁评',
+        reason: record.banReason || '评论区违规发言',
+        endAt: record.accountBanExpireTime,
+      });
+    }
+
+    const visibleItems = allItems.slice(0, 2);
+    const overflowCount = allItems.length - 2;
+
+    const popoverContent = (
+      <div
+        style={{ minWidth: 240, maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 8 }}
+      >
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: '#ff4d4f',
+            borderBottom: '1px solid #f0f0f0',
+            paddingBottom: 4,
+          }}
+        >
+          🛡️ 该用户生效中的全部处罚与管控 ({allItems.length}项)
+        </div>
+        {allItems.map((item) => {
+          const dur = formatRemainingDuration(item.endAt);
+          return (
+            <div
+              key={item.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '4px 6px',
+                backgroundColor: '#fafafa',
+                borderRadius: 4,
+                gap: 8,
+              }}
+            >
+              <Tag color={item.color} icon={item.icon} style={{ margin: 0, fontSize: 11 }}>
+                {item.label}
+              </Tag>
+              <div style={{ textAlign: 'right' }}>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: dur.isPermanent ? '#ff4d4f' : '#fa8c16',
+                    fontWeight: 500,
+                  }}
+                >
+                  {dur.text}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap', gap: 4 }}>
+          {visibleItems.map((item) => {
+            const duration = formatRemainingDuration(item.endAt);
+            const tooltipContent = (
+              <div style={{ fontSize: 12 }}>
+                <div style={{ fontWeight: 600, color: item.color, marginBottom: 2 }}>
+                  {item.icon} {item.label}管控中
+                </div>
+                <div>处罚原因: {item.reason}</div>
+                <div>时效期限: {item.endAt ? `${item.endAt} (${duration.text})` : '永久管控'}</div>
+              </div>
+            );
+
+            return (
+              <Tooltip key={item.id} title={tooltipContent} placement="top">
+                <Tag
+                  color={item.color}
+                  icon={item.icon}
+                  style={{
+                    fontSize: 11,
+                    padding: '0 6px',
+                    margin: 0,
+                    borderRadius: 10,
+                    cursor: 'pointer',
+                    lineHeight: '20px',
+                  }}
+                >
+                  {item.badgeText}
+                </Tag>
+              </Tooltip>
+            );
+          })}
+
+          {overflowCount > 0 && (
+            <Popover content={popoverContent} trigger="hover" placement="right">
+              <Tag
+                color="error"
+                style={{
+                  fontSize: 10,
+                  padding: '0 5px',
+                  margin: 0,
+                  borderRadius: 10,
+                  cursor: 'pointer',
+                  lineHeight: '20px',
+                  fontWeight: 600,
+                }}
+              >
+                +{overflowCount}
+              </Tag>
+            </Popover>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // 嵌套展开子表格渲染 (当前生效中的内容治理与功能处罚清单)
+  const expandedRowRender = (record: UserItem) => {
+    const list = (restrictionsMap[record.id] || record.restrictions || []).filter(
+      (r) => r.status === 'active',
+    );
+    const isLoading = restrictionLoadingMap[record.id] || false;
+
+    return (
+      <Card
+        size="small"
+        title={
+          <Space size={8}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#262626' }}>
+              🛡️ 生效中的内容治理与功能处罚清单
+            </span>
+            <Tag color="processing" style={{ borderRadius: 10, fontSize: 11 }}>
+              UID: {record.uid || record.id}
+            </Tag>
+            <Tag color="purple" style={{ borderRadius: 10, fontSize: 11 }}>
+              {record.nickname}
+            </Tag>
+          </Space>
+        }
+        variant="borderless"
+        style={{
+          margin: '4px 0 8px 38px',
+          backgroundColor: '#fafcff',
+          border: '1px solid #e6f4ff',
+          borderRadius: 8,
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
+        }}
+      >
+        <Table<ContentRestrictionItem>
+          size="small"
+          rowKey="id"
+          loading={isLoading}
+          dataSource={list}
+          pagination={false}
+          columns={[
+            {
+              title: '受限功能/处罚类型',
+              dataIndex: 'restrictionType',
+              key: 'restrictionType',
+              width: 150,
+              render: (type: string) => {
+                const meta = RESTRICTION_TYPE_META[type] || {
+                  label: type,
+                  color: 'default',
+                  icon: <ExclamationCircleOutlined />,
+                };
+                return (
+                  <Tag color={meta.color} icon={meta.icon} style={{ borderRadius: 10 }}>
+                    {meta.label}
+                  </Tag>
+                );
+              },
+            },
+            {
+              title: '状态',
+              dataIndex: 'status',
+              key: 'status',
+              width: 90,
+              render: () => <Badge status="error" text="生效中" />,
+            },
+            {
+              title: '时效期限 / 倒计时',
+              dataIndex: 'endAt',
+              key: 'endAt',
+              width: 200,
+              render: (endAt: string | null) => {
+                const duration = formatRemainingDuration(endAt);
+                return (
+                  <Space orientation="vertical" size={2}>
+                    <span style={{ fontSize: 12 }}>{endAt || '永久管控'}</span>
+                    <Tag
+                      color={duration.isPermanent ? 'error' : 'warning'}
+                      style={{ fontSize: 10, padding: '0 4px', margin: 0, borderRadius: 8 }}
+                    >
+                      {duration.text}
+                    </Tag>
+                  </Space>
+                );
+              },
+            },
+            {
+              title: '违规处罚原因',
+              dataIndex: 'reason',
+              key: 'reason',
+              ellipsis: true,
+              render: (reason: string) => (
+                <Tooltip title={reason}>
+                  <span style={{ fontSize: 12, color: '#595959' }}>
+                    {reason || '违反平台社区公约与治理规则'}
+                  </span>
+                </Tooltip>
+              ),
+            },
+            {
+              title: '处置来源',
+              dataIndex: 'sourceType',
+              key: 'sourceType',
+              width: 100,
+              render: (src: string) => {
+                if (src === 'manual') return <Tag color="blue">人工处置</Tag>;
+                if (src === 'report') return <Tag color="volcano">举报受理</Tag>;
+                if (src === 'rule') return <Tag color="cyan">规则风控</Tag>;
+                return <Tag color="default">{src || '系统'}</Tag>;
+              },
+            },
+            {
+              title: '生效时间',
+              dataIndex: 'startAt',
+              key: 'startAt',
+              width: 160,
+              render: (time: string) => (
+                <span style={{ fontSize: 12, color: '#8c8c8c' }}>{time || '-'}</span>
+              ),
+            },
+            {
+              title: '操作',
+              key: 'action',
+              width: 100,
+              render: (_, item: ContentRestrictionItem) => (
+                <Popconfirm
+                  title="解除处罚确认"
+                  description={`确定要立即解除该用户的【${
+                    RESTRICTION_TYPE_META[item.restrictionType]?.label || item.restrictionType
+                  }】限制吗？`}
+                  onConfirm={() => handleRevokeRestriction(record.id, item.id)}
+                  okText="确认解除"
+                  cancelText="取消"
+                >
+                  <Button type="link" size="small" danger style={{ padding: 0 }}>
+                    解除限制
+                  </Button>
+                </Popconfirm>
+              ),
+            },
+          ]}
+          locale={{
+            emptyText: (
+              <div style={{ padding: '12px 0', color: '#8c8c8c' }}>
+                该用户当前无生效中的内容治理限制
+              </div>
+            ),
+          }}
+        />
+      </Card>
+    );
   };
 
   // 表格列定义
@@ -1086,6 +1457,19 @@ export const UsersPage: React.FC = () => {
       >
         <Table<UserItem>
           rowKey="id"
+          expandable={{
+            expandedRowRender,
+            rowExpandable: (record) => {
+              const activeRestrictions = (
+                restrictionsMap[record.id] ||
+                record.restrictions ||
+                []
+              ).filter((r) => r.status === 'active');
+              return record.status !== 'normal' || activeRestrictions.length > 0;
+            },
+            expandedRowKeys,
+            onExpand: handleExpand,
+          }}
           columns={columns.filter((col) => !col.key || checkedKeys.includes(col.key as string))}
           dataSource={userList}
           loading={loading}
