@@ -1,21 +1,30 @@
 import {
+  AlertOutlined,
+  CheckCircleOutlined,
   CommentOutlined,
+  CustomerServiceOutlined,
+  DeleteOutlined,
   DownloadOutlined,
+  DownOutlined,
   EyeOutlined,
-  FileImageOutlined,
-  LockOutlined,
-  MoreOutlined,
+  HeartOutlined,
+  MessageOutlined,
+  PictureOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
+  SafetyCertificateOutlined,
   SearchOutlined,
+  ShareAltOutlined,
   StarFilled,
   StarOutlined,
+  StopOutlined,
   UnlockOutlined,
   UserOutlined,
   VideoCameraOutlined,
 } from '@ant-design/icons';
-import type { TableProps } from 'antd';
+import type { MenuProps, TableProps } from 'antd';
 import {
+  Alert,
   Avatar,
   Badge,
   Button,
@@ -26,54 +35,61 @@ import {
   Form,
   Image,
   Input,
-  Modal,
   message,
   Popconfirm,
   Row,
   Select,
   Space,
+  Statistic,
   Table,
   Tag,
   Tooltip,
   Typography,
+  theme,
 } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-
 import {
+  auditPost,
   batchUpdatePostStatus,
+  deletePost,
   getPostList,
+  getPostStatisticsSummary,
   togglePostTop,
-  updatePostCommentPermission,
-  updatePostStatus,
+  updatePostVisibility,
 } from '@/api/post';
 import { type ColumnOptionItem, useColumnSettings } from '@/components/ColumnSetting';
+import { useThemeStore } from '@/store/theme';
 import type {
-  CommentPermission,
-  PostAuditStatus,
+  PostAuditActionParams,
   PostItem,
   PostQueryParams,
-  PostType,
+  PostStatisticsSummaryVO,
+  PostStatus,
 } from '@/types';
 import { exportToCsv } from '@/utils/export';
+import { PostAuditModal } from './components/PostAuditModal';
 import { PostCommentsDrawer } from './components/PostCommentsDrawer';
+import { PostDetailDrawer } from './components/PostDetailDrawer';
 
 const { Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
 
+// 列配置定义
 const postColumnOptions: ColumnOptionItem[] = [
   { key: 'content', title: '作品内容与封面', required: true },
   { key: 'author', title: '发布作者' },
-  { key: 'type', title: '作品形式 (短视频/图文)' },
+  { key: 'type', title: '作品形式与可见性' },
   { key: 'interaction', title: '互动数据 (点赞/评论/分享)' },
-  { key: 'commentPermission', title: '评论权限管控' },
-  { key: 'status', title: '发布与上架状态' },
+  { key: 'status', title: '合规与发布状态' },
   { key: 'publishTime', title: '发布时间' },
   { key: 'id', title: '作品编号 (ID)' },
   { key: 'action', title: '操作列', required: true },
 ];
 
 export const PostsPage: React.FC = () => {
+  const { token } = theme.useToken();
+  const isDark = useThemeStore((state) => state.isDark);
   const { checkedKeys, ColumnSettingComponent } = useColumnSettings(
     'posts_table',
     postColumnOptions,
@@ -87,6 +103,23 @@ export const PostsPage: React.FC = () => {
   const [pageSize, setPageSize] = useState<number>(10);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
+  // 全局数据概览
+  const [summary, setSummary] = useState<PostStatisticsSummaryVO>({
+    totalCount: 0,
+    todayNewCount: 0,
+    pendingReviewCount: 0,
+    rejectedCount: 0,
+    totalInteractions: 0,
+  });
+
+  // 抽屉与弹窗状态
+  const [detailDrawerVisible, setDetailDrawerVisible] = useState<boolean>(false);
+  const [currentPost, setCurrentPost] = useState<PostItem | null>(null);
+  const [commentsDrawerVisible, setCommentsDrawerVisible] = useState<boolean>(false);
+  const [commentTargetPost, setCommentTargetPost] = useState<PostItem | null>(null);
+  const [auditModalVisible, setAuditModalVisible] = useState<boolean>(false);
+  const [auditTargetPost, setAuditTargetPost] = useState<PostItem | null>(null);
+
   // 防抖定时器引用
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -98,45 +131,51 @@ export const PostsPage: React.FC = () => {
     };
   }, []);
 
-  // 评论抽屉状态
-  const [commentDrawerOpen, setCommentDrawerOpen] = useState<boolean>(false);
-  const [selectedPost, setSelectedPost] = useState<PostItem | null>(null);
+  // 加载统计概览
+  const fetchSummary = useCallback(async () => {
+    try {
+      const res = await getPostStatisticsSummary();
+      if ((res.code === 200 || res.code === 0) && res.data) {
+        setSummary(res.data);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
-  // 视频预览 Modal
-  const [previewModalOpen, setPreviewModalOpen] = useState<boolean>(false);
-  const [previewPost, setPreviewPost] = useState<PostItem | null>(null);
-
+  // 加载列表数据
   const fetchData = useCallback(
     async (page = 1, size = 10) => {
       setLoading(true);
       try {
-        const values = form.getFieldsValue();
+        const formValues = form.getFieldsValue();
         const params: PostQueryParams = {
-          keyword: values.keyword,
-          uid: values.uid,
-          type: values.type,
-          status: values.status,
-          commentPermission: values.commentPermission,
-          page,
+          keyword: formValues.keyword,
+          userId: formValues.userId,
+          uid: formValues.uid,
+          postType: formValues.postType,
+          status: formValues.status,
+          visibility: formValues.visibility,
+          pageNo: page,
           pageSize: size,
         };
 
-        if (values.dateRange && values.dateRange.length === 2) {
+        if (formValues.dateRange && formValues.dateRange.length === 2) {
           params.dateRange = [
-            values.dateRange[0].format('YYYY-MM-DD'),
-            values.dateRange[1].format('YYYY-MM-DD'),
+            formValues.dateRange[0].format('YYYY-MM-DD'),
+            formValues.dateRange[1].format('YYYY-MM-DD'),
           ];
         }
 
         const res = await getPostList(params);
-        if (res.code === 200) {
+        if ((res.code === 200 || res.code === 0) && res.data) {
           setPostList(res.data.list);
           setTotal(res.data.total);
           setCurrentPage(page);
           setPageSize(size);
         }
       } catch (err: any) {
-        message.error(err.message || '获取帖子列表失败');
+        message.error(err.message || '获取作品列表失败');
       } finally {
         setLoading(false);
       }
@@ -146,573 +185,795 @@ export const PostsPage: React.FC = () => {
 
   useEffect(() => {
     fetchData(1, 10);
-  }, [fetchData]);
+    fetchSummary();
+  }, [fetchData, fetchSummary]);
 
-  const handleSearch = () => {
+  // 表单变更防抖搜索
+  const handleFormChange = () => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
-    fetchData(1, pageSize);
+    debounceTimerRef.current = setTimeout(() => {
+      fetchData(1, pageSize);
+    }, 400);
   };
 
+  // 重置筛选
   const handleReset = () => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
     form.resetFields();
     fetchData(1, pageSize);
   };
 
-  const handleFormValuesChange = (changedValues: any) => {
-    if ('keyword' in changedValues || 'uid' in changedValues) {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-      debounceTimerRef.current = setTimeout(() => {
-        fetchData(1, pageSize);
-      }, 300);
-    } else {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-      fetchData(1, pageSize);
-    }
-  };
-
-  // 切换置顶
+  // 置顶切换
   const handleToggleTop = async (record: PostItem) => {
     try {
       const res = await togglePostTop(record.id);
-      if (res.code === 200) {
-        message.success(res.message);
-        fetchData(currentPage, pageSize);
+      if (res.code === 200 || res.code === 0) {
+        message.success(res.message || (res.data?.isTop ? '已置顶推荐' : '已取消置顶'));
+        setPostList((prev) =>
+          prev.map((p) => (p.id === record.id ? { ...p, isTop: res.data?.isTop ?? !p.isTop } : p)),
+        );
       }
-    } catch {
-      message.error('切换置顶失败');
+    } catch (err: any) {
+      message.error(err?.message || '操作失败');
     }
   };
 
-  // 更新审核状态
-  const handleStatusChange = async (record: PostItem, newStatus: PostAuditStatus) => {
+  // 审核/违规处置
+  const handleAuditConfirm = async (params: PostAuditActionParams) => {
     try {
-      const res = await updatePostStatus(record.id, newStatus);
-      if (res.code === 200) {
-        message.success(res.message);
+      const res = await auditPost(params);
+      if (res.code === 200 || res.code === 0) {
+        message.success(res.message || '处置已执行生效');
         fetchData(currentPage, pageSize);
+        fetchSummary();
       }
-    } catch {
-      message.error('更新状态失败');
+    } catch (err: any) {
+      message.error(err?.message || '处置失败');
     }
   };
 
-  // 更新评论权限
-  const handleCommentPermissionChange = async (record: PostItem, perm: CommentPermission) => {
+  // 单篇删除
+  const handleDeletePost = async (id: string) => {
     try {
-      const res = await updatePostCommentPermission(record.id, perm);
-      if (res.code === 200) {
-        message.success(res.message);
+      const res = await deletePost(id);
+      if (res.code === 200 || res.code === 0) {
+        message.success('作品已彻底删除');
         fetchData(currentPage, pageSize);
+        fetchSummary();
       }
-    } catch {
-      message.error('更新评论权限失败');
+    } catch (err: any) {
+      message.error(err?.message || '删除失败');
     }
   };
 
-  // 批量更新状态
-  const handleBatchStatus = async (status: PostAuditStatus) => {
-    if (!selectedRowKeys.length) {
-      message.warning('请先勾选需要操作的帖子');
+  // 批量操作
+  const handleBatchStatus = async (targetStatus: PostStatus) => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('请先勾选需要批量操作的作品');
       return;
     }
     try {
-      const ids = selectedRowKeys as string[];
-      const res = await batchUpdatePostStatus(ids, status);
-      if (res.code === 200) {
-        message.success(res.message);
+      const ids = selectedRowKeys.map((k) => String(k));
+      const res = await batchUpdatePostStatus(
+        ids,
+        targetStatus,
+        targetStatus === 'rejected' ? '批量合规违规处置下架' : '批量放行通过',
+      );
+      if (res.code === 200 || res.code === 0) {
+        message.success(res.message || `已成功批量处理 ${ids.length} 篇作品`);
         setSelectedRowKeys([]);
         fetchData(currentPage, pageSize);
+        fetchSummary();
       }
-    } catch {
-      message.error('批量更新失败');
+    } catch (err: any) {
+      message.error(err?.message || '批量操作失败');
     }
   };
 
-  // 导出数据
-  const handleExport = () => {
+  // 导出 CSV
+  const handleExport = async () => {
     setExportLoading(true);
     try {
-      if (!postList.length) {
-        message.warning('当前无数据可导出');
-        return;
-      }
-      exportToCsv(
-        [
+      const res = await getPostList({ pageSize: 1000 });
+      if ((res.code === 200 || res.code === 0) && res.data?.list) {
+        const exportCols = [
           { title: '作品ID', key: 'id' },
-          { title: '作品标题文案', key: 'title' },
+          { title: '作品标题', key: 'title' },
+          { title: '作品类型', key: 'postType', render: (r: any) => r.postType || r.type },
+          { title: '发布作者', key: 'author', render: (r: any) => r.author?.nickname || '' },
+          { title: '作者UID', key: 'uid', render: (r: any) => r.author?.uid || '' },
+          { title: '状态', key: 'status' },
+          { title: '是否置顶', key: 'isTop', render: (r: any) => (r.isTop ? '是' : '否') },
           {
-            title: '作品类型',
-            key: 'type',
-            render: (r) => (r.type === 'video' ? '短视频' : '图文动态'),
-          },
-          { title: '发布者昵称', key: 'author', render: (r) => r.author.nickname },
-          { title: '发布者UID', key: 'author', render: (r) => r.author.uid },
-          { title: '点赞数', key: 'likeCount' },
-          { title: '评论数', key: 'commentCount' },
-          { title: '转发分享数', key: 'shareCount' },
-          { title: '收藏数', key: 'collectCount' },
-          {
-            title: '评论权限',
-            key: 'commentPermission',
-            render: (r) =>
-              r.commentPermission === 'open'
-                ? '全员开放'
-                : r.commentPermission === 'fans_only'
-                  ? '仅粉丝可评'
-                  : '已关闭评论',
+            title: '点赞数',
+            key: 'likeCount',
+            render: (r: any) => r.statistics?.likeCount ?? r.likeCount ?? 0,
           },
           {
-            title: '审核状态',
-            key: 'status',
-            render: (r) =>
-              r.status === 'published'
-                ? '公开展示'
-                : r.status === 'auditing'
-                  ? '审核中'
-                  : r.status === 'banned'
-                    ? '已下架'
-                    : '仅自己可见',
+            title: '评论数',
+            key: 'commentCount',
+            render: (r: any) => r.statistics?.commentCount ?? r.commentCount ?? 0,
           },
-          { title: '发布时间', key: 'publishTime' },
-        ],
-        postList,
-        '作品帖子管理数据列表',
-      );
-      message.success(`成功导出 ${postList.length} 条作品数据`);
+          {
+            title: '发布时间',
+            key: 'publishTime',
+            render: (r: any) => r.createdAt || r.publishTime || '',
+          },
+        ];
+        exportToCsv(
+          exportCols,
+          res.data.list,
+          `内容帖子数据报表_${new Date().toISOString().slice(0, 10)}`,
+        );
+        message.success('导出数据报表成功');
+      }
     } catch (err: any) {
-      message.error(err.message || '导出失败');
+      message.error(err?.message || '导出失败');
     } finally {
       setExportLoading(false);
     }
   };
 
-  const renderStatusBadge = (status: PostAuditStatus, isTop: boolean) => {
-    let badge = <Badge status="default" text="未知" />;
-    if (status === 'published') {
-      badge = <Badge status="success" text={<Text type="success">公开展示</Text>} />;
-    } else if (status === 'auditing') {
-      badge = <Badge status="processing" text={<Text style={{ color: '#1677ff' }}>审核中</Text>} />;
-    } else if (status === 'banned') {
-      badge = <Badge status="error" text={<Text type="danger">违规下架</Text>} />;
-    } else if (status === 'private') {
-      badge = <Badge status="default" text={<Text type="secondary">私密动态</Text>} />;
-    }
+  // 渲染操作列下拉多级菜单
+  const renderActionMenu = (record: PostItem): MenuProps['items'] => {
+    const isPending = record.status === 'pending' || (record.status as any) === 'auditing';
+    const isRejected = record.status === 'rejected' || (record.status as any) === 'banned';
 
-    return (
-      <Space size={4}>
-        {badge}
-        {isTop && (
-          <Tag
-            color="gold"
-            icon={<StarFilled />}
-            style={{ fontSize: 10, margin: 0, padding: '0 4px' }}
+    return [
+      {
+        key: 'detail',
+        label: '查看全景详情与多媒体',
+        icon: <EyeOutlined style={{ color: '#1677ff' }} />,
+        onClick: () => {
+          setCurrentPost(record);
+          setDetailDrawerVisible(true);
+        },
+      },
+      {
+        key: 'comments',
+        label: `作品评论管理 (${record.statistics?.commentCount ?? record.commentCount ?? 0})`,
+        icon: <CommentOutlined style={{ color: '#52c41a' }} />,
+        onClick: () => {
+          setCommentTargetPost(record);
+          setCommentsDrawerVisible(true);
+        },
+      },
+      { type: 'divider' },
+      {
+        key: 'audit-sub',
+        label: '合规治理与审核',
+        icon: <SafetyCertificateOutlined style={{ color: '#fa8c16' }} />,
+        children: [
+          ...(isPending
+            ? [
+                {
+                  key: 'pass-quick',
+                  label: '审核放行 (恢复公开展示)',
+                  icon: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
+                  onClick: () => handleAuditConfirm({ postId: record.id, action: 'pass' }),
+                },
+              ]
+            : []),
+          {
+            key: 'audit-modal',
+            label: isRejected ? '重新复核放行' : '违规下架 / 审核驳回',
+            icon: <StopOutlined style={{ color: '#ff4d4f' }} />,
+            onClick: () => {
+              setAuditTargetPost(record);
+              setAuditModalVisible(true);
+            },
+          },
+        ],
+      },
+      {
+        key: 'visibility-sub',
+        label: '可见范围管控',
+        icon: <UnlockOutlined />,
+        children: [
+          {
+            key: 'vis-public',
+            label: '公开所有人可见 (public)',
+            onClick: () =>
+              updatePostVisibility(record.id, 'public').then(() =>
+                fetchData(currentPage, pageSize),
+              ),
+          },
+          {
+            key: 'vis-friend',
+            label: '仅好友互关可见 (friend)',
+            onClick: () =>
+              updatePostVisibility(record.id, 'friend').then(() =>
+                fetchData(currentPage, pageSize),
+              ),
+          },
+          {
+            key: 'vis-private',
+            label: '仅作者自己可见 (private)',
+            onClick: () =>
+              updatePostVisibility(record.id, 'private').then(() =>
+                fetchData(currentPage, pageSize),
+              ),
+          },
+        ],
+      },
+      {
+        key: 'toggle-top',
+        label: record.isTop ? '取消精选置顶' : '设为运营精选置顶',
+        icon: record.isTop ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />,
+        onClick: () => handleToggleTop(record),
+      },
+      { type: 'divider' },
+      {
+        key: 'delete',
+        label: (
+          <Popconfirm
+            title="删除作品确认"
+            description="确定要彻底删除该作品吗？删除后不可逆！"
+            onConfirm={() => handleDeletePost(record.id)}
+            okText="删除"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
           >
-            置顶
-          </Tag>
-        )}
-      </Space>
-    );
+            <span style={{ color: '#ff4d4f' }}>彻底删除作品</span>
+          </Popconfirm>
+        ),
+        icon: <DeleteOutlined style={{ color: '#ff4d4f' }} />,
+      },
+    ];
   };
 
-  const renderCommentPermissionTag = (perm: CommentPermission) => {
-    switch (perm) {
-      case 'open':
-        return <Tag color="green">全员可评</Tag>;
-      case 'fans_only':
-        return <Tag color="blue">仅粉丝</Tag>;
-      case 'closed':
-        return <Tag color="red">关闭评论</Tag>;
-      default:
-        return <Tag>未知</Tag>;
-    }
-  };
-
+  // 表格列定义
   const columns: TableProps<PostItem>['columns'] = [
     {
-      title: '作品ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 150,
-      render: (id: string) => (
-        <Text code copyable={{ tooltips: ['复制作品ID', '已复制'] }} style={{ fontSize: 12 }}>
-          {id}
-        </Text>
-      ),
-    },
-    {
       title: '作品内容与封面',
+      dataIndex: 'content',
       key: 'content',
-      width: 280,
-      render: (_, record) => (
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <button
-            type="button"
-            aria-label="预览作品封面"
-            style={{
-              position: 'relative',
-              width: 60,
-              height: 60,
-              flexShrink: 0,
-              cursor: 'pointer',
-              borderRadius: 6,
-              overflow: 'hidden',
-              border: 'none',
-              padding: 0,
-              background: 'transparent',
-            }}
-            onClick={() => {
-              setPreviewPost(record);
-              setPreviewModalOpen(true);
-            }}
-          >
-            <img
-              src={record.coverUrl}
-              alt="封面"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-            {record.type === 'video' ? (
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  backgroundColor: 'rgba(0,0,0,0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  fontSize: 18,
-                }}
-              >
-                <PlayCircleOutlined />
-              </div>
-            ) : (
-              <div
-                style={{
-                  position: 'absolute',
-                  right: 2,
-                  bottom: 2,
-                  background: 'rgba(0,0,0,0.5)',
-                  color: '#fff',
-                  fontSize: 10,
-                  padding: '1px 3px',
-                  borderRadius: 3,
-                }}
-              >
-                图文
-              </div>
-            )}
-          </button>
+      width: 320,
+      render: (_, record) => {
+        const type = record.postType || record.type;
+        const isVideo = type === 'video';
+        const isWhimsy = type === 'whimsy';
+        const media = record.mediaList?.[0];
+        const cover = record.coverUrl || media?.coverUrl || media?.url;
+        const durationSec = media?.duration;
 
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <Paragraph
-              ellipsis={{ rows: 2 }}
-              style={{ margin: 0, fontSize: 13, fontWeight: 500 }}
-              title={record.title}
+        return (
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            {/* 封面与形态徽标 */}
+            <div
+              style={{
+                position: 'relative',
+                width: 72,
+                height: 72,
+                flexShrink: 0,
+                borderRadius: 6,
+                overflow: 'hidden',
+                backgroundColor: isDark ? '#1f1f1f' : '#f0f0f0',
+                border: `1px solid ${token.colorBorderSecondary}`,
+              }}
             >
-              {record.title}
-            </Paragraph>
-            <div style={{ marginTop: 4 }}>
-              {record.topics.slice(0, 2).map((t) => (
-                <Tag key={t} style={{ fontSize: 10, padding: '0 4px', margin: '0 4px 0 0' }}>
-                  #{t}
-                </Tag>
-              ))}
+              {cover ? (
+                <Image
+                  src={cover}
+                  alt={record.title}
+                  style={{ width: 72, height: 72, objectFit: 'cover' }}
+                  preview={false}
+                />
+              ) : isWhimsy ? (
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: isDark
+                      ? 'linear-gradient(135deg, #2b1d3a, #1f2747)'
+                      : 'linear-gradient(135deg, #fa709a, #fee140)',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    fontSize: 20,
+                  }}
+                >
+                  ✨
+                </div>
+              ) : (
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#8c8c8c',
+                  }}
+                >
+                  无图
+                </div>
+              )}
+
+              {/* 视频时长角标 */}
+              {isVideo && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 2,
+                    right: 2,
+                    background: 'rgba(0,0,0,0.65)',
+                    color: '#ffffff',
+                    fontSize: 10,
+                    padding: '1px 3px',
+                    borderRadius: 3,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2,
+                  }}
+                >
+                  <PlayCircleOutlined />
+                  <span>
+                    {durationSec
+                      ? `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, '0')}`
+                      : '视频'}
+                  </span>
+                </div>
+              )}
+
+              {/* 多图张数角标 */}
+              {!isVideo &&
+                !isWhimsy &&
+                (record.mediaList?.length || record.images?.length || 0) > 1 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 2,
+                      right: 2,
+                      background: 'rgba(0,0,0,0.6)',
+                      color: '#ffffff',
+                      fontSize: 10,
+                      padding: '0 3px',
+                      borderRadius: 3,
+                    }}
+                  >
+                    {record.mediaList?.length || record.images?.length}图
+                  </div>
+                )}
+            </div>
+
+            {/* 标题与文案 */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                {record.isTop && (
+                  <Tag
+                    color="gold"
+                    style={{ margin: 0, padding: '0 4px', fontSize: 10, lineHeight: '16px' }}
+                  >
+                    置顶
+                  </Tag>
+                )}
+                <Button
+                  type="link"
+                  style={{
+                    padding: 0,
+                    height: 'auto',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    color: isDark ? token.colorTextHeading : '#262626',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    display: 'inline-block',
+                    maxWidth: 220,
+                  }}
+                  onClick={() => {
+                    setCurrentPost(record);
+                    setDetailDrawerVisible(true);
+                  }}
+                >
+                  {record.title}
+                </Button>
+              </div>
+
+              <Paragraph
+                ellipsis={{ rows: 2 }}
+                style={{
+                  fontSize: 12,
+                  color: isDark ? token.colorTextSecondary : '#595959',
+                  marginBottom: 4,
+                  lineHeight: 1.5,
+                }}
+              >
+                {record.content || '暂无正文描述'}
+              </Paragraph>
+
+              {/* 话题标签 */}
+              {record.topics && record.topics.length > 0 && (
+                <Space wrap size={[2, 2]}>
+                  {record.topics.slice(0, 3).map((t) => (
+                    <Tag
+                      key={t}
+                      style={{
+                        margin: 0,
+                        fontSize: 10,
+                        padding: '0 3px',
+                        lineHeight: '16px',
+                        borderRadius: 2,
+                      }}
+                    >
+                      #{t}
+                    </Tag>
+                  ))}
+                </Space>
+              )}
             </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
-      title: '发布者',
+      title: '发布作者',
+      dataIndex: 'author',
       key: 'author',
       width: 170,
-      render: (_, record) => (
-        <Space size={8}>
-          <Avatar src={record.author.avatar} size={36} icon={<UserOutlined />} />
-          <div>
-            <Text strong style={{ fontSize: 13, display: 'block' }}>
-              {record.author.nickname}
-            </Text>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              UID: {record.author.uid}
-            </Text>
-          </div>
-        </Space>
-      ),
+      render: (_, record) => {
+        const author = record.author;
+        return (
+          <Space size={8} align="center">
+            <Avatar src={author.avatar} size={36} icon={<UserOutlined />} />
+            <div style={{ lineHeight: 1.3 }}>
+              <div
+                style={{
+                  fontWeight: 600,
+                  fontSize: 13,
+                  color: isDark ? token.colorText : '#262626',
+                }}
+              >
+                {author.nickname}
+              </div>
+              <div style={{ fontSize: 11, color: token.colorTextSecondary }}>UID: {author.uid}</div>
+              {author.verifyStatus === 'creator' && (
+                <Tag
+                  color="orange"
+                  style={{
+                    margin: 0,
+                    fontSize: 10,
+                    padding: '0 3px',
+                    lineHeight: '14px',
+                    borderRadius: 6,
+                  }}
+                >
+                  创作者
+                </Tag>
+              )}
+            </div>
+          </Space>
+        );
+      },
     },
     {
-      title: '类型',
-      dataIndex: 'type',
+      title: '作品形式与可见性',
       key: 'type',
-      width: 100,
-      render: (type: PostType) =>
-        type === 'video' ? (
-          <Tag icon={<VideoCameraOutlined />} color="purple">
-            短视频
-          </Tag>
-        ) : (
-          <Tag icon={<FileImageOutlined />} color="cyan">
-            图文
-          </Tag>
-        ),
-    },
-    {
-      title: '互动数据',
-      key: 'interaction',
-      width: 180,
-      render: (_, record) => (
-        <div style={{ fontSize: 12 }}>
-          <div>
-            <Text type="secondary">点赞: </Text>
-            <Text strong>{record.likeCount.toLocaleString()}</Text>
-          </div>
-          <div>
-            <Text type="secondary">评论: </Text>
-            <Text strong style={{ color: '#1677ff' }}>
-              {record.commentCount.toLocaleString()}
-            </Text>
-          </div>
-          <div>
-            <Text type="secondary">分享/收藏: </Text>
-            <span>
-              {record.shareCount} / {record.collectCount}
+      width: 140,
+      render: (_, record) => {
+        const type = record.postType || record.type;
+        const vis = record.visibility || 'public';
+        return (
+          <Space direction="vertical" size={4}>
+            {type === 'video' && (
+              <Tag color="blue" icon={<VideoCameraOutlined />} style={{ margin: 0 }}>
+                短视频
+              </Tag>
+            )}
+            {(type === 'post' || type === 'image_text') && (
+              <Tag color="green" icon={<PictureOutlined />} style={{ margin: 0 }}>
+                图文相册
+              </Tag>
+            )}
+            {type === 'whimsy' && (
+              <Tag color="purple" icon={<CustomerServiceOutlined />} style={{ margin: 0 }}>
+                奇思妙想
+              </Tag>
+            )}
+
+            <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
+              {vis === 'public'
+                ? '🌐 所有人可见'
+                : vis === 'friend'
+                  ? '👥 仅互关好友'
+                  : '🔒 仅作者可见'}
             </span>
+          </Space>
+        );
+      },
+    },
+    {
+      title: '互动数据指标',
+      key: 'interaction',
+      width: 150,
+      render: (_, record) => {
+        const stats = record.statistics || {
+          likeCount: record.likeCount || 0,
+          commentCount: record.commentCount || 0,
+          shareCount: record.shareCount || 0,
+          favoriteCount: record.collectCount || 0,
+        };
+        return (
+          <div style={{ fontSize: 12, lineHeight: 1.6, color: token.colorTextSecondary }}>
+            <div>
+              <HeartOutlined style={{ color: '#ff4d4f', marginRight: 4 }} />
+              获赞: <Text strong>{stats.likeCount.toLocaleString()}</Text>
+            </div>
+            <div>
+              <MessageOutlined style={{ color: '#1677ff', marginRight: 4 }} />
+              评论: {stats.commentCount.toLocaleString()}
+            </div>
+            <div>
+              <ShareAltOutlined style={{ color: '#722ed1', marginRight: 4 }} />
+              分享: {stats.shareCount.toLocaleString()}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
-      title: '评论权限',
-      dataIndex: 'commentPermission',
-      key: 'commentPermission',
-      width: 110,
-      render: (perm: CommentPermission) => renderCommentPermissionTag(perm),
-    },
-    {
-      title: '状态',
+      title: '合规与发布状态',
       key: 'status',
       width: 130,
-      render: (_, record) => renderStatusBadge(record.status, record.isTop),
+      render: (_, record) => {
+        const isPending = record.status === 'pending' || (record.status as any) === 'auditing';
+        const isRejected = record.status === 'rejected' || (record.status as any) === 'banned';
+        const isPublished = record.status === 'published';
+
+        if (isPublished) {
+          return <Badge status="success" text="正常公开" />;
+        }
+        if (isPending) {
+          return <Badge status="warning" text="待人工复审" />;
+        }
+        if (isRejected) {
+          const reason = record.auditTasks?.[0]?.reason || '违反社区公约';
+          return (
+            <Tooltip title={`违规原因: ${reason}`}>
+              <Badge
+                status="error"
+                text={<span style={{ color: '#ff4d4f', cursor: 'pointer' }}>违规已下架</span>}
+              />
+            </Tooltip>
+          );
+        }
+        return <Badge status="default" text={record.status} />;
+      },
     },
     {
       title: '发布时间',
       dataIndex: 'publishTime',
       key: 'publishTime',
-      width: 160,
-      render: (time: string) => <Text style={{ fontSize: 12 }}>{time}</Text>,
+      width: 150,
+      render: (_, record) => {
+        const time = record.createdAt || record.publishTime || '-';
+        return <span style={{ fontSize: 12, color: token.colorTextSecondary }}>{time}</span>;
+      },
+    },
+    {
+      title: '作品ID',
+      dataIndex: 'id',
+      key: 'id',
+      width: 170,
+      render: (id) => (
+        <Text copyable style={{ fontSize: 11 }}>
+          {id}
+        </Text>
+      ),
     },
     {
       title: '操作',
       key: 'action',
+      width: 130,
       fixed: 'right',
-      width: 230,
       render: (_, record) => {
-        const moreMenus = [
-          {
-            key: 'top',
-            icon: record.isTop ? <StarOutlined /> : <StarFilled style={{ color: '#faad14' }} />,
-            label: record.isTop ? '取消置顶推荐' : '推荐置顶作品',
-            onClick: () => handleToggleTop(record),
-          },
-          {
-            type: 'divider' as const,
-          },
-          {
-            key: 'perm-open',
-            label: '评论: 允许全员互动',
-            disabled: record.commentPermission === 'open',
-            onClick: () => handleCommentPermissionChange(record, 'open'),
-          },
-          {
-            key: 'perm-fans',
-            label: '评论: 仅允许粉丝互动',
-            disabled: record.commentPermission === 'fans_only',
-            onClick: () => handleCommentPermissionChange(record, 'fans_only'),
-          },
-          {
-            key: 'perm-close',
-            label: '评论: 关闭评论互动',
-            disabled: record.commentPermission === 'closed',
-            onClick: () => handleCommentPermissionChange(record, 'closed'),
-          },
-          {
-            type: 'divider' as const,
-          },
-          {
-            key: 'status-ban',
-            icon: <LockOutlined />,
-            label: '违规下架作品',
-            danger: true,
-            disabled: record.status === 'banned',
-            onClick: () => handleStatusChange(record, 'banned'),
-          },
-          {
-            key: 'status-restore',
-            icon: <UnlockOutlined />,
-            label: '恢复公开展示',
-            disabled: record.status === 'published',
-            onClick: () => handleStatusChange(record, 'published'),
-          },
-        ];
-
         return (
-          <Space size="small">
-            <Button
-              type="primary"
-              size="small"
-              icon={<CommentOutlined />}
-              onClick={() => {
-                setSelectedPost(record);
-                setCommentDrawerOpen(true);
-              }}
-            >
-              管理评论
-            </Button>
-
+          <Dropdown
+            menu={{ items: renderActionMenu(record) }}
+            trigger={['hover', 'click']}
+            placement="bottomRight"
+            getPopupContainer={() => document.body}
+          >
             <Button
               type="link"
               size="small"
-              icon={<EyeOutlined />}
-              onClick={() => {
-                setPreviewPost(record);
-                setPreviewModalOpen(true);
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                fontWeight: 600,
+                color: '#1677ff',
+                padding: '2px 8px',
+                borderRadius: 4,
               }}
             >
-              预览
+              <span>管理</span>
+              <DownOutlined style={{ fontSize: 10 }} />
             </Button>
-
-            {record.status === 'banned' ? (
-              <Popconfirm
-                title="恢复作品展示确认"
-                description="确定恢复该作品公开展示吗？"
-                onConfirm={() => handleStatusChange(record, 'published')}
-                okText="恢复"
-                cancelText="取消"
-              >
-                <Button type="link" size="small" style={{ color: '#52c41a' }}>
-                  恢复
-                </Button>
-              </Popconfirm>
-            ) : (
-              <Popconfirm
-                title="下架作品确认"
-                description="确定下架该违规作品并限制展示吗？"
-                onConfirm={() => handleStatusChange(record, 'banned')}
-                okText="确认下架"
-                cancelText="取消"
-                okButtonProps={{ danger: true }}
-              >
-                <Button type="link" size="small" danger>
-                  下架
-                </Button>
-              </Popconfirm>
-            )}
-
-            <Dropdown menu={{ items: moreMenus }} trigger={['click']} placement="bottomRight">
-              <Button type="text" size="small" icon={<MoreOutlined />} />
-            </Dropdown>
-          </Space>
+          </Dropdown>
         );
       },
     },
   ];
 
+  // 过滤显示列
+  const visibleColumns = columns.filter((col) => {
+    if (col.key === 'content' || col.key === 'action') return true;
+    return checkedKeys.includes(col.key as string);
+  });
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* 搜索表单 */}
+    <div style={{ padding: '0 4px' }}>
+      {/* 顶部指标统计看板 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={12} md={8} lg={4} xl={4}>
+          <Card
+            size="small"
+            style={{
+              background: isDark ? token.colorBgContainer : '#ffffff',
+              border: `1px solid ${token.colorBorderSecondary}`,
+              borderRadius: 8,
+            }}
+          >
+            <Statistic
+              title="作品收录总量"
+              value={summary.totalCount}
+              valueStyle={{ color: '#1677ff', fontWeight: 700 }}
+              prefix={<PictureOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8} lg={5} xl={5}>
+          <Card
+            size="small"
+            style={{
+              background: isDark ? token.colorBgContainer : '#ffffff',
+              border: `1px solid ${token.colorBorderSecondary}`,
+              borderRadius: 8,
+            }}
+          >
+            <Statistic
+              title="今日新增发布"
+              value={summary.todayNewCount}
+              valueStyle={{ color: '#52c41a', fontWeight: 700 }}
+              prefix={<CheckCircleOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8} lg={5} xl={5}>
+          <Card
+            size="small"
+            style={{
+              background: isDark ? token.colorBgContainer : '#ffffff',
+              border: `1px solid ${token.colorBorderSecondary}`,
+              borderRadius: 8,
+            }}
+          >
+            <Statistic
+              title="待人工复审"
+              value={summary.pendingReviewCount}
+              valueStyle={{ color: '#fa8c16', fontWeight: 700 }}
+              prefix={<AlertOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8} lg={5} xl={5}>
+          <Card
+            size="small"
+            style={{
+              background: isDark ? token.colorBgContainer : '#ffffff',
+              border: `1px solid ${token.colorBorderSecondary}`,
+              borderRadius: 8,
+            }}
+          >
+            <Statistic
+              title="违规已下架"
+              value={summary.rejectedCount}
+              valueStyle={{ color: '#ff4d4f', fontWeight: 700 }}
+              prefix={<StopOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8} lg={5} xl={5}>
+          <Card
+            size="small"
+            style={{
+              background: isDark ? token.colorBgContainer : '#ffffff',
+              border: `1px solid ${token.colorBorderSecondary}`,
+              borderRadius: 8,
+            }}
+          >
+            <Statistic
+              title="累计互动总量"
+              value={summary.totalInteractions}
+              valueStyle={{ color: '#722ed1', fontWeight: 700 }}
+              prefix={<HeartOutlined />}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 搜索与过滤表单 */}
       <Card
-        variant="borderless"
+        size="small"
         style={{
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+          marginBottom: 16,
+          background: isDark ? token.colorBgContainer : '#ffffff',
+          border: `1px solid ${token.colorBorderSecondary}`,
           borderRadius: 8,
         }}
       >
-        <Form
-          form={form}
-          layout="horizontal"
-          onFinish={handleSearch}
-          onValuesChange={handleFormValuesChange}
-          initialValues={{
-            type: 'all',
-            status: 'all',
-            commentPermission: 'all',
-          }}
-        >
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <Form.Item label="作品搜索" name="keyword" style={{ marginBottom: 0 }}>
-                <Input placeholder="输入标题文案 / #话题" allowClear />
+        <Form form={form} layout="vertical" onValuesChange={handleFormChange}>
+          <Row gutter={[16, 0]}>
+            <Col xs={24} sm={12} md={6} lg={5}>
+              <Form.Item label="作品关键词" name="keyword">
+                <Input
+                  placeholder="输入标题 / 正文 / 话题"
+                  allowClear
+                  prefix={<SearchOutlined />}
+                />
               </Form.Item>
             </Col>
-
-            <Col xs={24} sm={12} md={8} lg={5}>
-              <Form.Item label="发布者" name="uid" style={{ marginBottom: 0 }}>
-                <Input placeholder="输入作者 UID / 昵称" allowClear />
+            <Col xs={24} sm={12} md={6} lg={4}>
+              <Form.Item label="作者 UID / 昵称" name="uid">
+                <Input placeholder="输入作者展示号或昵称" allowClear prefix={<UserOutlined />} />
               </Form.Item>
             </Col>
-
-            <Col xs={24} sm={12} md={8} lg={4}>
-              <Form.Item label="作品类型" name="type" style={{ marginBottom: 0 }}>
+            <Col xs={24} sm={12} md={6} lg={4}>
+              <Form.Item label="作品形式" name="postType" initialValue="all">
                 <Select
                   options={[
-                    { label: '全部类型', value: 'all' },
-                    { label: '短视频', value: 'video' },
-                    { label: '图文动态', value: 'image_text' },
+                    { label: '全部形式', value: 'all' },
+                    { label: '🎥 短视频 (video)', value: 'video' },
+                    { label: '🖼️ 图文帖子 (post)', value: 'post' },
+                    { label: '✨ 奇思妙想 (whimsy)', value: 'whimsy' },
                   ]}
                 />
               </Form.Item>
             </Col>
-
-            <Col xs={24} sm={12} md={8} lg={4}>
-              <Form.Item label="审核状态" name="status" style={{ marginBottom: 0 }}>
+            <Col xs={24} sm={12} md={6} lg={4}>
+              <Form.Item label="合规管控状态" name="status" initialValue="all">
                 <Select
                   options={[
                     { label: '全部状态', value: 'all' },
-                    { label: '公开展示', value: 'published' },
-                    { label: '审核中', value: 'auditing' },
-                    { label: '违规下架', value: 'banned' },
+                    { label: '🟢 正常已发布', value: 'published' },
+                    { label: '🟠 待人工审核', value: 'pending' },
+                    { label: '🔴 违规已下架', value: 'rejected' },
+                    { label: '⚪ 草稿状态', value: 'draft' },
                   ]}
                 />
               </Form.Item>
             </Col>
-
-            <Col xs={24} sm={12} md={8} lg={5}>
-              <Form.Item label="评论权限" name="commentPermission" style={{ marginBottom: 0 }}>
+            <Col xs={24} sm={12} md={6} lg={4}>
+              <Form.Item label="可见范围" name="visibility" initialValue="all">
                 <Select
                   options={[
-                    { label: '全部权限', value: 'all' },
-                    { label: '全员可评', value: 'open' },
-                    { label: '仅粉丝可评', value: 'fans_only' },
-                    { label: '关闭评论', value: 'closed' },
+                    { label: '全部范围', value: 'all' },
+                    { label: '公开可见 (public)', value: 'public' },
+                    { label: '仅好友互关 (friend)', value: 'friend' },
+                    { label: '仅作者可见 (private)', value: 'private' },
                   ]}
                 />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={5}>
+              <Form.Item label="发布时间范围" name="dateRange">
+                <RangePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
 
-          <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-            <Col xs={24} sm={12} md={10} lg={8}>
-              <Form.Item label="发布日期" name="dateRange" style={{ marginBottom: 0 }}>
-                <RangePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} sm={12} md={14} lg={16}>
-              <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+          <Row justify="space-between" align="middle">
+            <Col>
+              <Space>
                 <Button
                   type="primary"
-                  htmlType="submit"
                   icon={<SearchOutlined />}
-                  loading={loading}
+                  onClick={() => fetchData(1, pageSize)}
                 >
                   查询
                 </Button>
@@ -721,124 +982,108 @@ export const PostsPage: React.FC = () => {
                 </Button>
               </Space>
             </Col>
+            <Col>
+              <Space>
+                {ColumnSettingComponent}
+                <Button icon={<DownloadOutlined />} loading={exportLoading} onClick={handleExport}>
+                  导出数据 (CSV)
+                </Button>
+              </Space>
+            </Col>
           </Row>
         </Form>
       </Card>
 
-      {/* 数据表格 */}
-      <Card
-        variant="borderless"
-        style={{
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-          borderRadius: 8,
-        }}
-        title={
-          <Space>
-            <span style={{ fontSize: 16, fontWeight: 600 }}>作品帖子数据列表</span>
-            <Tag color="purple">共 {total} 部作品</Tag>
-          </Space>
-        }
-        extra={
-          <Space wrap>
-            {selectedRowKeys.length > 0 && (
-              <Space>
-                <Text type="secondary">已选择 {selectedRowKeys.length} 项</Text>
-                <Button size="small" onClick={() => handleBatchStatus('published')}>
-                  批量恢复公开
+      {/* 批量操作工具条 */}
+      {selectedRowKeys.length > 0 && (
+        <Alert
+          style={{ marginBottom: 12, borderRadius: 6 }}
+          type="info"
+          showIcon
+          message={
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+              }}
+            >
+              <span>
+                已选择 <Text strong>{selectedRowKeys.length}</Text> 篇作品
+              </span>
+              <Space size={8}>
+                <Button size="small" type="primary" onClick={() => handleBatchStatus('published')}>
+                  批量审核通过
                 </Button>
-                <Button size="small" danger onClick={() => handleBatchStatus('banned')}>
-                  批量下架
+                <Button size="small" danger onClick={() => handleBatchStatus('rejected')}>
+                  批量违规下架
+                </Button>
+                <Button size="small" onClick={() => setSelectedRowKeys([])}>
+                  取消选择
                 </Button>
               </Space>
-            )}
+            </div>
+          }
+        />
+      )}
 
-            <Button icon={<DownloadOutlined />} onClick={handleExport} loading={exportLoading}>
-              导出作品数据
-            </Button>
-            {ColumnSettingComponent}
-            <Tooltip title="刷新列表">
-              <Button icon={<ReloadOutlined />} onClick={() => fetchData()} loading={loading} />
-            </Tooltip>
-          </Space>
-        }
+      {/* 数据表格 */}
+      <Card
+        size="small"
+        style={{
+          background: isDark ? token.colorBgContainer : '#ffffff',
+          border: `1px solid ${token.colorBorderSecondary}`,
+          borderRadius: 8,
+        }}
       >
         <Table<PostItem>
           rowKey="id"
-          columns={columns.filter((col) => !col.key || checkedKeys.includes(col.key as string))}
+          columns={visibleColumns}
           dataSource={postList}
           loading={loading}
-          scroll={{ x: 1300 }}
+          pagination={{
+            current: currentPage,
+            pageSize,
+            total,
+            showTotal: (t) => `共 ${t} 篇作品`,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50'],
+            onChange: (p, s) => fetchData(p, s),
+          }}
           rowSelection={{
             selectedRowKeys,
             onChange: (keys) => setSelectedRowKeys(keys),
           }}
-          pagination={{
-            current: currentPage,
-            pageSize: pageSize,
-            total: total,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            pageSizeOptions: ['10', '20', '50', '100', '200', '500', '1000'],
-            showTotal: (allTotal) => `共 ${allTotal} 条作品记录`,
-            onChange: (page, size) => {
-              setCurrentPage(page);
-              setPageSize(size);
-              fetchData(page, size);
-            },
-          }}
+          scroll={{ x: 1200 }}
         />
       </Card>
 
-      {/* 作品评论管理抽屉 */}
-      <PostCommentsDrawer
-        open={commentDrawerOpen}
-        post={selectedPost}
-        onClose={() => setCommentDrawerOpen(false)}
-        onCommentCountChange={() => fetchData()}
+      {/* 帖子全景详情抽屉 */}
+      <PostDetailDrawer
+        open={detailDrawerVisible}
+        post={currentPost}
+        onClose={() => setDetailDrawerVisible(false)}
+        onAuditClick={(post) => {
+          setAuditTargetPost(post);
+          setAuditModalVisible(true);
+        }}
       />
 
-      {/* 媒体预览弹窗 */}
-      <Modal
-        title={previewPost?.title}
-        open={previewModalOpen}
-        footer={null}
-        onCancel={() => setPreviewModalOpen(false)}
-        width={680}
-        destroyOnClose
-      >
-        {previewPost && (
-          <div style={{ marginTop: 12 }}>
-            {previewPost.type === 'video' ? (
-              <div
-                style={{
-                  textAlign: 'center',
-                  backgroundColor: '#000',
-                  borderRadius: 8,
-                  padding: 8,
-                }}
-              >
-                <video
-                  src={previewPost.videoUrl || 'https://www.w3schools.com/html/mov_bbb.mp4'}
-                  controls
-                  autoPlay
-                  style={{ maxHeight: 420, maxWidth: '100%', borderRadius: 6 }}
-                >
-                  <track kind="captions" srcLang="zh" label="中文字幕" />
-                </video>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: 8 }}>
-                {previewPost.images?.map((img) => (
-                  <Image key={img} src={img} style={{ height: 260, borderRadius: 6 }} />
-                ))}
-              </div>
-            )}
-            <Paragraph style={{ marginTop: 16, color: '#595959', fontSize: 13 }}>
-              {previewPost.title}
-            </Paragraph>
-          </div>
-        )}
-      </Modal>
+      {/* 评论管理抽屉 */}
+      <PostCommentsDrawer
+        open={commentsDrawerVisible}
+        post={commentTargetPost}
+        onClose={() => setCommentsDrawerVisible(false)}
+      />
+
+      {/* 审核与违规处置弹窗 */}
+      <PostAuditModal
+        open={auditModalVisible}
+        post={auditTargetPost}
+        onCancel={() => setAuditModalVisible(false)}
+        onConfirm={handleAuditConfirm}
+      />
     </div>
   );
 };
