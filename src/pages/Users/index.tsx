@@ -965,7 +965,7 @@ export const UsersPage: React.FC = () => {
             total: total,
             showSizeChanger: true,
             showQuickJumper: true,
-            pageSizeOptions: ['10', '20', '50'],
+            pageSizeOptions: ['10', '20', '50', '100', '200', '500', '1000'],
             showTotal: (allTotal) => `共 ${allTotal} 条记录`,
             onChange: (page, size) => {
               setCurrentPage(page);

@@ -808,6 +808,7 @@ export const AppealsPage: React.FC = () => {
             total: total,
             showSizeChanger: true,
             showQuickJumper: true,
+            pageSizeOptions: ['10', '20', '50', '100', '200', '500', '1000'],
             showTotal: (t) => `共 ${t} 条申诉`,
             onChange: (page, size) => fetchData(page, size),
           }}
