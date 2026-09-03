@@ -38,7 +38,6 @@ import {
   Input,
   message,
   Popconfirm,
-  Popover,
   Row,
   Select,
   Space,
@@ -618,13 +617,14 @@ export const UsersPage: React.FC = () => {
     return tag;
   };
 
-  // 账号状态与多维度处罚胶囊聚合渲染 (前2项外显 + 超出折叠 Popover 聚合，杜绝撑开行高与视觉噪点)
+  // 账号状态渲染：正常用户简洁展示，违规/处罚用户展示内嵌微型子表（每一行展示处罚项与剩余时效格式）
   const renderAccountStatus = (record: UserItem) => {
     const status = record.status;
     const userRestrictions = (restrictionsMap[record.id] || record.restrictions || []).filter(
       (r) => r.status === 'active',
     );
 
+    // 1. 若无任何处罚且状态为正常
     if (status === 'normal' && userRestrictions.length === 0) {
       return <Badge status="success" text={<Text type="success">正常</Text>} />;
     }
@@ -633,6 +633,7 @@ export const UsersPage: React.FC = () => {
       return <Badge status="default" text={<Text type="secondary">已注销</Text>} />;
     }
 
+    // 2. 处于处罚/管控中：组装所有生效惩罚列表
     const allItems: Array<{
       id: string | number;
       type: string;
@@ -687,112 +688,89 @@ export const UsersPage: React.FC = () => {
       });
     }
 
-    const visibleItems = allItems.slice(0, 2);
-    const overflowCount = allItems.length - 2;
-
-    const popoverContent = (
+    // 3. 渲染为内嵌微型子表结构：每一行独立展现处罚项目与剩余时间格式
+    return (
       <div
-        style={{ minWidth: 240, maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 8 }}
+        style={{
+          border: '1px solid #ffccc7',
+          borderRadius: 6,
+          background: '#fffaf9',
+          overflow: 'hidden',
+          boxShadow: '0 1px 2px rgba(255, 77, 79, 0.05)',
+          maxWidth: 240,
+        }}
       >
+        {/* 微型子表表头 */}
         <div
           style={{
-            fontSize: 12,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '2px 8px',
+            background: '#fff1f0',
+            borderBottom: '1px solid #ffccc7',
+            color: '#cf1322',
             fontWeight: 600,
-            color: '#ff4d4f',
-            borderBottom: '1px solid #f0f0f0',
-            paddingBottom: 4,
+            fontSize: 11,
           }}
         >
-          🛡️ 该用户生效中的全部处罚与管控 ({allItems.length}项)
+          <span>违规处罚项</span>
+          <span>剩余时间</span>
         </div>
-        {allItems.map((item) => {
-          const dur = formatRemainingDuration(item.endAt);
-          return (
-            <div
-              key={item.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '4px 6px',
-                backgroundColor: '#fafafa',
-                borderRadius: 4,
-                gap: 8,
-              }}
-            >
-              <Tag color={item.color} icon={item.icon} style={{ margin: 0, fontSize: 11 }}>
-                {item.label}
-              </Tag>
-              <div style={{ textAlign: 'right' }}>
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: dur.isPermanent ? '#ff4d4f' : '#fa8c16',
-                    fontWeight: 500,
-                  }}
-                >
-                  {dur.text}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
 
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap', gap: 4 }}>
-          {visibleItems.map((item) => {
+        {/* 每一行处罚与剩余时间 */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {allItems.map((item, idx) => {
             const duration = formatRemainingDuration(item.endAt);
-            const tooltipContent = (
+            const isLast = idx === allItems.length - 1;
+            const tooltipTitle = (
               <div style={{ fontSize: 12 }}>
-                <div style={{ fontWeight: 600, color: item.color, marginBottom: 2 }}>
-                  {item.icon} {item.label}管控中
-                </div>
-                <div>处罚原因: {item.reason}</div>
-                <div>时效期限: {item.endAt ? `${item.endAt} (${duration.text})` : '永久管控'}</div>
+                <div style={{ fontWeight: 600, color: item.color }}>{item.label}</div>
+                <div>原因: {item.reason}</div>
+                <div>时效: {item.endAt ? `${item.endAt} (${duration.text})` : '永久管控'}</div>
               </div>
             );
 
             return (
-              <Tooltip key={item.id} title={tooltipContent} placement="top">
-                <Tag
-                  color={item.color}
-                  icon={item.icon}
+              <Tooltip key={item.id} title={tooltipTitle} placement="top">
+                <div
                   style={{
-                    fontSize: 11,
-                    padding: '0 6px',
-                    margin: 0,
-                    borderRadius: 10,
-                    cursor: 'pointer',
-                    lineHeight: '20px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '3px 8px',
+                    borderBottom: isLast ? 'none' : '1px solid #f0f0f0',
+                    backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fafafa',
+                    transition: 'background 0.2s',
                   }}
                 >
-                  {item.badgeText}
-                </Tag>
+                  <Tag
+                    color={item.color}
+                    icon={item.icon}
+                    style={{
+                      margin: 0,
+                      fontSize: 10,
+                      lineHeight: '18px',
+                      padding: '0 4px',
+                      borderRadius: 4,
+                    }}
+                  >
+                    {item.badgeText}
+                  </Tag>
+
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: duration.isPermanent ? '#cf1322' : '#d46b08',
+                    }}
+                  >
+                    {duration.text}
+                  </span>
+                </div>
               </Tooltip>
             );
           })}
-
-          {overflowCount > 0 && (
-            <Popover content={popoverContent} trigger="hover" placement="right">
-              <Tag
-                color="error"
-                style={{
-                  fontSize: 10,
-                  padding: '0 5px',
-                  margin: 0,
-                  borderRadius: 10,
-                  cursor: 'pointer',
-                  lineHeight: '20px',
-                  fontWeight: 600,
-                }}
-              >
-                +{overflowCount}
-              </Tag>
-            </Popover>
-          )}
         </div>
       </div>
     );
@@ -1032,7 +1010,7 @@ export const UsersPage: React.FC = () => {
       title: '账号状态',
       dataIndex: 'status',
       key: 'status',
-      width: 170,
+      width: 250,
       render: (_, record) => renderAccountStatus(record),
     },
     {
