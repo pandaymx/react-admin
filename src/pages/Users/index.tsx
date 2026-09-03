@@ -113,44 +113,56 @@ const RESTRICTION_TYPE_META: Record<
   },
 };
 
-// 静态时间差换算纯函数（无定时器 setInterval 性能开销，专为千行长列表优化）
+// 动态时间差换算函数：支持每秒实时倒计时跳动，精确到时分秒 (使用全局单定时器驱动，零性能损耗)
 const formatRemainingDuration = (
   endAt?: string | null,
-): { text: string; isPermanent: boolean; isExpired: boolean } => {
+  nowTimestamp: number = Date.now(),
+): { text: string; isPermanent: boolean; isExpired: boolean; isUrgent: boolean } => {
   if (!endAt || endAt === 'permanent') {
-    return { text: '永久管控', isPermanent: true, isExpired: false };
-  }
-  const end = new Date(endAt).getTime();
-  const now = Date.now();
-  const diffMs = end - now;
-
-  if (Number.isNaN(end) || diffMs <= 0) {
-    return { text: '已到期', isPermanent: false, isExpired: true };
+    return { text: '永久管控', isPermanent: true, isExpired: false, isUrgent: false };
   }
 
-  const hours = Math.floor(diffMs / (1000 * 60 * 60));
-  const days = Math.floor(hours / 24);
-  const remainingHours = hours % 24;
+  // 兼容标准空格分隔时间与 ISO 格式
+  const cleanEndStr = endAt.includes('T') ? endAt : endAt.replace(' ', 'T');
+  let end = new Date(cleanEndStr).getTime();
+  if (Number.isNaN(end)) {
+    end = new Date(endAt).getTime();
+    if (Number.isNaN(end)) {
+      return { text: '时效计算中', isPermanent: false, isExpired: false, isUrgent: false };
+    }
+  }
 
+  const diffMs = end - nowTimestamp;
+  if (diffMs <= 0) {
+    return { text: '已到期', isPermanent: false, isExpired: true, isUrgent: false };
+  }
+
+  const totalSeconds = Math.floor(diffMs / 1000);
+  const seconds = totalSeconds % 60;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const minutes = totalMinutes % 60;
+  const totalHours = Math.floor(totalMinutes / 60);
+  const hours = totalHours % 24;
+  const days = Math.floor(totalHours / 24);
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  // 大于 1 天展示：剩余 6天 18:32:05
   if (days > 0) {
     return {
-      text: `剩余 ${days}天${remainingHours > 0 ? ` ${remainingHours}小时` : ''}`,
+      text: `剩余 ${days}天 ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
       isPermanent: false,
       isExpired: false,
+      isUrgent: false,
     };
   }
-  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-  if (hours > 0) {
-    return {
-      text: `剩余 ${hours}小时${minutes > 0 ? ` ${minutes}分` : ''}`,
-      isPermanent: false,
-      isExpired: false,
-    };
-  }
+
+  // 24小时以内展示高精度倒计时：剩余 02:45:18
   return {
-    text: `剩余 ${Math.max(1, minutes)}分钟`,
+    text: `剩余 ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
     isPermanent: false,
     isExpired: false,
+    isUrgent: totalHours < 1,
   };
 };
 
@@ -207,6 +219,16 @@ export const UsersPage: React.FC = () => {
     {},
   );
   const [restrictionLoadingMap, setRestrictionLoadingMap] = useState<Record<string, boolean>>({});
+
+  // 单一全局心跳定时器：每秒驱动全页面所有微型子表格与展开行实时倒计时跳动（高性能零卡顿）
+  const [currentTimestamp, setCurrentTimestamp] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTimestamp(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // 展开行按需拉取或复用缓存
   const handleExpand = async (expanded: boolean, record: UserItem) => {
@@ -732,7 +754,7 @@ export const UsersPage: React.FC = () => {
         {/* 每一行处罚与剩余时间及操作 */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {allItems.map((item, idx) => {
-            const duration = formatRemainingDuration(item.endAt);
+            const duration = formatRemainingDuration(item.endAt, currentTimestamp);
             const isLast = idx === allItems.length - 1;
             const tooltipTitle = (
               <div style={{ fontSize: 12 }}>
@@ -777,10 +799,32 @@ export const UsersPage: React.FC = () => {
                     style={{
                       fontSize: 11,
                       fontWeight: 600,
-                      color: duration.isPermanent ? '#cf1322' : '#d46b08',
+                      fontFamily: 'monospace, "SF Mono", "Courier New", sans-serif',
+                      letterSpacing: -0.2,
+                      color: duration.isPermanent
+                        ? '#cf1322'
+                        : duration.isExpired
+                          ? '#8c8c8c'
+                          : duration.isUrgent
+                            ? '#f5222d'
+                            : '#d46b08',
                     }}
                   >
-                    {duration.text}
+                    {duration.isExpired ? (
+                      <Tag
+                        color="default"
+                        style={{
+                          margin: 0,
+                          fontSize: 10,
+                          padding: '0 4px',
+                          lineHeight: '16px',
+                        }}
+                      >
+                        已到期
+                      </Tag>
+                    ) : (
+                      duration.text
+                    )}
                   </span>
 
                   <Popconfirm
@@ -891,13 +935,27 @@ export const UsersPage: React.FC = () => {
               key: 'endAt',
               width: 200,
               render: (endAt: string | null) => {
-                const duration = formatRemainingDuration(endAt);
+                const duration = formatRemainingDuration(endAt, currentTimestamp);
                 return (
-                  <Space orientation="vertical" size={2}>
+                  <Space direction="vertical" size={2}>
                     <span style={{ fontSize: 12 }}>{endAt || '永久管控'}</span>
                     <Tag
-                      color={duration.isPermanent ? 'error' : 'warning'}
-                      style={{ fontSize: 10, padding: '0 4px', margin: 0, borderRadius: 8 }}
+                      color={
+                        duration.isPermanent
+                          ? 'error'
+                          : duration.isExpired
+                            ? 'default'
+                            : duration.isUrgent
+                              ? 'volcano'
+                              : 'warning'
+                      }
+                      style={{
+                        fontSize: 10,
+                        padding: '0 4px',
+                        margin: 0,
+                        borderRadius: 8,
+                        fontFamily: 'monospace, "SF Mono", "Courier New", sans-serif',
+                      }}
                     >
                       {duration.text}
                     </Tag>
