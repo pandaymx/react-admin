@@ -40,6 +40,10 @@ jobs:
 
       - name: Build with Vite
         run: bun run build
+        env:
+          # 优先读取 GitHub 后台配置的变量，未配置时回退使用正式后端域名
+          VITE_API_HOST: ${{ vars.VITE_API_HOST || 'https://qxj.jiancan.fun' }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || '/admin-api' }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
