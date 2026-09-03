@@ -530,9 +530,6 @@ export const UsersPage: React.FC = () => {
                 >
                   UID: {record.userId || record.uid}
                 </Text>
-                {record.initStatus === 0 && (
-                  <Tag style={{ fontSize: 10, padding: '0 3px', margin: 0 }}>保底账号</Tag>
-                )}
               </Space>
             </div>
           </Space>
