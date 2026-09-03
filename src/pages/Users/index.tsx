@@ -113,41 +113,50 @@ const RESTRICTION_TYPE_META: Record<
 
 const formatRemainingDuration = (
   endAt?: string | null,
-): { text: string; isPermanent: boolean; isExpired: boolean } => {
+  nowTimestamp: number = Date.now(),
+): { text: string; isPermanent: boolean; isExpired: boolean; isUrgent: boolean } => {
   if (!endAt || endAt === 'permanent') {
-    return { text: '永久管控', isPermanent: true, isExpired: false };
-  }
-  const end = new Date(endAt).getTime();
-  const now = Date.now();
-  const diffMs = end - now;
-
-  if (Number.isNaN(end) || diffMs <= 0) {
-    return { text: '已到期', isPermanent: false, isExpired: true };
+    return { text: '永久管控', isPermanent: true, isExpired: false, isUrgent: false };
   }
 
-  const hours = Math.floor(diffMs / (1000 * 60 * 60));
-  const days = Math.floor(hours / 24);
-  const remainingHours = hours % 24;
+  const cleanEndStr = endAt.includes('T') ? endAt : endAt.replace(' ', 'T');
+  let end = new Date(cleanEndStr).getTime();
+  if (Number.isNaN(end)) {
+    end = new Date(endAt).getTime();
+    if (Number.isNaN(end)) {
+      return { text: '时效计算中', isPermanent: false, isExpired: false, isUrgent: false };
+    }
+  }
+
+  const diffMs = end - nowTimestamp;
+  if (diffMs <= 0) {
+    return { text: '已到期', isPermanent: false, isExpired: true, isUrgent: false };
+  }
+
+  const totalSeconds = Math.floor(diffMs / 1000);
+  const seconds = totalSeconds % 60;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const minutes = totalMinutes % 60;
+  const totalHours = Math.floor(totalMinutes / 60);
+  const hours = totalHours % 24;
+  const days = Math.floor(totalHours / 24);
+
+  const pad = (n: number) => String(n).padStart(2, '0');
 
   if (days > 0) {
     return {
-      text: `剩余 ${days}天${remainingHours > 0 ? ` ${remainingHours}小时` : ''}`,
+      text: `剩余 ${days}天 ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
       isPermanent: false,
       isExpired: false,
+      isUrgent: false,
     };
   }
-  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-  if (hours > 0) {
-    return {
-      text: `剩余 ${hours}小时${minutes > 0 ? ` ${minutes}分` : ''}`,
-      isPermanent: false,
-      isExpired: false,
-    };
-  }
+
   return {
-    text: `剩余 ${Math.max(1, minutes)}分钟`,
+    text: `剩余 ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
     isPermanent: false,
     isExpired: false,
+    isUrgent: totalHours < 1,
   };
 };
 
@@ -185,6 +194,16 @@ export const UsersPage: React.FC = () => {
   const [restrictionLoadingMap, setRestrictionLoadingMap] = useState<Record<string, boolean>>({});
 
   // 展开行按需拉取或复用缓存
+  // 单一全局心跳定时器：每秒驱动全页面所有微型子表格与展开行实时倒计时跳动（高性能零卡顿）
+  const [currentTimestamp, setCurrentTimestamp] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTimestamp(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const handleExpand = async (expanded: boolean, record: UserItem) => {
     if (expanded) {
       setExpandedRowKeys((prev) => [...prev, record.id]);
@@ -750,7 +769,7 @@ export const UsersPage: React.FC = () => {
         {/* 每一行处罚与剩余时间 */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {allItems.map((item, idx) => {
-            const duration = formatRemainingDuration(item.endAt);
+            const duration = formatRemainingDuration(item.endAt, currentTimestamp);
             const isLast = idx === allItems.length - 1;
             const tooltipTitle = (
               <div style={{ fontSize: 12 }}>
@@ -904,7 +923,7 @@ export const UsersPage: React.FC = () => {
               key: 'endAt',
               width: 200,
               render: (endAt: string | null) => {
-                const duration = formatRemainingDuration(endAt);
+                const duration = formatRemainingDuration(endAt, currentTimestamp);
                 return (
                   <Space orientation="vertical" size={2}>
                     <span style={{ fontSize: 12 }}>{endAt || '永久管控'}</span>
