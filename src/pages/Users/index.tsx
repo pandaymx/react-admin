@@ -340,7 +340,28 @@ export const UsersPage: React.FC = () => {
 
         const res = await getUserList(params);
         if ((res.code === 200 || res.code === 0) && res.data) {
-          setUserList(res.data.list);
+          const rawList = res.data.list;
+
+          // 同步查询全局 active 限制以实时对齐微型子表 (避免 N+1 请求)
+          try {
+            const restrictionRes = await getUserContentRestrictions({
+              status: 'active',
+              pageSize: 100,
+            });
+            if (restrictionRes.data?.list) {
+              const activeList = restrictionRes.data.list;
+              const grouped: Record<string, ContentRestrictionItem[]> = {};
+              for (const r of activeList) {
+                if (!grouped[r.userId]) grouped[r.userId] = [];
+                grouped[r.userId].push(r);
+              }
+              setRestrictionsMap((prev) => ({ ...prev, ...grouped }));
+            }
+          } catch {
+            // ignore
+          }
+
+          setUserList(rawList);
           setTotal(res.data.total);
           setCurrentPage(res.data.page || page);
           setPageSize(res.data.pageSize || size);
