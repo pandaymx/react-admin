@@ -35,6 +35,57 @@ export interface CertificationSummary {
   items?: CertificationSummaryItem[];
 }
 
+/** 内容治理限制功能类型：post-禁发动态/帖, comment-禁评, activity_publish-禁发布活动, account-全量封号 */
+export type RestrictionType = 'post' | 'comment' | 'activity_publish' | 'account' | string;
+
+/** 限制状态：active-生效中, revoked-已解除, expired-已到期 */
+export type RestrictionStatus = 'active' | 'revoked' | 'expired' | string;
+
+/** 治理处置来源：manual-管理员人工, report-举报受理, rule-AI规则风控 */
+export type ModerationSourceType = 'manual' | 'report' | 'rule' | string;
+
+/** 治理动作类型 */
+export type ModerationActionType =
+  | 'warning'
+  | 'ban_post'
+  | 'ban_comment'
+  | 'ban_activity'
+  | 'ban_all'
+  | string;
+
+/** 单条内容限制与惩戒明细记录 (对接后端 AdminContentRestrictionRespVO) */
+export interface ContentRestrictionItem {
+  id: number | string;
+  userId: string; // 被限制用户主键ID (app_users.id)
+  restrictionType: RestrictionType; // 限制类型：post / comment / activity_publish / account
+  status: RestrictionStatus; // 状态：active / revoked / expired
+  reason: string; // 限制原因
+  sourceType?: ModerationSourceType; // 来源类型：report / manual / rule
+  sourceId?: string;
+  moderationRecordId?: number;
+  ruleId?: number;
+  operatorUserId?: string; // 操作管理员ID
+  startAt?: string; // 限制开始时间
+  endAt?: string | null; // 限制结束时间，NULL表示永久
+  revokedAt?: string | null; // 解除时间
+  revokeReason?: string | null; // 解除原因
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ContentRestrictionPageReqVO {
+  userId?: string;
+  restrictionType?: string;
+  status?: string;
+  pageNo?: number;
+  pageSize?: number;
+}
+
+export interface ModerationRevokeReqVO {
+  restrictionId: number | string;
+  reason: string;
+}
+
 /** 后端接口原始响应实体: AdminUserRespVO */
 export interface AdminUserRespVO {
   id: string;
@@ -56,6 +107,7 @@ export interface AdminUserRespVO {
   followCount: number; // 关注数
   friendCount: number; // 好友数
   personalAuths?: PersonalAuthItem[]; // 实名认证信息列表
+  restrictions?: ContentRestrictionItem[]; // 内容治理限制记录列表
 }
 
 /** 后端用户统计概览响应实体: UserStatisticsRespVO */
@@ -115,6 +167,7 @@ export interface UserItem {
   offlineActivityCount?: number;
   lastActiveTime?: string;
   activeStatus?: 'online' | 'offline' | 'recent';
+  restrictions?: ContentRestrictionItem[]; // 当前生效或关联的内容限制惩戒清单
   persona?: UserPersona;
 }
 

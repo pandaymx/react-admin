@@ -3,6 +3,9 @@ import type {
   AdminUserPageReqVO,
   AdminUserRespVO,
   ApiResponse,
+  ContentRestrictionItem,
+  ContentRestrictionPageReqVO,
+  ModerationRevokeReqVO,
   PageResult,
   UserItem,
   UserListResult,
@@ -235,6 +238,49 @@ const mockUsers: UserItem[] = [
     initStatus: 1,
     accountBanExpireTime: 'permanent',
     banReason: '发布黑产引流广告及低俗兼职诈骗外链',
+    restrictions: [
+      {
+        id: 501,
+        userId: '5',
+        restrictionType: 'account',
+        status: 'active',
+        reason: '账号涉嫌批量发布黑产引流广告与低俗兼职网络诈骗外链',
+        sourceType: 'manual',
+        operatorUserId: '1',
+        startAt: '2026-08-19 18:22:00',
+        endAt: null,
+      },
+      {
+        id: 502,
+        userId: '5',
+        restrictionType: 'post',
+        status: 'active',
+        reason: '动态中恶意包含涉赌涉诈域名与二维码引流',
+        sourceType: 'rule',
+        startAt: '2026-08-19 18:22:00',
+        endAt: null,
+      },
+      {
+        id: 503,
+        userId: '5',
+        restrictionType: 'comment',
+        status: 'active',
+        reason: '批量在热门作品评论区恶意刷屏发布兼职引流联系方式',
+        sourceType: 'rule',
+        startAt: '2026-08-19 18:22:00',
+        endAt: null,
+      },
+      {
+        id: 504,
+        userId: '5',
+        restrictionType: 'activity_publish',
+        status: 'active',
+        reason: '尝试发起虚假线下兼职活动进行线下涉诈引流',
+        sourceType: 'report',
+        startAt: '2026-08-19 18:22:00',
+        endAt: null,
+      },
+    ],
     createTime: '2026-08-19T18:22:00',
     registerTime: '2026-08-19 18:22:00',
     fanCount: 120,
@@ -255,7 +301,7 @@ const mockUsers: UserItem[] = [
       'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
     phoneNumber: '18822334455',
     phone: '18822334455',
-    status: 'banned',
+    status: 'muted',
     rawStatus: 2,
     certificationLabel: '未实名',
     certificationSummary: {
@@ -266,8 +312,32 @@ const mockUsers: UserItem[] = [
     verifyStatus: 'unverified',
     certified: false,
     initStatus: 1,
-    accountBanExpireTime: '2026-09-09 19:40:00',
-    banReason: '在多个热门作品评论区频繁发布恶意辱骂与人身攻击言论',
+    accountBanExpireTime: '2026-09-10 19:40:00',
+    banReason: '在多个热门作品评论区频繁发布恶意辱骂言论并违规创建争议活动',
+    restrictions: [
+      {
+        id: 601,
+        userId: '6',
+        restrictionType: 'comment',
+        status: 'active',
+        reason: '在多个热门作品评论区频繁发布恶意辱骂与人身攻击言论',
+        sourceType: 'report',
+        operatorUserId: '1',
+        startAt: '2026-09-02 19:40:00',
+        endAt: '2026-09-10 19:40:00',
+      },
+      {
+        id: 602,
+        userId: '6',
+        restrictionType: 'activity_publish',
+        status: 'active',
+        reason: '多次发起违规煽动性线上拉踩活动',
+        sourceType: 'manual',
+        operatorUserId: '1',
+        startAt: '2026-09-02 19:40:00',
+        endAt: '2026-09-16 19:40:00',
+      },
+    ],
     createTime: '2025-10-01T12:00:00',
     registerTime: '2025-10-01 12:00:00',
     fanCount: 65,
@@ -496,6 +566,7 @@ export const getUserList = async (
           followCount: vo.followCount || 0,
           friendCount: vo.friendCount || 0,
           personalAuths: vo.personalAuths,
+          restrictions: (vo as any).restrictions,
         };
       });
 
@@ -619,6 +690,7 @@ export const getUserDetail = async (id: string | number): Promise<ApiResponse<Ad
       followCount: user.followCount,
       friendCount: user.friendCount,
       personalAuths: user.personalAuths,
+      restrictions: user.restrictions,
     },
     message: 'success',
   };
@@ -765,4 +837,96 @@ export const getAllFilteredUsers = async (
 ): Promise<UserItem[]> => {
   const res = await getUserList({ ...params, page: 1, pageSize: 99999 });
   return res.data.list;
+};
+
+/**
+ * 获取用户的内容治理限制记录分页 (对接 GET /admin-api/user/content-restriction/page)
+ */
+export const getUserContentRestrictions = async (
+  params: ContentRestrictionPageReqVO,
+): Promise<ApiResponse<PageResult<ContentRestrictionItem>>> => {
+  try {
+    const res = await request<PageResult<ContentRestrictionItem>>({
+      url: '/user/content-restriction/page',
+      method: 'GET',
+      params,
+    });
+    if ((res.code === 200 || res.code === 0) && res.data) {
+      return res;
+    }
+  } catch {
+    // 降级容灾
+  }
+
+  // 本地 Mock 数据集过滤
+  let list: ContentRestrictionItem[] = [];
+  const targetUser = currentDataset.find((u) => u.id === String(params.userId));
+  if (targetUser?.restrictions) {
+    list = [...targetUser.restrictions];
+    if (params.status && params.status !== 'all') {
+      list = list.filter((r) => r.status === params.status);
+    }
+    if (params.restrictionType && params.restrictionType !== 'all') {
+      list = list.filter((r) => r.restrictionType === params.restrictionType);
+    }
+  }
+
+  return {
+    code: 200,
+    data: {
+      list,
+      total: list.length,
+    },
+    message: 'success',
+  };
+};
+
+/**
+ * 手动解除用户内容治理限制 (对接 PUT /admin-api/user/content-restriction/revoke)
+ */
+export const revokeUserContentRestriction = async (
+  data: ModerationRevokeReqVO,
+): Promise<ApiResponse<boolean>> => {
+  try {
+    const res = await request<boolean>({
+      url: '/user/content-restriction/revoke',
+      method: 'PUT',
+      data,
+    });
+    if (res.code === 200 || res.code === 0) {
+      return res;
+    }
+  } catch {
+    // 降级容灾
+  }
+
+  // 离线与 Mock 状态下执行内存精准更新
+  currentDataset = currentDataset.map((u) => {
+    if (u.restrictions) {
+      const updated = u.restrictions.map((r) => {
+        if (String(r.id) === String(data.restrictionId)) {
+          return {
+            ...r,
+            status: 'revoked' as const,
+            revokedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+            revokeReason: data.reason,
+          };
+        }
+        return r;
+      });
+      const hasActive = updated.some((r) => r.status === 'active');
+      return {
+        ...u,
+        restrictions: updated,
+        status: hasActive ? u.status : ('normal' as UserStatus),
+      };
+    }
+    return u;
+  });
+
+  return {
+    code: 200,
+    data: true,
+    message: '已成功解除该项内容治理限制',
+  };
 };
