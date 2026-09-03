@@ -13,6 +13,28 @@ export interface PersonalAuthItem {
   authTime: string; // 实名认证通过时间
 }
 
+export type CertificationLabel = '企业认证' | '个人认证' | '审核中' | '未实名';
+
+/** 认证条目详情 */
+export interface CertificationSummaryItem {
+  type: 'personal' | 'enterprise' | string;
+  status: string;
+  reviewStatus?: string;
+  displayName?: string;
+  isVerified?: boolean;
+  certifiedAt?: string | null;
+  submittedAt?: string | null;
+}
+
+/** 统一认证摘要对象 (包含单字段 certificationLabel) */
+export interface CertificationSummary {
+  userId?: string | number;
+  hasPending?: boolean;
+  certificationLabel: CertificationLabel | string;
+  primary?: CertificationSummaryItem;
+  items?: CertificationSummaryItem[];
+}
+
 /** 后端接口原始响应实体: AdminUserRespVO */
 export interface AdminUserRespVO {
   id: string;
@@ -21,8 +43,13 @@ export interface AdminUserRespVO {
   status: 1 | 2 | 3; // 账号状态：1=正常, 2=禁用/封禁, 3=注销
   nickname: string;
   avatarUrl: string;
-  qualification?: 1 | 2; // 认证类型：1=个人认证, 2=企业认证
-  certified: boolean; // 是否已实名认证
+  certificationSummary?: CertificationSummary; // 统一认证摘要
+  /** @deprecated 历史冗余字段恒为1，请使用 certificationSummary.certificationLabel */
+  qualification?: 1 | 2;
+  /** @deprecated 布尔值无法表达审核中，请使用 certificationSummary.certificationLabel */
+  certified?: boolean;
+  /** @deprecated 真实认证通过时间请使用 certificationSummary.primary.certifiedAt */
+  certifiedTime?: string | null;
   initStatus: 0 | 1; // 0=系统保底, 1=已初始化
   createTime: string; // 注册时间 (如 2026-09-02T10:45:00)
   fanCount: number; // 粉丝数
@@ -61,8 +88,10 @@ export interface UserItem {
   phone?: string; // 兼容字段
   status: UserStatus; // 前端枚举 normal | banned | cancelling | cancelled
   rawStatus?: 1 | 2 | 3; // 后端原始状态：1=正常, 2=禁用, 3=注销
-  qualification?: 1 | 2; // 1=个人, 2=企业
-  certified?: boolean; // 是否实名
+  certificationSummary?: CertificationSummary; // 统一认证摘要
+  certificationLabel: CertificationLabel | string; // 后端单字段直接渲染标签：企业认证 | 个人认证 | 审核中 | 未实名
+  qualification?: 1 | 2; // 兼容过渡字段
+  certified?: boolean; // 兼容过渡字段
   initStatus?: 0 | 1; // 0=系统保底, 1=已初始化
   verifyStatus: VerifyStatus; // 视图认证类型 (personal/enterprise/unverified)
   verifyInfo?: string;

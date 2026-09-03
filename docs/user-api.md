@@ -40,6 +40,19 @@
   "status": 1,
   "nickname": "极客先锋·Tech",
   "avatarUrl": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+  "certificationSummary": {
+    "userId": "123456789",
+    "hasPending": false,
+    "certificationLabel": "企业认证",
+    "primary": {
+      "type": "enterprise",
+      "status": "approved",
+      "reviewStatus": "approved",
+      "displayName": "企业认证",
+      "isVerified": true,
+      "certifiedAt": "2024-03-15 14:20:00"
+    }
+  },
   "qualification": 2,
   "certified": true,
   "initStatus": 1,
@@ -58,13 +71,17 @@
 ```
 
 #### 字段枚举映射对照表：
-- **认证类型 (`qualification`)**：
-  - `1`：个人认证 (`Personal`)
-  - `2`：企业认证 (`Enterprise`)
-  - `0 / undefined / null`：未认证 (`Unverified`)
-- **是否实名 (`certified`)**：
-  - `true`：已实名身份认证
-  - `false`：未实名
+- **【推荐】用户认证标签 (`certificationSummary.certificationLabel`)**：
+  - 后端单字段直接返回中文文案，四选一：
+    - `企业认证`（已通过企业认证，企业优先级 > 个人）
+    - `个人认证`（已通过个人实名认证）
+    - `审核中`（存在审核中记录，仅本人/后台可见）
+    - `未实名`（无认证或仅被驳回）
+  - 真实认证通过时间请读取：`certificationSummary.primary.certifiedAt`
+- **【已废弃】认证类型 (`qualification`)**：
+  - ⚠️ 历史字段，恒为 1 且无法表达企业与审核中，已标 `@Deprecated`。
+- **【已废弃】是否实名 (`certified`)**：
+  - ⚠️ 布尔值，无法表达审核中状态，已标 `@Deprecated`。
 - **账号状态 (`status`)**：
   - `1`：正常 (`Normal`)
   - `2`：禁用 / 封禁 (`Banned / Disabled`)

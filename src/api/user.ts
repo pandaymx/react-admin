@@ -28,6 +28,20 @@ const mockUsers: UserItem[] = [
     phone: '13800138001',
     status: 'normal',
     rawStatus: 1,
+    certificationLabel: '企业认证',
+    certificationSummary: {
+      userId: 100001,
+      hasPending: false,
+      certificationLabel: '企业认证',
+      primary: {
+        type: 'enterprise',
+        status: 'approved',
+        reviewStatus: 'approved',
+        displayName: '企业认证',
+        isVerified: true,
+        certifiedAt: '2024-03-15 14:30:00',
+      },
+    },
     qualification: 2,
     verifyStatus: 'enterprise',
     verifyInfo: '数码科技认证企业机构',
@@ -63,6 +77,20 @@ const mockUsers: UserItem[] = [
     phone: '13911223344',
     status: 'normal',
     rawStatus: 1,
+    certificationLabel: '个人认证',
+    certificationSummary: {
+      userId: 100002,
+      hasPending: false,
+      certificationLabel: '个人认证',
+      primary: {
+        type: 'personal',
+        status: 'approved',
+        reviewStatus: 'approved',
+        displayName: '个人认证',
+        isVerified: true,
+        certifiedAt: '2023-11-08 10:00:00',
+      },
+    },
     qualification: 1,
     verifyStatus: 'personal',
     verifyInfo: '美食领域知名认证博主',
@@ -98,6 +126,20 @@ const mockUsers: UserItem[] = [
     phone: '13888886666',
     status: 'normal',
     rawStatus: 1,
+    certificationLabel: '企业认证',
+    certificationSummary: {
+      userId: 100003,
+      hasPending: false,
+      certificationLabel: '企业认证',
+      primary: {
+        type: 'enterprise',
+        status: 'approved',
+        reviewStatus: 'approved',
+        displayName: '企业认证',
+        isVerified: true,
+        certifiedAt: '2024-01-10 17:00:00',
+      },
+    },
     qualification: 2,
     verifyStatus: 'enterprise',
     verifyInfo: '北京智元人工智能科技有限公司官方',
@@ -133,6 +175,20 @@ const mockUsers: UserItem[] = [
     phone: '13666778899',
     status: 'normal',
     rawStatus: 1,
+    certificationLabel: '个人认证',
+    certificationSummary: {
+      userId: 100004,
+      hasPending: false,
+      certificationLabel: '个人认证',
+      primary: {
+        type: 'personal',
+        status: 'approved',
+        reviewStatus: 'approved',
+        displayName: '个人认证',
+        isVerified: true,
+        certifiedAt: '2025-05-18 11:30:00',
+      },
+    },
     qualification: 1,
     verifyStatus: 'personal',
     verifyInfo: '已通过个人实名认证',
@@ -168,6 +224,12 @@ const mockUsers: UserItem[] = [
     phone: '17099887766',
     status: 'banned',
     rawStatus: 2,
+    certificationLabel: '未实名',
+    certificationSummary: {
+      userId: 100005,
+      hasPending: false,
+      certificationLabel: '未实名',
+    },
     verifyStatus: 'unverified',
     certified: false,
     initStatus: 1,
@@ -195,6 +257,12 @@ const mockUsers: UserItem[] = [
     phone: '18822334455',
     status: 'banned',
     rawStatus: 2,
+    certificationLabel: '未实名',
+    certificationSummary: {
+      userId: 100006,
+      hasPending: false,
+      certificationLabel: '未实名',
+    },
     verifyStatus: 'unverified',
     certified: false,
     initStatus: 1,
@@ -222,6 +290,20 @@ const mockUsers: UserItem[] = [
     phone: '13799887766',
     status: 'normal',
     rawStatus: 1,
+    certificationLabel: '个人认证',
+    certificationSummary: {
+      userId: 100007,
+      hasPending: false,
+      certificationLabel: '个人认证',
+      primary: {
+        type: 'personal',
+        status: 'approved',
+        reviewStatus: 'approved',
+        displayName: '个人认证',
+        isVerified: true,
+        certifiedAt: '2024-07-22 16:00:00',
+      },
+    },
     qualification: 1,
     verifyStatus: 'personal',
     verifyInfo: '原创音乐人 / 流行吉他弹唱',
@@ -247,6 +329,47 @@ const mockUsers: UserItem[] = [
     id: '8',
     userId: 100008,
     uid: '100008',
+    username: 'qing_mang_creator',
+    nickname: '青芒漫剪·创作中',
+    avatar:
+      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    avatarUrl:
+      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    phoneNumber: '13711223399',
+    phone: '13711223399',
+    status: 'normal',
+    rawStatus: 1,
+    certificationLabel: '审核中',
+    certificationSummary: {
+      userId: 100008,
+      hasPending: true,
+      certificationLabel: '审核中',
+      primary: {
+        type: 'personal',
+        status: 'pending',
+        reviewStatus: 'pending',
+        displayName: '个人认证',
+        isVerified: false,
+        submittedAt: '2026-09-03 10:00:00',
+      },
+    },
+    qualification: 1,
+    verifyStatus: 'pending',
+    verifyInfo: '个人实名与博主认证申请审核中',
+    certified: false,
+    initStatus: 1,
+    createTime: '2026-09-01T10:00:00',
+    registerTime: '2026-09-01 10:00:00',
+    fanCount: 3200,
+    followCount: 55,
+    friendCount: 18,
+    gender: 'female',
+    bio: '专注优质动漫二次创作与剪辑，正在认证中！',
+  },
+  {
+    id: '9',
+    userId: 100009,
+    uid: '100009',
     username: 'retired_user_88',
     nickname: '岁月静好_已注销',
     avatar:
@@ -257,6 +380,12 @@ const mockUsers: UserItem[] = [
     phone: '13500223311',
     status: 'cancelled',
     rawStatus: 3,
+    certificationLabel: '未实名',
+    certificationSummary: {
+      userId: 100009,
+      hasPending: false,
+      certificationLabel: '未实名',
+    },
     verifyStatus: 'unverified',
     certified: false,
     initStatus: 0,
@@ -331,34 +460,44 @@ export const getUserList = async (
     });
 
     if ((res.code === 200 || res.code === 0) && res.data) {
-      const list: UserItem[] = (res.data.list || []).map((vo) => ({
-        id: String(vo.id),
-        userId: vo.userId,
-        uid: String(vo.userId),
-        username: String(vo.userId),
-        nickname: vo.nickname,
-        avatar: vo.avatarUrl,
-        avatarUrl: vo.avatarUrl,
-        phoneNumber: vo.phoneNumber,
-        phone: vo.phoneNumber,
-        rawStatus: vo.status,
-        status: mapBackendStatusToFrontend(vo.status),
-        qualification: vo.qualification,
-        verifyStatus:
-          vo.qualification === 2
-            ? 'enterprise'
-            : vo.qualification === 1
-              ? 'personal'
-              : 'unverified',
-        certified: vo.certified,
-        initStatus: vo.initStatus,
-        createTime: formatDateTime(vo.createTime),
-        registerTime: formatDateTime(vo.createTime),
-        fanCount: vo.fanCount || 0,
-        followCount: vo.followCount || 0,
-        friendCount: vo.friendCount || 0,
-        personalAuths: vo.personalAuths,
-      }));
+      const list: UserItem[] = (res.data.list || []).map((vo) => {
+        const certificationLabel =
+          vo.certificationSummary?.certificationLabel ||
+          (vo.qualification === 2 ? '企业认证' : vo.qualification === 1 ? '个人认证' : '未实名');
+
+        return {
+          id: String(vo.id),
+          userId: vo.userId,
+          uid: String(vo.userId),
+          username: String(vo.userId),
+          nickname: vo.nickname,
+          avatar: vo.avatarUrl,
+          avatarUrl: vo.avatarUrl,
+          phoneNumber: vo.phoneNumber,
+          phone: vo.phoneNumber,
+          rawStatus: vo.status,
+          status: mapBackendStatusToFrontend(vo.status),
+          certificationSummary: vo.certificationSummary,
+          certificationLabel,
+          qualification: vo.qualification,
+          verifyStatus:
+            certificationLabel === '企业认证'
+              ? 'enterprise'
+              : certificationLabel === '个人认证'
+                ? 'personal'
+                : certificationLabel === '审核中'
+                  ? 'pending'
+                  : 'unverified',
+          certified: vo.certified,
+          initStatus: vo.initStatus,
+          createTime: formatDateTime(vo.createTime),
+          registerTime: formatDateTime(vo.createTime),
+          fanCount: vo.fanCount || 0,
+          followCount: vo.followCount || 0,
+          friendCount: vo.friendCount || 0,
+          personalAuths: vo.personalAuths,
+        };
+      });
 
       return {
         code: 200,
@@ -471,6 +610,7 @@ export const getUserDetail = async (id: string | number): Promise<ApiResponse<Ad
       status: user.rawStatus || mapFrontendStatusToBackend(user.status),
       nickname: user.nickname,
       avatarUrl: user.avatarUrl || user.avatar,
+      certificationSummary: user.certificationSummary,
       qualification: user.qualification,
       certified: user.certified || false,
       initStatus: user.initStatus || 1,

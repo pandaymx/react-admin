@@ -1,5 +1,6 @@
 import {
   CheckCircleFilled,
+  ClockCircleOutlined,
   DownloadOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
@@ -60,7 +61,6 @@ import type {
   UserQueryParams,
   UserStatisticsRespVO,
   UserStatus,
-  VerifyStatus,
 } from '@/types';
 import { exportToCsv } from '@/utils/export';
 import { formatBanRemainingTime, formatDateTime } from '@/utils/time';
@@ -73,8 +73,7 @@ const { RangePicker } = DatePicker;
 const userColumnOptions: ColumnOptionItem[] = [
   { key: 'user', title: '用户信息 (头像/昵称/展示号)', required: true },
   { key: 'phoneNumber', title: '联系手机号' },
-  { key: 'qualification', title: '认证类型 (个人/企业)' },
-  { key: 'certified', title: '实名认证状态' },
+  { key: 'certification', title: '用户认证状态' },
   { key: 'status', title: '账号状态与处罚' },
   { key: 'fans', title: '粉丝/关注/好友数' },
   { key: 'createTime', title: '注册时间' },
@@ -340,15 +339,9 @@ export const UsersPage: React.FC = () => {
             render: (r) => formatMaskedPhone(r.phoneNumber || r.phone, false),
           },
           {
-            title: '认证类型',
-            key: 'qualification',
-            render: (r) =>
-              r.qualification === 2 ? '企业认证' : r.qualification === 1 ? '个人认证' : '未认证',
-          },
-          {
-            title: '实名状态',
-            key: 'certified',
-            render: (r) => (r.certified ? '已实名' : '未实名'),
+            title: '认证状态',
+            key: 'certificationLabel',
+            render: (r) => r.certificationLabel || '未实名',
           },
           {
             title: '账号状态',
@@ -377,27 +370,41 @@ export const UsersPage: React.FC = () => {
     }
   };
 
-  // 认证标签渲染 (1=个人，2=企业，其余未认证)
-  const renderQualificationTag = (qualification?: number, verifyStatus?: VerifyStatus) => {
-    if (qualification === 2 || verifyStatus === 'enterprise') {
-      return (
-        <Tag color="blue" icon={<SafetyCertificateFilled />} style={{ borderRadius: 10 }}>
-          企业认证
-        </Tag>
-      );
+  // 认证状态单字段渲染 (依据后端统一输出的 certificationLabel: 企业认证 | 个人认证 | 审核中 | 未实名)
+  const renderCertificationTag = (label?: string) => {
+    const text = label || '未实名';
+    switch (text) {
+      case '企业认证':
+        return (
+          <Tag color="blue" icon={<SafetyCertificateFilled />} style={{ borderRadius: 10 }}>
+            企业认证
+          </Tag>
+        );
+      case '个人认证':
+        return (
+          <Tag color="cyan" icon={<CheckCircleFilled />} style={{ borderRadius: 10 }}>
+            个人认证
+          </Tag>
+        );
+      case '审核中':
+        return (
+          <Tag color="orange" icon={<ClockCircleOutlined />} style={{ borderRadius: 10 }}>
+            审核中
+          </Tag>
+        );
+      case '未实名':
+        return (
+          <Tag color="default" style={{ borderRadius: 10 }}>
+            未实名
+          </Tag>
+        );
+      default:
+        return (
+          <Tag color="default" style={{ borderRadius: 10 }}>
+            {text}
+          </Tag>
+        );
     }
-    if (qualification === 1 || verifyStatus === 'personal') {
-      return (
-        <Tag color="cyan" icon={<CheckCircleFilled />} style={{ borderRadius: 10 }}>
-          个人认证
-        </Tag>
-      );
-    }
-    return (
-      <Tag color="default" style={{ borderRadius: 10 }}>
-        未认证
-      </Tag>
-    );
   };
 
   // 账号状态渲染 (1=正常, 2=禁用, 3=注销)
@@ -551,25 +558,11 @@ export const UsersPage: React.FC = () => {
       },
     },
     {
-      title: '认证类型',
-      dataIndex: 'qualification',
-      key: 'qualification',
+      title: '用户认证',
+      dataIndex: 'certificationLabel',
+      key: 'certification',
       width: 120,
-      render: (q: number, record) => renderQualificationTag(q, record.verifyStatus),
-    },
-    {
-      title: '实名认证',
-      dataIndex: 'certified',
-      key: 'certified',
-      width: 110,
-      render: (certified: boolean) =>
-        certified ? (
-          <Tag color="green" icon={<CheckCircleFilled />}>
-            已实名
-          </Tag>
-        ) : (
-          <Tag color="default">未实名</Tag>
-        ),
+      render: (_: any, record) => renderCertificationTag(record.certificationLabel),
     },
     {
       title: '账号状态',
@@ -947,7 +940,18 @@ export const UsersPage: React.FC = () => {
       >
         <Table<UserItem>
           rowKey="id"
-          columns={columns.filter((col) => !col.key || checkedKeys.includes(col.key as string))}
+          columns={columns.filter((col) => {
+            if (!col.key) return true;
+            const k = col.key as string;
+            if (k === 'certification') {
+              return (
+                checkedKeys.includes('certification') ||
+                checkedKeys.includes('qualification') ||
+                checkedKeys.includes('certified')
+              );
+            }
+            return checkedKeys.includes(k);
+          })}
           dataSource={userList}
           loading={loading}
           scroll={{ x: 1200 }}
@@ -1008,11 +1012,9 @@ export const UsersPage: React.FC = () => {
                   <Title level={4} style={{ margin: 0 }}>
                     {currentUser.nickname}
                   </Title>
-                  {renderQualificationTag(currentUser.qualification, currentUser.verifyStatus)}
-                  {currentUser.certified && (
-                    <Tag color="green" icon={<CheckCircleFilled />}>
-                      已实名
-                    </Tag>
+                  {renderCertificationTag(
+                    currentUser.certificationLabel ||
+                      currentUser.certificationSummary?.certificationLabel,
                   )}
                 </div>
                 <div style={{ marginTop: 4 }}>
@@ -1169,7 +1171,10 @@ export const UsersPage: React.FC = () => {
               ) : (
                 <Card size="small" style={{ background: token.colorFillAlter, borderRadius: 6 }}>
                   <Text type="secondary">
-                    {currentUser.certified ? '已通过实名校验' : '暂无实名认证记录'}
+                    {(currentUser.certificationLabel ||
+                      currentUser.certificationSummary?.certificationLabel) === '未实名'
+                      ? '暂无实名认证记录'
+                      : `当前认证状态：${currentUser.certificationLabel || currentUser.certificationSummary?.certificationLabel}`}
                   </Text>
                 </Card>
               )}
@@ -1186,15 +1191,18 @@ export const UsersPage: React.FC = () => {
               <Descriptions.Item label="账号状态">
                 {renderAccountStatus(currentUser)}
               </Descriptions.Item>
-              <Descriptions.Item label="认证类型">
-                {renderQualificationTag(currentUser.qualification, currentUser.verifyStatus)}
-              </Descriptions.Item>
-              <Descriptions.Item label="实名认证">
-                {currentUser.certified ? (
-                  <Tag color="green">已实名</Tag>
-                ) : (
-                  <Tag color="default">未实名</Tag>
+              <Descriptions.Item label="认证状态">
+                {renderCertificationTag(
+                  currentUser.certificationLabel ||
+                    currentUser.certificationSummary?.certificationLabel,
                 )}
+              </Descriptions.Item>
+              <Descriptions.Item label="认证生效时间">
+                {currentUser.certificationSummary?.primary?.certifiedAt
+                  ? formatDateTime(currentUser.certificationSummary.primary.certifiedAt)
+                  : currentUser.personalAuths?.[0]?.authTime
+                    ? formatDateTime(currentUser.personalAuths[0].authTime)
+                    : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="联系电话">
                 <Space size={6}>
