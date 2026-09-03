@@ -29,6 +29,7 @@ import {
 import type dayjs from 'dayjs';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { useThemeStore } from '@/store/theme';
 import type { UserItem } from '@/types';
 import { formatBanRemainingTime } from '@/utils/time';
 
@@ -68,6 +69,7 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
   onOk,
 }) => {
   const { token } = theme.useToken();
+  const isDark = useThemeStore((state) => state.isDark);
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
 
@@ -210,9 +212,9 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
         style={{
           marginTop: 8,
           padding: '8px 10px',
-          background: '#fafafa',
+          background: isDark ? token.colorFillAlter : '#fafafa',
           borderRadius: 6,
-          border: '1px dashed #d9d9d9',
+          border: isDark ? '1px dashed rgba(255, 255, 255, 0.15)' : '1px dashed #d9d9d9',
         }}
       >
         <div
@@ -223,7 +225,15 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
             marginBottom: 6,
           }}
         >
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#595959' }}>⏱️ 独立管控期限：</span>
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: isDark ? token.colorTextSecondary : '#595959',
+            }}
+          >
+            ⏱️ 独立管控期限：
+          </span>
           <span style={{ fontSize: 11, color: '#ff4d4f', fontWeight: 500 }}>
             {calcSingleExpireTime(curDuration, itemCustomDates[typeKey]).desc}
           </span>
@@ -389,13 +399,15 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
               />
               <div
                 style={{
-                  background: '#fff1f0',
-                  border: '1px solid #ffa39e',
+                  background: isDark ? 'rgba(255, 77, 79, 0.12)' : '#fff1f0',
+                  border: isDark ? '1px solid rgba(255, 77, 79, 0.35)' : '1px solid #ffa39e',
                   borderRadius: 6,
                   padding: '10px 12px',
                 }}
               >
-                <span style={{ fontWeight: 600, color: '#cf1322' }}>🚫 账号封禁时效：</span>
+                <span style={{ fontWeight: 600, color: isDark ? '#ff7875' : '#cf1322' }}>
+                  🚫 账号封禁时效：
+                </span>
                 {renderDurationSelector('account')}
               </div>
             </div>
@@ -456,10 +468,18 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
                     style={{
                       border: contentPenalties.includes('comment')
                         ? '1px solid #fa8c16'
-                        : '1px solid #d9d9d9',
+                        : isDark
+                          ? '1px solid rgba(255, 255, 255, 0.12)'
+                          : '1px solid #d9d9d9',
                       borderRadius: 6,
                       padding: '10px 12px',
-                      background: contentPenalties.includes('comment') ? '#fffbf6' : '#ffffff',
+                      background: contentPenalties.includes('comment')
+                        ? isDark
+                          ? 'rgba(250, 140, 22, 0.12)'
+                          : '#fffbf6'
+                        : isDark
+                          ? token.colorBgElevated
+                          : '#ffffff',
                     }}
                   >
                     <Checkbox value="comment">
@@ -467,7 +487,12 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
                         <Tag color="#fa8c16" icon={<StopOutlined />} style={{ margin: 0 }}>
                           禁止评论
                         </Tag>
-                        <span style={{ fontSize: 12, color: '#8c8c8c' }}>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            color: isDark ? token.colorTextSecondary : '#8c8c8c',
+                          }}
+                        >
                           拦截作品/动态/讨论区的所有评论发言
                         </span>
                       </Space>
@@ -480,10 +505,18 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
                     style={{
                       border: contentPenalties.includes('post')
                         ? '1px solid #eb2f96'
-                        : '1px solid #d9d9d9',
+                        : isDark
+                          ? '1px solid rgba(255, 255, 255, 0.12)'
+                          : '1px solid #d9d9d9',
                       borderRadius: 6,
                       padding: '10px 12px',
-                      background: contentPenalties.includes('post') ? '#fff7fa' : '#ffffff',
+                      background: contentPenalties.includes('post')
+                        ? isDark
+                          ? 'rgba(235, 47, 150, 0.12)'
+                          : '#fff7fa'
+                        : isDark
+                          ? token.colorBgElevated
+                          : '#ffffff',
                     }}
                   >
                     <Checkbox value="post">
@@ -491,7 +524,12 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
                         <Tag color="#eb2f96" icon={<AlertOutlined />} style={{ margin: 0 }}>
                           禁发动态
                         </Tag>
-                        <span style={{ fontSize: 12, color: '#8c8c8c' }}>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            color: isDark ? token.colorTextSecondary : '#8c8c8c',
+                          }}
+                        >
                           限制发布动态作品、投稿及图文视频
                         </span>
                       </Space>
@@ -504,10 +542,18 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
                     style={{
                       border: contentPenalties.includes('activity')
                         ? '1px solid #722ed1'
-                        : '1px solid #d9d9d9',
+                        : isDark
+                          ? '1px solid rgba(255, 255, 255, 0.12)'
+                          : '1px solid #d9d9d9',
                       borderRadius: 6,
                       padding: '10px 12px',
-                      background: contentPenalties.includes('activity') ? '#faf7ff' : '#ffffff',
+                      background: contentPenalties.includes('activity')
+                        ? isDark
+                          ? 'rgba(114, 46, 209, 0.12)'
+                          : '#faf7ff'
+                        : isDark
+                          ? token.colorBgElevated
+                          : '#ffffff',
                     }}
                   >
                     <Checkbox value="activity">
@@ -515,7 +561,12 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
                         <Tag color="#722ed1" icon={<CalendarOutlined />} style={{ margin: 0 }}>
                           禁发活动
                         </Tag>
-                        <span style={{ fontSize: 12, color: '#8c8c8c' }}>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            color: isDark ? token.colorTextSecondary : '#8c8c8c',
+                          }}
+                        >
                           限制发起或创建线上挑战赛及线下活动
                         </span>
                       </Space>

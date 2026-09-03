@@ -61,6 +61,7 @@ import {
   updateUserStatus,
 } from '@/api/user';
 import { type ColumnOptionItem, useColumnSettings } from '@/components/ColumnSetting';
+import { useThemeStore } from '@/store/theme';
 import type {
   ActiveStatus,
   ContentRestrictionItem,
@@ -236,6 +237,7 @@ const userColumnOptions: ColumnOptionItem[] = [
 
 export const UsersPage: React.FC = () => {
   const { token } = theme.useToken();
+  const isDark = useThemeStore((state) => state.isDark);
   const { checkedKeys, ColumnSettingComponent } = useColumnSettings(
     'users_table',
     userColumnOptions,
@@ -795,11 +797,11 @@ export const UsersPage: React.FC = () => {
     return (
       <div
         style={{
-          border: '1px solid #ffccc7',
+          border: isDark ? '1px solid rgba(255, 77, 79, 0.35)' : '1px solid #ffccc7',
           borderRadius: 6,
-          background: '#fffaf9',
+          background: isDark ? 'rgba(255, 77, 79, 0.08)' : '#fffaf9',
           overflow: 'hidden',
-          boxShadow: '0 1px 2px rgba(255, 77, 79, 0.05)',
+          boxShadow: isDark ? '0 1px 4px rgba(0, 0, 0, 0.4)' : '0 1px 2px rgba(255, 77, 79, 0.05)',
           maxWidth: 270,
         }}
       >
@@ -810,9 +812,9 @@ export const UsersPage: React.FC = () => {
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: '2px 8px',
-            background: '#fff1f0',
-            borderBottom: '1px solid #ffccc7',
-            color: '#cf1322',
+            background: isDark ? 'rgba(255, 77, 79, 0.2)' : '#fff1f0',
+            borderBottom: isDark ? '1px solid rgba(255, 77, 79, 0.3)' : '1px solid #ffccc7',
+            color: isDark ? '#ff7875' : '#cf1322',
             fontWeight: 600,
             fontSize: 11,
           }}
@@ -841,8 +843,18 @@ export const UsersPage: React.FC = () => {
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     padding: '3px 8px',
-                    borderBottom: isLast ? 'none' : '1px solid #f0f0f0',
-                    backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fafafa',
+                    borderBottom: isLast
+                      ? 'none'
+                      : isDark
+                        ? '1px solid rgba(255, 255, 255, 0.08)'
+                        : '1px solid #f0f0f0',
+                    backgroundColor: isDark
+                      ? idx % 2 === 0
+                        ? token.colorBgContainer
+                        : token.colorFillAlter
+                      : idx % 2 === 0
+                        ? '#ffffff'
+                        : '#fafafa',
                     transition: 'background 0.2s',
                   }}
                 >
@@ -925,8 +937,8 @@ export const UsersPage: React.FC = () => {
         variant="borderless"
         style={{
           margin: '4px 0 8px 38px',
-          backgroundColor: '#fafcff',
-          border: '1px solid #e6f4ff',
+          backgroundColor: isDark ? token.colorBgElevated : '#fafcff',
+          border: `1px solid ${token.colorBorderSecondary}`,
           borderRadius: 8,
           boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
         }}
