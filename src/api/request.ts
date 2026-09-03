@@ -204,16 +204,22 @@ instance.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    let errorMsg = '网络连接异常，请稍后重试';
-    if (status === 403) {
-      errorMsg = '没有权限访问该资源';
-    } else if (status === 404) {
-      errorMsg = '请求资源不存在';
-    } else if (status && status >= 500) {
-      errorMsg = '服务器内部错误';
-    }
+    const skipErrorMessage =
+      (error.config as any)?.skipErrorHandler ||
+      error.config?.headers?.['x-skip-error-message'] === 'true';
 
-    message.error(error.response?.data?.msg || error.response?.data?.message || errorMsg);
+    if (!skipErrorMessage) {
+      let errorMsg = '网络连接异常，请稍后重试';
+      if (status === 403) {
+        errorMsg = '没有权限访问该资源';
+      } else if (status === 404) {
+        errorMsg = '请求资源不存在';
+      } else if (status && status >= 500) {
+        errorMsg = '服务器内部错误';
+      }
+
+      message.error(error.response?.data?.msg || error.response?.data?.message || errorMsg);
+    }
     return Promise.reject(error);
   },
 );
