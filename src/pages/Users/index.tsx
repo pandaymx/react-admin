@@ -112,20 +112,36 @@ const RESTRICTION_TYPE_META: Record<
 };
 
 const formatRemainingDuration = (
-  endAt?: string | null,
+  endAt?: any,
   nowTimestamp: number = Date.now(),
 ): { text: string; isPermanent: boolean; isExpired: boolean; isUrgent: boolean } => {
   if (!endAt || endAt === 'permanent') {
     return { text: '永久管控', isPermanent: true, isExpired: false, isUrgent: false };
   }
 
-  const cleanEndStr = endAt.includes('T') ? endAt : endAt.replace(' ', 'T');
-  let end = new Date(cleanEndStr).getTime();
-  if (Number.isNaN(end)) {
-    end = new Date(endAt).getTime();
-    if (Number.isNaN(end)) {
-      return { text: '时效计算中', isPermanent: false, isExpired: false, isUrgent: false };
+  let end: number;
+  if (typeof endAt === 'number') {
+    end = endAt < 10000000000 ? endAt * 1000 : endAt;
+  } else if (endAt instanceof Date) {
+    end = endAt.getTime();
+  } else if (typeof endAt === 'string') {
+    const s = endAt.trim();
+    if (/^\d+$/.test(s)) {
+      const num = Number(s);
+      end = num < 10000000000 ? num * 1000 : num;
+    } else {
+      const cleanEndStr = s.includes('T') ? s : s.replace(' ', 'T');
+      end = new Date(cleanEndStr).getTime();
+      if (Number.isNaN(end)) {
+        end = new Date(s).getTime();
+      }
     }
+  } else {
+    end = new Date(String(endAt)).getTime();
+  }
+
+  if (Number.isNaN(end)) {
+    return { text: '时效计算中', isPermanent: false, isExpired: false, isUrgent: false };
   }
 
   const diffMs = end - nowTimestamp;
@@ -145,7 +161,7 @@ const formatRemainingDuration = (
 
   if (days > 0) {
     return {
-      text: `剩余 ${days}天 ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
+      text: `${days}天 ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
       isPermanent: false,
       isExpired: false,
       isUrgent: false,
@@ -153,7 +169,7 @@ const formatRemainingDuration = (
   }
 
   return {
-    text: `剩余 ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
+    text: `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
     isPermanent: false,
     isExpired: false,
     isUrgent: totalHours < 1,
