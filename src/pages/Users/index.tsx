@@ -4,6 +4,7 @@ import {
   ClockCircleOutlined,
   CommentOutlined,
   DownloadOutlined,
+  DownOutlined,
   ExclamationCircleOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
@@ -21,7 +22,7 @@ import {
   UserDeleteOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import type { TableProps } from 'antd';
+import type { MenuProps, TableProps } from 'antd';
 import {
   Avatar,
   Badge,
@@ -1098,39 +1099,101 @@ export const UsersPage: React.FC = () => {
       title: '操作',
       key: 'action',
       fixed: 'right',
-      width: 180,
+      width: 200,
       render: (_, record) => {
-        const moreMenuItems = [
+        const isRestricted =
+          record.status !== 'normal' || record.restrictions?.some((r) => r.status === 'active');
+
+        const moreMenuItems: MenuProps['items'] = [
           {
-            key: 'punish-setting',
+            key: 'moderation-sub',
             icon: <StopOutlined style={{ color: '#ff4d4f' }} />,
-            label: '违规处置设置',
-            onClick: () => handleOpenBanModal([record], 'account'),
+            label: '违规处置与惩戒',
+            children: [
+              {
+                key: 'open-ban-modal',
+                icon: <StopOutlined style={{ color: '#ff4d4f' }} />,
+                label: '打开违规处置设置...',
+                onClick: () => handleOpenBanModal([record], 'comment'),
+              },
+              {
+                type: 'divider',
+              },
+              {
+                key: 'quick-ban-comment-1h',
+                label: '⚡ 快捷禁言 1小时',
+                onClick: () =>
+                  handleConfirmBan({
+                    penalties: [{ punishType: 'comment', duration: '1h', expireTime: '' }],
+                    punishTypes: ['comment'],
+                    reason: '管理员快捷评论禁言1小时',
+                    notifyUser: true,
+                  }),
+              },
+              {
+                key: 'quick-ban-post-1d',
+                label: '📝 快捷禁发动态 1天',
+                onClick: () =>
+                  handleConfirmBan({
+                    penalties: [{ punishType: 'post', duration: '1d', expireTime: '' }],
+                    punishTypes: ['post'],
+                    reason: '管理员快捷动态禁发1天',
+                    notifyUser: true,
+                  }),
+              },
+              {
+                key: 'quick-ban-activity-7d',
+                label: '🎪 快捷禁发活动 7天',
+                onClick: () =>
+                  handleConfirmBan({
+                    penalties: [{ punishType: 'activity', duration: '7d', expireTime: '' }],
+                    punishTypes: ['activity'],
+                    reason: '管理员快捷活动禁发7天',
+                    notifyUser: true,
+                  }),
+              },
+              {
+                key: 'quick-ban-account',
+                icon: <LockOutlined />,
+                label: '🚫 顶格全量封号',
+                danger: true,
+                disabled: record.status === 'banned',
+                onClick: () => handleOpenBanModal([record], 'account'),
+              },
+              {
+                type: 'divider',
+              },
+              {
+                key: 'revoke-all',
+                label: '🟢 一键解除全部惩罚',
+                disabled: !isRestricted,
+                onClick: () => handleRevokeAllRestrictions(record.id),
+              },
+            ],
           },
           {
-            type: 'divider' as const,
+            type: 'divider',
           },
           {
-            key: 'status-normal',
+            key: 'status-sub',
             icon: <UnlockOutlined />,
-            label: '恢复正常',
-            disabled: record.status === 'normal',
-            onClick: () => handleStatusChange(record, 'normal'),
-          },
-          {
-            key: 'status-banned',
-            icon: <LockOutlined />,
-            label: '禁用账号',
-            danger: true,
-            disabled: record.status === 'banned',
-            onClick: () => handleOpenBanModal([record], 'account'),
-          },
-          {
-            key: 'status-cancelled',
-            icon: <UserDeleteOutlined />,
-            label: '设为已注销',
-            disabled: record.status === 'cancelled',
-            onClick: () => handleStatusChange(record, 'cancelled'),
+            label: '账号状态变更',
+            children: [
+              {
+                key: 'status-normal',
+                icon: <UnlockOutlined />,
+                label: '恢复正常状态',
+                disabled: record.status === 'normal',
+                onClick: () => handleStatusChange(record, 'normal'),
+              },
+              {
+                key: 'status-cancelled',
+                icon: <UserDeleteOutlined />,
+                label: '设为已注销',
+                disabled: record.status === 'cancelled',
+                onClick: () => handleStatusChange(record, 'cancelled'),
+              },
+            ],
           },
         ];
 
@@ -1147,8 +1210,7 @@ export const UsersPage: React.FC = () => {
             >
               详情
             </Button>
-            {record.status !== 'normal' ||
-            record.restrictions?.some((r) => r.status === 'active') ? (
+            {isRestricted ? (
               <Popconfirm
                 title="解除全部惩罚确认"
                 description={`确定要一键解除用户【${record.nickname}】的所有生效惩罚并恢复正常吗？`}
@@ -1170,8 +1232,27 @@ export const UsersPage: React.FC = () => {
                 违规处置
               </Button>
             )}
-            <Dropdown menu={{ items: moreMenuItems }} trigger={['click']} placement="bottomRight">
-              <Button type="text" size="small" icon={<MoreOutlined />} />
+            <Dropdown
+              menu={{ items: moreMenuItems }}
+              trigger={['hover', 'click']}
+              placement="bottomRight"
+              getPopupContainer={() => document.body}
+            >
+              <Button
+                type="text"
+                size="small"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  padding: '0 4px',
+                  color: '#1677ff',
+                }}
+              >
+                <MoreOutlined style={{ fontSize: 13 }} />
+                <span>更多</span>
+                <DownOutlined style={{ fontSize: 10 }} />
+              </Button>
             </Dropdown>
           </Space>
         );
