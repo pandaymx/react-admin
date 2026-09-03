@@ -49,7 +49,7 @@ import {
   Typography,
   theme,
 } from 'antd';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   batchUpdateUserStatus,
   executeUserBan,
@@ -176,6 +176,53 @@ const formatRemainingDuration = (
   };
 };
 
+// 极轻量局部倒计时微组件：将每秒更新严格隔离在文本自身内部，绝不触发整个 UsersPage 或 Table 庞大组件树的重绘！
+const LiveCountdownText: React.FC<{ endAt?: any }> = memo(({ endAt }) => {
+  const [now, setNow] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    // 永久管控或无截止时间的不开启心跳定时器
+    if (!endAt || endAt === 'permanent') return;
+
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [endAt]);
+
+  const duration = formatRemainingDuration(endAt, now);
+
+  if (duration.isExpired) {
+    return (
+      <Tag
+        color="default"
+        style={{
+          margin: 0,
+          fontSize: 10,
+          padding: '0 4px',
+          lineHeight: '16px',
+        }}
+      >
+        已到期
+      </Tag>
+    );
+  }
+
+  return (
+    <span
+      style={{
+        fontSize: 11,
+        fontWeight: 600,
+        fontFamily: 'monospace, "SF Mono", "Courier New", sans-serif',
+        letterSpacing: -0.2,
+        color: duration.isPermanent ? '#cf1322' : duration.isUrgent ? '#f5222d' : '#d46b08',
+      }}
+    >
+      {duration.text}
+    </span>
+  );
+});
+
 const userColumnOptions: ColumnOptionItem[] = [
   { key: 'user', title: '用户信息 (头像/昵称/UID)', required: true },
   { key: 'verifyStatus', title: '认证状态' },
@@ -211,14 +258,6 @@ export const UsersPage: React.FC = () => {
 
   // 展开行按需拉取或复用缓存
   // 单一全局心跳定时器：每秒驱动全页面所有微型子表格与展开行实时倒计时跳动（高性能零卡顿）
-  const [currentTimestamp, setCurrentTimestamp] = useState<number>(() => Date.now());
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTimestamp(Date.now());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const handleExpand = async (expanded: boolean, record: UserItem) => {
     if (expanded) {
@@ -785,13 +824,12 @@ export const UsersPage: React.FC = () => {
         {/* 每一行处罚与剩余时间 */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {allItems.map((item, idx) => {
-            const duration = formatRemainingDuration(item.endAt, currentTimestamp);
             const isLast = idx === allItems.length - 1;
             const tooltipTitle = (
               <div style={{ fontSize: 12 }}>
                 <div style={{ fontWeight: 600, color: item.color }}>{item.label}</div>
                 <div>原因: {item.reason}</div>
-                <div>时效: {item.endAt ? `${item.endAt} (${duration.text})` : '永久管控'}</div>
+                <div>时效: {item.endAt ? `${item.endAt}` : '永久管控'}</div>
               </div>
             );
 
@@ -822,15 +860,7 @@ export const UsersPage: React.FC = () => {
                     {item.badgeText}
                   </Tag>
 
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: duration.isPermanent ? '#cf1322' : '#d46b08',
-                    }}
-                  >
-                    {duration.text}
-                  </span>
+                  <LiveCountdownText endAt={item.endAt} />
                   <Popconfirm
                     title="解除限制确认"
                     description={`确定要解除用户【${record.nickname}】的【${item.label}】限制吗？`}
@@ -939,16 +969,10 @@ export const UsersPage: React.FC = () => {
               key: 'endAt',
               width: 200,
               render: (endAt: string | null) => {
-                const duration = formatRemainingDuration(endAt, currentTimestamp);
                 return (
                   <Space orientation="vertical" size={2}>
                     <span style={{ fontSize: 12 }}>{endAt || '永久管控'}</span>
-                    <Tag
-                      color={duration.isPermanent ? 'error' : 'warning'}
-                      style={{ fontSize: 10, padding: '0 4px', margin: 0, borderRadius: 8 }}
-                    >
-                      {duration.text}
-                    </Tag>
+                    <LiveCountdownText endAt={endAt} />
                   </Space>
                 );
               },
