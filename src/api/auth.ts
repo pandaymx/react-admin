@@ -45,6 +45,7 @@ export const logoutApi = async (): Promise<ApiResponse<boolean>> => {
 
 /**
  * 获取当前登录管理员的权限信息与用户信息 (GET /admin-api/system/auth/get-permission-info)
+ * @deprecated 后端已下线移除该接口，前端已停止主动调用
  */
 export const getPermissionInfoApi = async (): Promise<ApiResponse<AuthPermissionInfoRespVO>> => {
   return request<AuthPermissionInfoRespVO>({

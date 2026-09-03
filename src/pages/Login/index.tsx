@@ -19,7 +19,6 @@ export const LoginPage: React.FC = () => {
 
   const navigate = useNavigate();
   const setAuthTokens = useUserStore((state) => state.setAuthTokens);
-  const fetchUserInfo = useUserStore((state) => state.fetchUserInfo);
 
   // 点击登录按钮触发校验并唤起安全验证码弹窗
   const handlePreLogin = (values: any) => {
@@ -44,9 +43,15 @@ export const LoginPage: React.FC = () => {
       });
 
       if ((res.code === 200 || res.code === 0) && res.data) {
-        const { accessToken, refreshToken } = res.data;
+        const { accessToken, refreshToken, userId } = res.data;
         setAuthTokens(accessToken, refreshToken);
-        await fetchUserInfo();
+        useUserStore.getState().setUserInfo({
+          id: String(userId || '1'),
+          username: pendingValues.username,
+          nickname: pendingValues.username,
+          roles: ['admin'],
+          permissions: ['*'],
+        });
         message.success('登录成功，欢迎回来！');
         navigate('/dashboard');
         return;

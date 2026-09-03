@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getPermissionInfoApi, logoutApi } from '@/api/auth';
+import { logoutApi } from '@/api/auth';
 import type { UserInfo } from '@/types';
 
 interface UserState {
@@ -16,11 +16,20 @@ interface UserState {
   logout: () => Promise<void>;
 }
 
+const getStoredUserInfo = (): UserInfo | null => {
+  try {
+    const raw = localStorage.getItem('userInfo');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
 export const useUserStore = create<UserState>((set, get) => ({
   token: localStorage.getItem('accessToken') || localStorage.getItem('token'),
   accessToken: localStorage.getItem('accessToken') || localStorage.getItem('token'),
   refreshToken: localStorage.getItem('refreshToken'),
-  userInfo: null,
+  userInfo: getStoredUserInfo(),
   collapsed: false,
 
   setAuthTokens: (accessToken, refreshToken) => {
@@ -49,26 +58,17 @@ export const useUserStore = create<UserState>((set, get) => ({
     get().setAuthTokens(token, null);
   },
 
-  setUserInfo: (userInfo) => set({ userInfo }),
+  setUserInfo: (userInfo) => {
+    if (userInfo) {
+      localStorage.setItem('userInfo', JSON.stringify(userInfo));
+    } else {
+      localStorage.removeItem('userInfo');
+    }
+    set({ userInfo });
+  },
 
   fetchUserInfo: async () => {
-    try {
-      const res = await getPermissionInfoApi();
-      if ((res.code === 200 || res.code === 0) && res.data) {
-        const u = res.data.user;
-        const info: UserInfo = {
-          id: String(u.id),
-          username: u.nickname || '管理员',
-          nickname: u.nickname,
-          avatar: u.avatar,
-          roles: res.data.roles || ['admin'],
-          permissions: res.data.permissions || [],
-        };
-        set({ userInfo: info });
-      }
-    } catch {
-      // ignore
-    }
+    // 后端已移除 get-permission-info 接口，此处保持签名兼容不再发起网络请求
   },
 
   toggleCollapse: () => set((state) => ({ collapsed: !state.collapsed })),
@@ -82,6 +82,7 @@ export const useUserStore = create<UserState>((set, get) => ({
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('token');
+      localStorage.removeItem('userInfo');
       set({
         token: null,
         accessToken: null,
