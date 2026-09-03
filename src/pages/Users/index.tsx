@@ -163,19 +163,19 @@ const formatRemainingDuration = (
 
   const pad = (n: number) => String(n).padStart(2, '0');
 
-  // 大于 1 天展示：剩余 6天 18:32:05
+  // 大于 1 天展示：6天 18:32:05 (去掉"剩余"二字，更加紧凑直观)
   if (days > 0) {
     return {
-      text: `剩余 ${days}天 ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
+      text: `${days}天 ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
       isPermanent: false,
       isExpired: false,
       isUrgent: false,
     };
   }
 
-  // 24小时以内展示高精度倒计时：剩余 02:45:18
+  // 24小时以内展示高精度倒计时：02:45:18
   return {
-    text: `剩余 ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
+    text: `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
     isPermanent: false,
     isExpired: false,
     isUrgent: totalHours < 1,
