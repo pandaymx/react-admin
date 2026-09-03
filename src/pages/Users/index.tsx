@@ -289,6 +289,9 @@ export const UsersPage: React.FC = () => {
           }
           return prev;
         });
+
+        // 实时刷新顶部统计数据
+        fetchSummary();
       }
     } catch (err: any) {
       message.error(err?.message || '解除限制失败');

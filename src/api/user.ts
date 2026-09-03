@@ -738,28 +738,60 @@ export const updateUserStatus = async (
  * 获取用户统计概览 (测试分支：带本地 Mock 容灾)
  */
 export const getUserStatisticsSummary = async (): Promise<ApiResponse<UserStatisticsRespVO>> => {
+  let backendData: UserStatisticsRespVO | null = null;
   try {
     const res = await request<UserStatisticsRespVO>({
       url: '/user/statistics/summary',
       method: 'GET',
     });
     if ((res.code === 200 || res.code === 0) && res.data) {
-      return res;
+      backendData = res.data;
     }
   } catch {
     // ignore
   }
 
+  // 动态精确统计当前数据集中真正处于封禁或各项违规管控(禁言/禁帖/禁活动等)中的用户数
+  const dynamicDisabledCount = currentDataset.filter(
+    (u) =>
+      u.status === 'banned' ||
+      u.status === 'muted' ||
+      u.rawStatus === 2 ||
+      u.restrictions?.some((r) => r.status === 'active'),
+  ).length;
+
+  const dynamicNormalCount = currentDataset.filter(
+    (u) =>
+      (u.status === 'normal' || u.rawStatus === 1) &&
+      !u.restrictions?.some((r) => r.status === 'active'),
+  ).length;
+
+  const dynamicCancelledCount = currentDataset.filter(
+    (u) => u.status === 'cancelled' || u.rawStatus === 3,
+  ).length;
+
+  // 如果后端接口已返回数据，以真实数据为基准；若后端缺少统计或离线容灾，使用实时动态统计
+  if (backendData) {
+    return {
+      code: 200,
+      data: {
+        ...backendData,
+        disabledCount: backendData.disabledCount || dynamicDisabledCount,
+      },
+      message: 'success',
+    };
+  }
+
   return {
     code: 200,
     data: {
-      totalCount: 158200,
-      normalCount: 154800,
-      disabledCount: 2400,
-      cancelledCount: 1000,
-      todayNewCount: 380,
-      weekNewCount: 2450,
-      monthNewCount: 10200,
+      totalCount: currentDataset.length,
+      normalCount: dynamicNormalCount,
+      disabledCount: dynamicDisabledCount,
+      cancelledCount: dynamicCancelledCount,
+      todayNewCount: 2,
+      weekNewCount: 5,
+      monthNewCount: currentDataset.length,
     },
     message: 'success',
   };
