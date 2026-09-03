@@ -57,6 +57,7 @@ import {
   getUserContentRestrictions,
   getUserList,
   getUserStatisticsSummary,
+  revokeAllUserRestrictions,
   revokeUserContentRestriction,
   updateUserStatus,
 } from '@/api/user';
@@ -71,7 +72,11 @@ import type {
 } from '@/types';
 import { exportToCsv } from '@/utils/export';
 import { formatDateTime } from '@/utils/time';
-import { type BanPunishType, UserBanModal } from './components/UserBanModal';
+import {
+  type BanPunishType,
+  type SinglePenaltyConfig,
+  UserBanModal,
+} from './components/UserBanModal';
 
 const { Text, Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -469,10 +474,11 @@ export const UsersPage: React.FC = () => {
 
   // 确认执行封禁
   const handleConfirmBan = async (values: {
+    penalties: SinglePenaltyConfig[];
     punishTypes: BanPunishType[];
     punishType?: BanPunishType;
-    duration: string;
-    expireTime: string;
+    duration?: string;
+    expireTime?: string;
     reason: string;
     remark?: string;
     notifyUser: boolean;
@@ -489,6 +495,21 @@ export const UsersPage: React.FC = () => {
       }
     } catch {
       message.error('执行处置失败');
+    }
+  };
+
+  // 一键全量解除指定用户的所有生效处罚
+  const handleRevokeAllRestrictions = async (userId: string) => {
+    try {
+      const res = await revokeAllUserRestrictions(userId);
+      if (res.code === 200 || res.code === 0) {
+        message.success(res.message || '已成功解除该用户的全部处罚并恢复正常');
+        setRestrictionsMap((prev) => ({ ...prev, [userId]: [] }));
+        fetchData(currentPage, pageSize);
+        fetchSummary();
+      }
+    } catch {
+      message.error('解除处罚失败');
     }
   };
 
@@ -674,7 +695,7 @@ export const UsersPage: React.FC = () => {
       });
     }
 
-    // 3. 渲染为内嵌微型子表结构：每一行独立展现处罚项目与剩余时间格式
+    // 3. 渲染为内嵌微型子表结构：每一行独立展现处罚项目、剩余时间与快捷解除操作
     return (
       <div
         style={{
@@ -683,7 +704,7 @@ export const UsersPage: React.FC = () => {
           background: '#fffaf9',
           overflow: 'hidden',
           boxShadow: '0 1px 2px rgba(255, 77, 79, 0.05)',
-          maxWidth: 240,
+          maxWidth: 270,
         }}
       >
         {/* 微型子表表头 */}
@@ -701,10 +722,10 @@ export const UsersPage: React.FC = () => {
           }}
         >
           <span>违规处罚项</span>
-          <span>剩余时间</span>
+          <span>时效 / 快捷解除</span>
         </div>
 
-        {/* 每一行处罚与剩余时间 */}
+        {/* 每一行处罚与剩余时间及操作 */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {allItems.map((item, idx) => {
             const duration = formatRemainingDuration(item.endAt);
@@ -718,18 +739,19 @@ export const UsersPage: React.FC = () => {
             );
 
             return (
-              <Tooltip key={item.id} title={tooltipTitle} placement="top">
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '3px 8px',
-                    borderBottom: isLast ? 'none' : '1px solid #f0f0f0',
-                    backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fafafa',
-                    transition: 'background 0.2s',
-                  }}
-                >
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '3px 8px',
+                  borderBottom: isLast ? 'none' : '1px solid #f0f0f0',
+                  backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fafafa',
+                  transition: 'background 0.2s',
+                }}
+              >
+                <Tooltip title={tooltipTitle} placement="top">
                   <Tag
                     color={item.color}
                     icon={item.icon}
@@ -739,11 +761,14 @@ export const UsersPage: React.FC = () => {
                       lineHeight: '18px',
                       padding: '0 4px',
                       borderRadius: 4,
+                      cursor: 'pointer',
                     }}
                   >
                     {item.badgeText}
                   </Tag>
+                </Tooltip>
 
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span
                     style={{
                       fontSize: 11,
@@ -753,8 +778,38 @@ export const UsersPage: React.FC = () => {
                   >
                     {duration.text}
                   </span>
+
+                  <Popconfirm
+                    title="解除限制确认"
+                    description={`确定要解除用户【${record.nickname}】的【${item.label}】限制吗？`}
+                    onConfirm={(e) => {
+                      e?.stopPropagation();
+                      if (item.type === 'account') {
+                        handleStatusChange(record, 'normal');
+                      } else {
+                        handleRevokeRestriction(record.id, item.id);
+                      }
+                    }}
+                    okText="解除"
+                    cancelText="取消"
+                  >
+                    <Button
+                      type="link"
+                      size="small"
+                      danger
+                      style={{
+                        padding: '0 2px',
+                        fontSize: 11,
+                        height: 'auto',
+                        lineHeight: '14px',
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      解除
+                    </Button>
+                  </Popconfirm>
                 </div>
-              </Tooltip>
+              </div>
             );
           })}
         </div>
@@ -1092,16 +1147,17 @@ export const UsersPage: React.FC = () => {
             >
               详情
             </Button>
-            {record.status === 'banned' ? (
+            {record.status !== 'normal' ||
+            record.restrictions?.some((r) => r.status === 'active') ? (
               <Popconfirm
-                title="解封确认"
-                description={`确定要解除用户【${record.nickname}】的禁用状态吗？`}
-                onConfirm={() => handleStatusChange(record, 'normal')}
-                okText="解封"
+                title="解除全部惩罚确认"
+                description={`确定要一键解除用户【${record.nickname}】的所有生效惩罚并恢复正常吗？`}
+                onConfirm={() => handleRevokeAllRestrictions(record.id)}
+                okText="解除惩罚"
                 cancelText="取消"
               >
-                <Button type="link" size="small" style={{ color: '#52c41a' }}>
-                  解封
+                <Button type="link" size="small" style={{ color: '#52c41a', fontWeight: 600 }}>
+                  解除惩罚
                 </Button>
               </Popconfirm>
             ) : (
@@ -1109,9 +1165,9 @@ export const UsersPage: React.FC = () => {
                 type="link"
                 size="small"
                 danger
-                onClick={() => handleOpenBanModal([record], 'account')}
+                onClick={() => handleOpenBanModal([record], 'comment')}
               >
-                禁用
+                违规处置
               </Button>
             )}
             <Dropdown menu={{ items: moreMenuItems }} trigger={['click']} placement="bottomRight">
