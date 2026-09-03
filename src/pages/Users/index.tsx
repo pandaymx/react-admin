@@ -49,7 +49,7 @@ import {
   theme,
 } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   batchUpdateUserStatus,
@@ -182,6 +182,53 @@ const formatRemainingDuration = (
   };
 };
 
+// 极轻量局部倒计时微组件：将每秒更新严格隔离在文本自身内部，绝不触发整个 UsersPage 或 Table 庞大组件树的重绘！
+const LiveCountdownText: React.FC<{ endAt?: any }> = memo(({ endAt }) => {
+  const [now, setNow] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    // 永久管控或无截止时间的不开启心跳定时器
+    if (!endAt || endAt === 'permanent') return;
+
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [endAt]);
+
+  const duration = formatRemainingDuration(endAt, now);
+
+  if (duration.isExpired) {
+    return (
+      <Tag
+        color="default"
+        style={{
+          margin: 0,
+          fontSize: 10,
+          padding: '0 4px',
+          lineHeight: '16px',
+        }}
+      >
+        已到期
+      </Tag>
+    );
+  }
+
+  return (
+    <span
+      style={{
+        fontSize: 11,
+        fontWeight: 600,
+        fontFamily: 'monospace, "SF Mono", "Courier New", sans-serif',
+        letterSpacing: -0.2,
+        color: duration.isPermanent ? '#cf1322' : duration.isUrgent ? '#f5222d' : '#d46b08',
+      }}
+    >
+      {duration.text}
+    </span>
+  );
+});
+
 // 可选列配置清单（对齐后端 AdminUserRespVO 字段，核心关键列锁定）
 const userColumnOptions: ColumnOptionItem[] = [
   { key: 'user', title: '用户信息 (头像/昵称/展示号)', required: true },
@@ -235,16 +282,6 @@ export const UsersPage: React.FC = () => {
     {},
   );
   const [restrictionLoadingMap, setRestrictionLoadingMap] = useState<Record<string, boolean>>({});
-
-  // 单一全局心跳定时器：每秒驱动全页面所有微型子表格与展开行实时倒计时跳动（高性能零卡顿）
-  const [currentTimestamp, setCurrentTimestamp] = useState<number>(() => Date.now());
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTimestamp(Date.now());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // 展开行按需拉取或复用缓存
   const handleExpand = async (expanded: boolean, record: UserItem) => {
@@ -392,27 +429,30 @@ export const UsersPage: React.FC = () => {
           ];
         }
 
-        const res = await getUserList(params);
+        // 并发拉取用户列表与生效限制，大幅减少网络串行等待延迟
+        const [res, restrictionRes] = await Promise.all([
+          getUserList(params),
+          getUserContentRestrictions({
+            status: 'active',
+            pageSize: 100,
+          }).catch(() => null),
+        ]);
+
         if ((res.code === 200 || res.code === 0) && res.data) {
           const rawList = res.data.list;
 
-          // 同步查询全局 active 限制以实时对齐微型子表 (避免 N+1 请求)
-          try {
-            const restrictionRes = await getUserContentRestrictions({
-              status: 'active',
-              pageSize: 100,
-            });
-            if (restrictionRes.data?.list) {
-              const activeList = restrictionRes.data.list;
-              const grouped: Record<string, ContentRestrictionItem[]> = {};
-              for (const r of activeList) {
-                if (!grouped[r.userId]) grouped[r.userId] = [];
-                grouped[r.userId].push(r);
-              }
-              setRestrictionsMap((prev) => ({ ...prev, ...grouped }));
+          if (
+            restrictionRes &&
+            (restrictionRes.code === 200 || restrictionRes.code === 0) &&
+            restrictionRes.data?.list
+          ) {
+            const activeList = restrictionRes.data.list;
+            const grouped: Record<string, ContentRestrictionItem[]> = {};
+            for (const r of activeList) {
+              if (!grouped[r.userId]) grouped[r.userId] = [];
+              grouped[r.userId].push(r);
             }
-          } catch {
-            // ignore
+            setRestrictionsMap((prev) => ({ ...prev, ...grouped }));
           }
 
           setUserList(rawList);
@@ -770,13 +810,12 @@ export const UsersPage: React.FC = () => {
         {/* 每一行处罚与剩余时间及操作 */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {allItems.map((item, idx) => {
-            const duration = formatRemainingDuration(item.endAt, currentTimestamp);
             const isLast = idx === allItems.length - 1;
             const tooltipTitle = (
               <div style={{ fontSize: 12 }}>
                 <div style={{ fontWeight: 600, color: item.color }}>{item.label}</div>
                 <div>原因: {item.reason}</div>
-                <div>时效: {item.endAt ? `${item.endAt} (${duration.text})` : '永久管控'}</div>
+                <div>时效: {item.endAt ? `${item.endAt}` : '永久管控'}</div>
               </div>
             );
 
@@ -811,37 +850,7 @@ export const UsersPage: React.FC = () => {
                 </Tooltip>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      fontFamily: 'monospace, "SF Mono", "Courier New", sans-serif',
-                      letterSpacing: -0.2,
-                      color: duration.isPermanent
-                        ? '#cf1322'
-                        : duration.isExpired
-                          ? '#8c8c8c'
-                          : duration.isUrgent
-                            ? '#f5222d'
-                            : '#d46b08',
-                    }}
-                  >
-                    {duration.isExpired ? (
-                      <Tag
-                        color="default"
-                        style={{
-                          margin: 0,
-                          fontSize: 10,
-                          padding: '0 4px',
-                          lineHeight: '16px',
-                        }}
-                      >
-                        已到期
-                      </Tag>
-                    ) : (
-                      duration.text
-                    )}
-                  </span>
+                  <LiveCountdownText endAt={item.endAt} />
 
                   <Popconfirm
                     title="解除限制确认"
@@ -951,30 +960,10 @@ export const UsersPage: React.FC = () => {
               key: 'endAt',
               width: 200,
               render: (endAt: string | null) => {
-                const duration = formatRemainingDuration(endAt, currentTimestamp);
                 return (
                   <Space direction="vertical" size={2}>
                     <span style={{ fontSize: 12 }}>{endAt || '永久管控'}</span>
-                    <Tag
-                      color={
-                        duration.isPermanent
-                          ? 'error'
-                          : duration.isExpired
-                            ? 'default'
-                            : duration.isUrgent
-                              ? 'volcano'
-                              : 'warning'
-                      }
-                      style={{
-                        fontSize: 10,
-                        padding: '0 4px',
-                        margin: 0,
-                        borderRadius: 8,
-                        fontFamily: 'monospace, "SF Mono", "Courier New", sans-serif',
-                      }}
-                    >
-                      {duration.text}
-                    </Tag>
+                    <LiveCountdownText endAt={endAt} />
                   </Space>
                 );
               },
