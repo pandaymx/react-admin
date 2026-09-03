@@ -841,7 +841,11 @@ export const executeUserBan = async (
 
   let durationHours: number | null = null;
   if (params.duration !== 'permanent' && params.expireTime !== 'permanent') {
-    if (params.duration === '1d') durationHours = 24;
+    if (params.duration === '1h') durationHours = 1;
+    else if (params.duration === '3h') durationHours = 3;
+    else if (params.duration === '6h') durationHours = 6;
+    else if (params.duration === '12h') durationHours = 12;
+    else if (params.duration === '1d') durationHours = 24;
     else if (params.duration === '3d') durationHours = 72;
     else if (params.duration === '7d') durationHours = 168;
     else if (params.duration === '15d') durationHours = 360;

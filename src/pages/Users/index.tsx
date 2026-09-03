@@ -134,8 +134,15 @@ const formatRemainingDuration = (
     };
   }
   const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours > 0) {
+    return {
+      text: `剩余 ${hours}小时${minutes > 0 ? ` ${minutes}分` : ''}`,
+      isPermanent: false,
+      isExpired: false,
+    };
+  }
   return {
-    text: `剩余 ${hours}小时${minutes}分`,
+    text: `剩余 ${Math.max(1, minutes)}分钟`,
     isPermanent: false,
     isExpired: false,
   };
