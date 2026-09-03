@@ -526,14 +526,19 @@ export const batchUpdateUserStatus = async (
   };
 };
 
+export interface SinglePenaltyConfig {
+  punishType: 'account' | 'comment' | 'post' | 'activity';
+  duration: string;
+  expireTime: string; // 'permanent' 或 'YYYY-MM-DD HH:mm:ss'
+}
+
 export interface ExecuteBanParams {
   userIds: string[];
-  punishTypes?: Array<
-    'account' | 'comment' | 'post' | 'activity' | 'all' | 'warning' | 'credit_deduct'
-  >;
-  punishType?: 'account' | 'comment' | 'post' | 'activity' | 'all' | 'warning' | 'credit_deduct';
-  duration: string;
-  expireTime: string;
+  penalties?: SinglePenaltyConfig[];
+  punishTypes?: Array<'account' | 'comment' | 'post' | 'activity' | 'all'>;
+  punishType?: 'account' | 'comment' | 'post' | 'activity' | 'all';
+  duration?: string;
+  expireTime?: string;
   reason: string;
   remark?: string;
   notifyUser?: boolean;
@@ -560,66 +565,83 @@ export const applyUserModerationAction = async (
 };
 
 /**
- * 执行违规封禁/处罚 (对接后台真实接口，支持多项处罚同时组合执行)
+ * 时长换算辅助函数
+ */
+const parseDurationToHours = (duration: string, expireTime: string): number | null => {
+  if (duration === 'permanent' || expireTime === 'permanent') return null;
+  if (duration === '1h') return 1;
+  if (duration === '3h') return 3;
+  if (duration === '6h') return 6;
+  if (duration === '12h') return 12;
+  if (duration === '1d') return 24;
+  if (duration === '3d') return 72;
+  if (duration === '7d') return 168;
+  if (duration === '15d') return 360;
+  if (duration === '30d') return 720;
+  if (duration === '180d') return 4320;
+  if (expireTime) {
+    const diff = new Date(expireTime).getTime() - Date.now();
+    return Math.max(1, Math.round(diff / (1000 * 60 * 60)));
+  }
+  return 168;
+};
+
+/**
+ * 执行违规封禁/处罚 (对接后台真实接口，支持各项处罚分别设置不同时长)
  */
 export const executeUserBan = async (
   params: ExecuteBanParams,
 ): Promise<ApiResponse<{ updatedCount: number }>> => {
-  const selectedTypes =
-    params.punishTypes && params.punishTypes.length > 0
-      ? params.punishTypes
-      : params.punishType
-        ? [params.punishType]
-        : ['comment'];
+  // 组装最终需要执行的惩处配置列表 (支持每一项分别配置不同时间)
+  let penaltyConfigs: SinglePenaltyConfig[] = [];
 
-  let durationHours: number | null = null;
-  if (params.duration !== 'permanent' && params.expireTime !== 'permanent') {
-    if (params.duration === '1h') durationHours = 1;
-    else if (params.duration === '3h') durationHours = 3;
-    else if (params.duration === '6h') durationHours = 6;
-    else if (params.duration === '12h') durationHours = 12;
-    else if (params.duration === '1d') durationHours = 24;
-    else if (params.duration === '3d') durationHours = 72;
-    else if (params.duration === '7d') durationHours = 168;
-    else if (params.duration === '15d') durationHours = 360;
-    else if (params.duration === '30d') durationHours = 720;
-    else if (params.duration === '180d') durationHours = 4320;
-    else if (params.expireTime) {
-      const diff = new Date(params.expireTime).getTime() - Date.now();
-      durationHours = Math.max(1, Math.round(diff / (1000 * 60 * 60)));
-    }
+  if (params.penalties && params.penalties.length > 0) {
+    penaltyConfigs = params.penalties;
+  } else {
+    const defaultDur = params.duration || '7d';
+    const defaultExp = params.expireTime || 'permanent';
+    const types =
+      params.punishTypes && params.punishTypes.length > 0
+        ? params.punishTypes
+        : params.punishType
+          ? [params.punishType]
+          : ['comment'];
+
+    penaltyConfigs = types
+      .filter((t) => t !== 'all')
+      .map((t) => ({
+        punishType: t as 'account' | 'comment' | 'post' | 'activity',
+        duration: defaultDur,
+        expireTime: defaultExp,
+      }));
   }
 
   const actionTypeMap: Record<string, string> = {
     comment: 'ban_comment',
     post: 'ban_post',
     activity: 'ban_activity',
-    all: 'ban_all',
-    warning: 'warning',
-    credit_deduct: 'warning',
   };
 
-  // 1. 遍历所有目标用户与勾选的所有处罚类型，发起真实后台网络请求
+  // 1. 遍历所有目标用户与勾选的所有处罚类型，发起真实后台网络请求 (各使用其独立设定的时长)
   for (const userId of params.userIds) {
-    for (const pType of selectedTypes) {
+    for (const item of penaltyConfigs) {
+      const itemHours = parseDurationToHours(item.duration, item.expireTime);
       try {
-        if (pType === 'account') {
-          // 账号全量封号：调用 PUT /admin-api/user/users/update-status
+        if (item.punishType === 'account') {
           await request({
             url: '/user/users/update-status',
             method: 'PUT',
             data: { id: userId, status: 2 },
           });
         } else {
-          // 内容治理细分处罚：调用 POST /admin-api/user/content-restriction/apply
-          const actionType = actionTypeMap[pType] || 'warning';
+          const actionType = actionTypeMap[item.punishType] || 'ban_comment';
           await request({
             url: '/user/content-restriction/apply',
             method: 'POST',
             data: {
               userId,
               actionType,
-              durationHours,
+              durationHours: itemHours,
               reason: params.reason,
             },
           });
@@ -630,25 +652,24 @@ export const executeUserBan = async (
     }
   }
 
-  // 2. 内存数据集同步更新：同时将多项处罚生成为 ContentRestrictionItem
+  // 2. 内存数据集同步更新：每一项携带各自独立的 endAt 与时效
   const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
   const restrictionTypeMap: Record<string, string> = {
     account: 'account',
     comment: 'comment',
     post: 'post',
     activity: 'activity_publish',
-    all: 'post',
   };
 
-  const hasAccountBan = selectedTypes.includes('account');
+  const hasAccountBan = penaltyConfigs.some((p) => p.punishType === 'account');
+  const accountBanItem = penaltyConfigs.find((p) => p.punishType === 'account');
 
   currentDataset = currentDataset.map((u) => {
     if (params.userIds.includes(u.id)) {
       const newItems: ContentRestrictionItem[] = [];
 
-      for (const pType of selectedTypes) {
-        if (pType === 'warning' || pType === 'credit_deduct') continue;
-        const rType = restrictionTypeMap[pType] || 'comment';
+      for (const item of penaltyConfigs) {
+        const rType = restrictionTypeMap[item.punishType] || 'comment';
         newItems.push({
           id: Date.now() + Math.floor(Math.random() * 100000),
           userId: u.id,
@@ -658,7 +679,7 @@ export const executeUserBan = async (
           sourceType: 'manual',
           operatorUserId: '1',
           startAt: nowStr,
-          endAt: params.expireTime === 'permanent' ? null : params.expireTime,
+          endAt: item.expireTime === 'permanent' ? null : item.expireTime,
         });
       }
 
@@ -678,7 +699,7 @@ export const executeUserBan = async (
           : mergedRestrictions.length > 0
             ? 'muted'
             : u.status,
-        accountBanExpireTime: hasAccountBan ? params.expireTime : u.accountBanExpireTime,
+        accountBanExpireTime: accountBanItem ? accountBanItem.expireTime : u.accountBanExpireTime,
         banReason: params.reason,
         restrictions: mergedRestrictions,
       };
@@ -689,7 +710,72 @@ export const executeUserBan = async (
   return {
     code: 200,
     data: { updatedCount: params.userIds.length },
-    message: `已成功同时执行所选 ${selectedTypes.length} 项违规处置`,
+    message: `已成功执行 ${penaltyConfigs.length} 项违规处置（各自独立生效）`,
+  };
+};
+
+/**
+ * 一键解除用户的所有生效中处罚与封禁 (对接后台真实接口)
+ */
+export const revokeAllUserRestrictions = async (userId: string): Promise<ApiResponse<boolean>> => {
+  // 1. 调用账号状态恢复正常 (PUT /admin-api/user/users/update-status)
+  try {
+    await request({
+      url: '/user/users/update-status',
+      method: 'PUT',
+      data: { id: userId, status: 1 },
+    });
+  } catch {
+    // ignore
+  }
+
+  // 2. 查出 active 限制并批量调用 revoke (PUT /admin-api/user/content-restriction/revoke)
+  const target = currentDataset.find((u) => u.id === String(userId));
+  if (target?.restrictions) {
+    for (const r of target.restrictions) {
+      if (r.status === 'active') {
+        try {
+          await request({
+            url: '/user/content-restriction/revoke',
+            method: 'PUT',
+            data: {
+              restrictionId: r.id,
+              reason: '管理员在控制台快捷解除惩罚',
+            },
+          });
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+
+  // 3. 本地内存数据集乐观更新
+  const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+  currentDataset = currentDataset.map((u) => {
+    if (u.id === String(userId)) {
+      const updatedRestrictions = (u.restrictions || []).map((r) => ({
+        ...r,
+        status: 'revoked' as const,
+        revokedAt: nowStr,
+        revokeReason: '管理员全量解除',
+      }));
+      return {
+        ...u,
+        rawStatus: 1,
+        status: 'normal' as UserStatus,
+        accountBanExpireTime: undefined,
+        banReason: undefined,
+        restrictions: updatedRestrictions,
+      };
+    }
+    return u;
+  });
+
+  return {
+    code: 200,
+    data: true,
+    message: '已成功解除该用户的全部处罚并恢复正常',
   };
 };
 
