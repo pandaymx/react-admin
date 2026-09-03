@@ -1,5 +1,6 @@
 import {
   AlertOutlined,
+  CalendarOutlined,
   ClockCircleOutlined,
   ExclamationCircleFilled,
   LockOutlined,
@@ -31,7 +32,14 @@ import { formatBanRemainingTime } from '@/utils/time';
 const { Text } = Typography;
 const { TextArea } = Input;
 
-export type BanPunishType = 'account' | 'comment' | 'post' | 'warning' | 'credit_deduct';
+export type BanPunishType =
+  | 'account'
+  | 'comment'
+  | 'post'
+  | 'activity'
+  | 'all'
+  | 'warning'
+  | 'credit_deduct';
 
 export interface UserBanModalProps {
   open: boolean;
@@ -241,7 +249,15 @@ export const UserBanModal: React.FC<UserBanModalProps> = ({
                 </Radio.Button>
                 <Radio.Button value="post">
                   <AlertOutlined style={{ marginRight: 4 }} />
-                  作品投稿禁发
+                  作品动态禁发
+                </Radio.Button>
+                <Radio.Button value="activity">
+                  <CalendarOutlined style={{ marginRight: 4 }} />
+                  禁止发布活动
+                </Radio.Button>
+                <Radio.Button value="all">
+                  <StopOutlined style={{ marginRight: 4 }} />
+                  全域内容封控
                 </Radio.Button>
                 <Radio.Button value="warning">📢 违规官方警告</Radio.Button>
                 <Radio.Button value="credit_deduct">📉 信用扣分降权</Radio.Button>

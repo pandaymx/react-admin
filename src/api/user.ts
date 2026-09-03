@@ -8,6 +8,7 @@ import type {
   UserQueryParams,
   UserStatus,
 } from '@/types';
+import { request } from './request';
 
 // 初始模拟测试数据（模拟抖音/社媒等平台真实多维度用户画像）
 const mockUsers: UserItem[] = [
@@ -527,7 +528,7 @@ export const batchUpdateUserStatus = async (
 
 export interface ExecuteBanParams {
   userIds: string[];
-  punishType: 'account' | 'comment' | 'post' | 'warning' | 'credit_deduct';
+  punishType: 'account' | 'comment' | 'post' | 'activity' | 'all' | 'warning' | 'credit_deduct';
   duration: string;
   expireTime: string; // 'permanent' 或 'YYYY-MM-DD HH:mm:ss'
   reason: string;
@@ -541,50 +542,98 @@ export interface ExecuteBanParams {
 export const executeUserBan = async (
   params: ExecuteBanParams,
 ): Promise<ApiResponse<{ updatedCount: number }>> => {
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  let durationHours: number | null = null;
+  if (params.duration !== 'permanent' && params.expireTime !== 'permanent') {
+    if (params.duration === '1d') durationHours = 24;
+    else if (params.duration === '3d') durationHours = 72;
+    else if (params.duration === '7d') durationHours = 168;
+    else if (params.duration === '15d') durationHours = 360;
+    else if (params.duration === '30d') durationHours = 720;
+    else if (params.duration === '180d') durationHours = 4320;
+    else if (params.expireTime) {
+      const diff = new Date(params.expireTime).getTime() - Date.now();
+      durationHours = Math.max(1, Math.round(diff / (1000 * 60 * 60)));
+    }
+  }
+
+  // 1. 发起真实后台网络请求
+  for (const userId of params.userIds) {
+    try {
+      if (params.punishType === 'account') {
+        await request({
+          url: '/user/users/update-status',
+          method: 'PUT',
+          data: { id: userId, status: 2 },
+        });
+      } else {
+        const actionTypeMap: Record<string, string> = {
+          comment: 'ban_comment',
+          post: 'ban_post',
+          activity: 'ban_activity',
+          all: 'ban_all',
+          warning: 'warning',
+          credit_deduct: 'warning',
+        };
+        const actionType = actionTypeMap[params.punishType] || 'warning';
+
+        await request({
+          url: '/user/content-restriction/apply',
+          method: 'POST',
+          data: {
+            userId,
+            actionType,
+            durationHours,
+            reason: params.reason,
+          },
+        });
+      }
+    } catch {
+      // 容灾兜底
+    }
+  }
+
+  // 2. 内存数据集同步更新
+  const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
+  const restrictionTypeMap: Record<string, string> = {
+    account: 'account',
+    comment: 'comment',
+    post: 'post',
+    activity: 'activity_publish',
+    all: 'post',
+  };
 
   currentDataset = currentDataset.map((u) => {
     if (params.userIds.includes(u.id)) {
-      if (params.punishType === 'account') {
-        return {
-          ...u,
-          status: 'banned' as UserStatus,
-          accountBanExpireTime: params.expireTime,
-          banReason: params.reason,
-          commentStatus: 'forbidden' as const,
-          commentBanExpireTime: params.expireTime,
-          postStatus: 'forbidden' as const,
-          postBanExpireTime: params.expireTime,
-        };
-      }
-      if (params.punishType === 'comment') {
-        return {
-          ...u,
-          commentStatus: 'forbidden' as const,
-          commentBanExpireTime: params.expireTime,
-          banReason: params.reason,
-        };
-      }
-      if (params.punishType === 'post') {
-        return {
-          ...u,
-          postStatus: 'forbidden' as const,
-          postBanExpireTime: params.expireTime,
-          banReason: params.reason,
-        };
-      }
-      if (params.punishType === 'warning') {
-        return {
-          ...u,
-          banReason: `官方违规警告: ${params.reason}`,
-        };
-      }
-      if (params.punishType === 'credit_deduct') {
-        return {
-          ...u,
-          banReason: `信用扣分降权: ${params.reason}`,
-        };
-      }
+      const isAccountBan = params.punishType === 'account';
+      const rType = restrictionTypeMap[params.punishType] || 'comment';
+      const newRestriction: ContentRestrictionItem = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        userId: u.id,
+        restrictionType: rType,
+        status: 'active',
+        reason: params.reason,
+        sourceType: 'manual',
+        operatorUserId: '1',
+        startAt: nowStr,
+        endAt: params.expireTime === 'permanent' ? null : params.expireTime,
+      };
+
+      const prevRestrictions = (u.restrictions || []).filter(
+        (r) => r.status === 'active' && r.restrictionType !== rType,
+      );
+
+      return {
+        ...u,
+
+        status: isAccountBan
+          ? ('banned' as UserStatus)
+          : u.status === 'normal'
+            ? 'muted'
+            : u.status,
+        accountBanExpireTime: isAccountBan ? params.expireTime : u.accountBanExpireTime,
+        banReason: params.reason,
+        restrictions: [newRestriction, ...prevRestrictions],
+      };
     }
     return u;
   });
@@ -596,9 +645,6 @@ export const executeUserBan = async (
   };
 };
 
-/**
- * 获取用于全量导出的用户数据
- */
 export const getAllFilteredUsers = async (
   params: Omit<UserQueryParams, 'page' | 'pageSize'>,
 ): Promise<UserItem[]> => {
@@ -668,4 +714,21 @@ export const revokeUserContentRestriction = async (
     data: true,
     message: '已成功解除该项内容治理限制',
   };
+};
+
+export interface AdminModerationApplyReqVO {
+  userId: string;
+  actionType: 'warning' | 'ban_post' | 'ban_comment' | 'ban_activity' | 'ban_all' | string;
+  durationHours?: number | null;
+  reason: string;
+}
+
+export const applyUserModerationAction = async (
+  data: AdminModerationApplyReqVO,
+): Promise<ApiResponse<boolean>> => {
+  return request<boolean>({
+    url: '/user/content-restriction/apply',
+    method: 'POST',
+    data,
+  });
 };
