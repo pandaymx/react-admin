@@ -470,36 +470,44 @@ export const PostDetailDrawer: React.FC<PostDetailDrawerProps> = ({
             border: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
-          <Row gutter={16}>
-            <Col span={6}>
+          <Row gutter={[16, 16]}>
+            <Col xs={12} sm={8} md={4} style={{ flex: 1, minWidth: 120 }}>
               <Statistic
                 title="浏览曝光次数"
                 value={stats.viewCount}
-                valueStyle={{ color: '#1677ff', fontSize: 20 }}
+                valueStyle={{ color: '#1677ff', fontSize: 18 }}
                 prefix={<EyeOutlined />}
               />
             </Col>
-            <Col span={6}>
+            <Col xs={12} sm={8} md={4} style={{ flex: 1, minWidth: 120 }}>
               <Statistic
                 title="累计获赞数"
                 value={stats.likeCount}
-                valueStyle={{ color: '#ff4d4f', fontSize: 20 }}
+                valueStyle={{ color: '#ff4d4f', fontSize: 18 }}
                 prefix={<HeartOutlined />}
               />
             </Col>
-            <Col span={6}>
+            <Col xs={12} sm={8} md={4} style={{ flex: 1, minWidth: 120 }}>
               <Statistic
                 title="评论互动量"
                 value={stats.commentCount}
-                valueStyle={{ color: '#fa8c16', fontSize: 20 }}
+                valueStyle={{ color: '#fa8c16', fontSize: 18 }}
                 prefix={<MessageOutlined />}
               />
             </Col>
-            <Col span={6}>
+            <Col xs={12} sm={8} md={4} style={{ flex: 1, minWidth: 120 }}>
               <Statistic
-                title="收藏与分享"
-                value={stats.favoriteCount + stats.shareCount}
-                valueStyle={{ color: '#722ed1', fontSize: 20 }}
+                title="用户收藏量"
+                value={stats.favoriteCount}
+                valueStyle={{ color: '#faad14', fontSize: 18 }}
+                prefix={<StarOutlined />}
+              />
+            </Col>
+            <Col xs={12} sm={8} md={4} style={{ flex: 1, minWidth: 120 }}>
+              <Statistic
+                title="转发分享量"
+                value={stats.shareCount}
+                valueStyle={{ color: '#722ed1', fontSize: 18 }}
                 prefix={<ShareAltOutlined />}
               />
             </Col>

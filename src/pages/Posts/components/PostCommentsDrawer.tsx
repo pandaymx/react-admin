@@ -184,10 +184,14 @@ export const PostCommentsDrawer: React.FC<PostCommentsDrawerProps> = ({
                 >
                   {post.title}
                 </Paragraph>
-                <Space size="middle" style={{ fontSize: 12, color: '#8c8c8c' }}>
+                <Space size="middle" wrap style={{ fontSize: 12, color: '#8c8c8c' }}>
                   <span>作者: {post.author.nickname}</span>
                   <span>获赞: {post.likeCount.toLocaleString()}</span>
-                  <span>评论总数: {post.commentCount.toLocaleString()}</span>
+                  <span>评论: {post.commentCount.toLocaleString()}</span>
+                  <span>
+                    收藏:{' '}
+                    {(post.statistics?.favoriteCount ?? post.collectCount ?? 0).toLocaleString()}
+                  </span>
                 </Space>
               </div>
             </div>

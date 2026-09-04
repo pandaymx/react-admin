@@ -710,6 +710,14 @@ export const getPostList = async (
         commentCount: p.statistics?.commentCount ?? p.commentCount ?? 0,
         shareCount: p.statistics?.shareCount ?? p.shareCount ?? 0,
         collectCount: p.statistics?.favoriteCount ?? p.collectCount ?? 0,
+        favoriteCount: p.statistics?.favoriteCount ?? p.collectCount ?? 0,
+        statistics: p.statistics || {
+          viewCount: (p.likeCount || 0) * 4,
+          likeCount: p.likeCount ?? 0,
+          commentCount: p.commentCount ?? 0,
+          shareCount: p.shareCount ?? 0,
+          favoriteCount: p.collectCount ?? 0,
+        },
         publishTime: p.createdAt || p.publishTime || '',
         topics: p.topics || [],
       }));
@@ -833,8 +841,15 @@ export const getPostStatisticsSummary = async (): Promise<ApiResponse<PostStatis
       likeCount: p.likeCount || 0,
       commentCount: p.commentCount || 0,
       shareCount: p.shareCount || 0,
+      favoriteCount: p.collectCount || 0,
     };
-    return sum + (stats.likeCount || 0) + (stats.commentCount || 0) + (stats.shareCount || 0);
+    return (
+      sum +
+      (stats.likeCount || 0) +
+      (stats.commentCount || 0) +
+      (stats.shareCount || 0) +
+      (stats.favoriteCount || p.collectCount || 0)
+    );
   }, 0);
 
   return {
@@ -874,6 +889,14 @@ export const getPostDetail = async (id: string): Promise<ApiResponse<PostItem>> 
           commentCount: p.statistics?.commentCount ?? p.commentCount ?? 0,
           shareCount: p.statistics?.shareCount ?? p.shareCount ?? 0,
           collectCount: p.statistics?.favoriteCount ?? p.collectCount ?? 0,
+          favoriteCount: p.statistics?.favoriteCount ?? p.collectCount ?? 0,
+          statistics: p.statistics || {
+            viewCount: (p.likeCount || 0) * 4,
+            likeCount: p.likeCount ?? 0,
+            commentCount: p.commentCount ?? 0,
+            shareCount: p.shareCount ?? 0,
+            favoriteCount: p.collectCount ?? 0,
+          },
           publishTime: p.createdAt || p.publishTime || '',
           topics: p.topics || [],
         },

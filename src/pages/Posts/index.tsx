@@ -80,7 +80,7 @@ const postColumnOptions: ColumnOptionItem[] = [
   { key: 'content', title: '作品内容与封面', required: true },
   { key: 'author', title: '发布作者' },
   { key: 'type', title: '作品形式与可见性' },
-  { key: 'interaction', title: '互动数据 (点赞/评论/分享)' },
+  { key: 'interaction', title: '互动数据 (获赞/评论/收藏/分享)' },
   { key: 'status', title: '合规与发布状态' },
   { key: 'publishTime', title: '发布时间' },
   { key: 'id', title: '作品编号 (ID)' },
@@ -294,6 +294,16 @@ export const PostsPage: React.FC = () => {
             title: '评论数',
             key: 'commentCount',
             render: (r: any) => r.statistics?.commentCount ?? r.commentCount ?? 0,
+          },
+          {
+            title: '收藏数',
+            key: 'favoriteCount',
+            render: (r: any) => r.statistics?.favoriteCount ?? r.collectCount ?? 0,
+          },
+          {
+            title: '分享数',
+            key: 'shareCount',
+            render: (r: any) => r.statistics?.shareCount ?? r.shareCount ?? 0,
           },
           {
             title: '发布时间',
@@ -706,6 +716,10 @@ export const PostsPage: React.FC = () => {
             <div>
               <MessageOutlined style={{ color: '#1677ff', marginRight: 4 }} />
               评论: {stats.commentCount.toLocaleString()}
+            </div>
+            <div>
+              <StarOutlined style={{ color: '#faad14', marginRight: 4 }} />
+              收藏: {stats.favoriteCount.toLocaleString()}
             </div>
             <div>
               <ShareAltOutlined style={{ color: '#722ed1', marginRight: 4 }} />

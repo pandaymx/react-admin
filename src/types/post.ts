@@ -135,6 +135,7 @@ export interface PostItem {
   commentCount: number;
   shareCount: number;
   collectCount: number;
+  favoriteCount?: number;
   publishTime: string;
 }
 
