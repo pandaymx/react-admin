@@ -154,9 +154,17 @@ export const ReportsPage: React.FC = () => {
               r.targetType === 'post' ? '作品' : r.targetType === 'comment' ? '评论' : '用户',
           },
           { title: '举报人昵称', key: 'reporter', render: (r) => r.reporter.nickname },
-          { title: '举报人UID', key: 'reporter', render: (r) => r.reporter.uid },
+          {
+            title: '举报人UID',
+            key: 'reporter',
+            render: (r) => r.reporter.uid || r.reporter.userNo || '',
+          },
           { title: '被举报人昵称', key: 'target', render: (r) => r.target.targetUser.nickname },
-          { title: '被举报人UID', key: 'target', render: (r) => r.target.targetUser.uid },
+          {
+            title: '被举报人UID',
+            key: 'target',
+            render: (r) => r.target.targetUser.uid || r.target.targetUser.userNo || '',
+          },
           { title: '违规原因描述', key: 'reasonDesc' },
           {
             title: '处理状态',
@@ -274,7 +282,7 @@ export const ReportsPage: React.FC = () => {
               {record.target.targetUser.nickname}
             </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              UID: {record.target.targetUser.uid}
+              UID: {record.target.targetUser.uid || record.target.targetUser.userNo}
             </Text>
           </Space>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -314,7 +322,7 @@ export const ReportsPage: React.FC = () => {
               {record.reporter.nickname}
             </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              UID: {record.reporter.uid}
+              UID: {record.reporter.uid || record.reporter.userNo}
             </Text>
           </div>
         </Space>

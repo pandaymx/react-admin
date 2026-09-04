@@ -111,7 +111,8 @@ export const PostCommentsDrawer: React.FC<PostCommentsDrawerProps> = ({
   // 快捷禁言发评人
   const handleMuteUser = async (item: CommentItem) => {
     try {
-      const res = await updateUserStatus(item.author.uid, 'muted');
+      const targetUserId = item.author.userId || item.author.userNo || item.author.uid;
+      const res = await updateUserStatus(targetUserId, 'muted');
       if (res.code === 200) {
         message.success(`已将用户【${item.author.nickname}】禁言`);
       }
@@ -332,7 +333,7 @@ export const PostCommentsDrawer: React.FC<PostCommentsDrawerProps> = ({
                         {item.author.nickname}
                       </Text>
                       <Text type="secondary" style={{ fontSize: 11 }}>
-                        UID: {item.author.uid}
+                        UID: {item.author.uid || item.author.userNo}
                       </Text>
                       {item.ipLocation && (
                         <Tag style={{ fontSize: 10, margin: 0, padding: '0 4px' }}>

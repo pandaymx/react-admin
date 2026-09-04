@@ -32,6 +32,7 @@ export interface AdminCommentRespVO {
   avatarUrl?: string;
   author?: {
     userId?: string;
+    userNo?: string;
     uid?: string;
     nickname?: string;
     avatar?: string;
@@ -469,10 +470,19 @@ const mockComments: CommentItem[] = [
   },
 ];
 
-let commentsDataset = [...mockComments];
+const normalizedMockComments = mockComments.map((item) => ({
+  ...item,
+  author: {
+    ...item.author,
+    userNo: item.author.userNo || item.author.uid.replace(/^dy_/, ''),
+    userId: item.author.userId || (item as any).userId,
+  },
+}));
+
+let commentsDataset: CommentItem[] = [...normalizedMockComments];
 
 /**
- * 查询评论列表（支持按帖子 ID、关键词、UID、风险标签、状态过滤；支持后端真实接口 Dual-Mode 自动降级）
+ * 查询评论列表（支持按帖子 ID、关键词、用户展示号、风险标签、状态过滤；支持后端真实接口 Dual-Mode 自动降级）
  */
 export const getCommentList = async (
   params: CommentQueryParams = {},
@@ -497,7 +507,14 @@ export const getCommentList = async (
       if ((res.code === 200 || res.code === 0) && res.data?.list) {
         const postMeta = commentsDataset.find((c) => c.postId === params.postId?.trim());
         const mappedList: CommentItem[] = res.data.list.map((item) => {
-          const authorUid = item.author?.uid || item.author?.userId || item.userId || '';
+          const authorUserNo =
+            item.author?.userNo ||
+            item.author?.uid?.replace(/^dy_/, '') ||
+            item.author?.userId ||
+            item.userId ||
+            '';
+          const authorUid =
+            item.author?.uid || item.author?.userNo || item.author?.userId || item.userId || '';
           const authorNickname = item.author?.nickname || item.nickname || '匿名用户';
           const authorAvatar =
             item.author?.avatar ||
@@ -513,9 +530,11 @@ export const getCommentList = async (
             postTitle: postMeta?.postTitle || `作品 #${item.targetId}`,
             postCover: postMeta?.postCover,
             author: {
+              userNo: authorUserNo,
               uid: authorUid,
+              userId: item.author?.userId || item.userId,
               nickname: authorNickname,
-              username: authorUid,
+              username: authorUserNo || authorUid,
               avatar: authorAvatar,
             },
             content: item.content || '',
@@ -644,13 +663,14 @@ export const getCommentList = async (
     );
   }
 
-  // 用户 UID 过滤
-  if (params.uid?.trim()) {
-    const uidKw = params.uid.trim().toLowerCase();
+  // 用户展示号 / UID 过滤
+  if (params.userNo?.trim() || params.uid?.trim()) {
+    const userKw = (params.userNo || params.uid || '').trim().toLowerCase();
     filtered = filtered.filter(
       (item) =>
-        item.author.uid.toLowerCase().includes(uidKw) ||
-        item.author.nickname.toLowerCase().includes(uidKw),
+        item.author.userNo?.toLowerCase().includes(userKw) ||
+        item.author.uid.toLowerCase().includes(userKw) ||
+        item.author.nickname.toLowerCase().includes(userKw),
     );
   }
 

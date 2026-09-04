@@ -152,7 +152,8 @@ export const PostsPage: React.FC = () => {
         const params: PostQueryParams = {
           keyword: formValues.keyword,
           userId: formValues.userId,
-          uid: formValues.uid,
+          userNo: formValues.userNo || formValues.uid,
+          uid: formValues.uid || formValues.userNo,
           postType: formValues.postType,
           status: formValues.status,
           visibility: formValues.visibility,
@@ -282,7 +283,11 @@ export const PostsPage: React.FC = () => {
           { title: '作品标题', key: 'title' },
           { title: '作品类型', key: 'postType', render: (r: any) => r.postType || r.type },
           { title: '发布作者', key: 'author', render: (r: any) => r.author?.nickname || '' },
-          { title: '作者UID', key: 'uid', render: (r: any) => r.author?.uid || '' },
+          {
+            title: '作者UID',
+            key: 'uid',
+            render: (r: any) => r.author?.uid || r.author?.userNo || '',
+          },
           { title: '状态', key: 'status' },
           { title: '是否置顶', key: 'isTop', render: (r: any) => (r.isTop ? '是' : '否') },
           {
@@ -640,7 +645,9 @@ export const PostsPage: React.FC = () => {
               >
                 {author.nickname}
               </div>
-              <div style={{ fontSize: 11, color: token.colorTextSecondary }}>UID: {author.uid}</div>
+              <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                UID: {author.uid || author.userNo}
+              </div>
               {author.verifyStatus === 'creator' && (
                 <Tag
                   color="orange"
@@ -934,7 +941,7 @@ export const PostsPage: React.FC = () => {
             </Col>
             <Col xs={24} sm={12} md={6} lg={4}>
               <Form.Item label="作者 UID / 昵称" name="uid">
-                <Input placeholder="输入作者展示号或昵称" allowClear prefix={<UserOutlined />} />
+                <Input placeholder="输入作者 UID 或昵称" allowClear prefix={<UserOutlined />} />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12} md={6} lg={4}>

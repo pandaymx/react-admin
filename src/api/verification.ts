@@ -163,8 +163,14 @@ const mockEnterpriseList: EnterpriseVerificationItem[] = [
   },
 ];
 
-const personalData = [...mockPersonalList];
-const enterpriseData = [...mockEnterpriseList];
+const personalData: PersonalVerificationItem[] = mockPersonalList.map((item) => ({
+  ...item,
+  userNo: item.userNo || item.uid.replace(/^dy_/, ''),
+}));
+const enterpriseData: EnterpriseVerificationItem[] = mockEnterpriseList.map((item) => ({
+  ...item,
+  userNo: item.userNo || item.uid.replace(/^dy_/, ''),
+}));
 
 /**
  * 获取个人认证列表
@@ -185,11 +191,14 @@ export const getPersonalVerificationList = async (
     );
   }
 
-  // 2. UID 查询
-  if (params.uid?.trim()) {
-    const uidKw = params.uid.trim().toLowerCase();
+  // 2. 用户展示号 / UID 查询
+  if (params.userNo?.trim() || params.uid?.trim()) {
+    const userKw = (params.userNo || params.uid || '').trim().toLowerCase();
     filtered = filtered.filter(
-      (item) => item.uid.toLowerCase().includes(uidKw) || item.id.toLowerCase().includes(uidKw),
+      (item) =>
+        item.userNo?.toLowerCase().includes(userKw) ||
+        item.uid.toLowerCase().includes(userKw) ||
+        item.id.toLowerCase().includes(userKw),
     );
   }
 
@@ -252,10 +261,13 @@ export const getEnterpriseVerificationList = async (
     );
   }
 
-  if (params.uid?.trim()) {
-    const uidKw = params.uid.trim().toLowerCase();
+  if (params.userNo?.trim() || params.uid?.trim()) {
+    const userKw = (params.userNo || params.uid || '').trim().toLowerCase();
     filtered = filtered.filter(
-      (item) => item.uid.toLowerCase().includes(uidKw) || item.id.toLowerCase().includes(uidKw),
+      (item) =>
+        item.userNo?.toLowerCase().includes(userKw) ||
+        item.uid.toLowerCase().includes(userKw) ||
+        item.id.toLowerCase().includes(userKw),
     );
   }
 

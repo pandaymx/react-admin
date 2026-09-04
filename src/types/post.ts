@@ -75,6 +75,8 @@ export interface PostCurrentActivity {
 /** 帖子作者画像与认证公开信息 */
 export interface PostAuthor {
   uid: string;
+  userNo?: string; // 用户展示号（对齐后端 app_users.user_id / userNo）
+  userId?: string;
   nickname: string;
   username?: string;
   avatar: string;
@@ -145,6 +147,7 @@ export interface PostItem {
 export interface PostQueryParams {
   keyword?: string; // 标题/内容关键词
   userId?: string; // 发布者 ID
+  userNo?: string; // 用户展示号
   uid?: string; // 兼容作者展示号
   postType?: PostType | 'all';
   type?: PostType | 'all'; // 兼容旧入参

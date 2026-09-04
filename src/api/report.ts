@@ -1,10 +1,12 @@
 import type {
   ApiResponse,
   PenaltyAction,
+  ReporterInfo,
   ReportItem,
   ReportQueryParams,
   ReportStatus,
   ReportSummaryVO,
+  TargetUserInfo,
 } from '@/types';
 import { updateCommentStatus } from './comment';
 import { updatePostStatus } from './post';
@@ -101,7 +103,31 @@ const mockReports: ReportItem[] = [
   },
 ];
 
-let reportsDataset = [...mockReports];
+const normalizedMockReports: ReportItem[] = mockReports.map((item) => ({
+  ...item,
+  reporter: {
+    ...item.reporter,
+    userNo: item.reporter.userNo || item.reporter.uid.replace(/^dy_/, ''),
+    userId: item.reporter.userId,
+  },
+  targetUser: item.targetUser
+    ? {
+        ...item.targetUser,
+        userNo: item.targetUser.userNo || item.targetUser.uid.replace(/^dy_/, ''),
+        userId: item.targetUser.userId,
+      }
+    : undefined,
+  target: {
+    ...item.target,
+    targetUser: {
+      ...item.target.targetUser,
+      userNo: item.target.targetUser.userNo || item.target.targetUser.uid.replace(/^dy_/, ''),
+      userId: item.target.targetUser.userId,
+    },
+  },
+}));
+
+let reportsDataset: ReportItem[] = [...normalizedMockReports];
 
 /**
  * 获取举报统计概览（Dual-Mode）
@@ -162,18 +188,41 @@ export const getReportList = async (
 
     if ((res.code === 200 || res.code === 0) && res.data?.list) {
       const list: ReportItem[] = res.data.list.map((r) => {
-        const reporterInfo = r.reporter || {
-          uid: r.reporterUserId || '未知',
-          nickname: `用户_${(r.reporterUserId || '').slice(-4)}`,
+        const reporterUserNo =
+          r.reporter?.userNo ||
+          r.reporterUserNo ||
+          r.reporter?.uid?.replace(/^dy_/, '') ||
+          r.reporterUserId ||
+          '';
+        const reporterUid = r.reporter?.uid || r.reporter?.userNo || r.reporterUserId || '未知';
+        const reporterInfo: ReporterInfo = {
+          userId: r.reporter?.userId || r.reporterUserId,
+          userNo: reporterUserNo,
+          uid: reporterUid,
+          nickname:
+            r.reporter?.nickname || `用户_${(reporterUserNo || reporterUid || '').slice(-4)}`,
           avatar:
+            r.reporter?.avatar ||
             'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
         };
-        const targetUserInfo = r.targetUser || {
-          uid: r.targetUserId || '未知',
-          nickname: `创作者_${(r.targetUserId || '').slice(-4)}`,
+
+        const targetUserNo =
+          r.targetUser?.userNo ||
+          r.targetUserNo ||
+          r.targetUser?.uid?.replace(/^dy_/, '') ||
+          r.targetUserId ||
+          '';
+        const targetUid = r.targetUser?.uid || r.targetUser?.userNo || r.targetUserId || '未知';
+        const targetUserInfo: TargetUserInfo = {
+          userId: r.targetUser?.userId || r.targetUserId,
+          userNo: targetUserNo,
+          uid: targetUid,
+          nickname:
+            r.targetUser?.nickname || `创作者_${(targetUserNo || targetUid || '').slice(-4)}`,
           avatar:
+            r.targetUser?.avatar ||
             'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-          violationCount: 0,
+          violationCount: r.targetUser?.violationCount || 0,
         };
         const snapshot = r.targetSnapshot || {};
 
@@ -227,7 +276,11 @@ export const getReportList = async (
         item.id.toLowerCase().includes(kw) ||
         item.reasonDesc.toLowerCase().includes(kw) ||
         item.reporter.nickname.toLowerCase().includes(kw) ||
+        item.reporter.uid.toLowerCase().includes(kw) ||
+        Boolean(item.reporter.userNo?.toLowerCase().includes(kw)) ||
         item.target.targetUser.nickname.toLowerCase().includes(kw) ||
+        item.target.targetUser.uid.toLowerCase().includes(kw) ||
+        Boolean(item.target.targetUser.userNo?.toLowerCase().includes(kw)) ||
         Boolean(item.target.titleOrContent?.toLowerCase().includes(kw)),
     );
   }
@@ -307,9 +360,17 @@ export const handleReport = async (
       } else if (penaltyAction === 'delete_comment' && report.target.targetType === 'comment') {
         await updateCommentStatus(report.target.targetId, 'deleted');
       } else if (penaltyAction === 'mute_user') {
-        await updateUserStatus(report.target.targetUser.uid, 'muted');
+        const targetUserId =
+          report.target.targetUser.userId ||
+          report.target.targetUser.userNo ||
+          report.target.targetUser.uid;
+        await updateUserStatus(targetUserId, 'muted');
       } else if (penaltyAction === 'ban_user') {
-        await updateUserStatus(report.target.targetUser.uid, 'banned');
+        const targetUserId =
+          report.target.targetUser.userId ||
+          report.target.targetUser.userNo ||
+          report.target.targetUser.uid;
+        await updateUserStatus(targetUserId, 'banned');
       }
     }
 

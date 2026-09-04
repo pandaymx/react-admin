@@ -9,6 +9,7 @@ export type AppealStatus = 'pending' | 'approved' | 'rejected';
 
 export interface AppealUser {
   id: string;
+  userNo?: string; // 用户展示号（对齐后端 app_users.user_id / userNo）
   uid: string;
   username: string;
   nickname: string;
@@ -41,7 +42,9 @@ export interface AppealItem {
 }
 
 export interface AppealQueryParams {
-  keyword?: string; // 申诉单号/用户名/UID
+  keyword?: string; // 申诉单号/用户名/用户展示号
+  userNo?: string; // 申诉人展示号
+  uid?: string; // 兼容展示号
   appealType?: AppealType | 'all';
   status?: AppealStatus | 'all';
   dateRange?: [string, string];

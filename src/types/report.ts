@@ -50,6 +50,7 @@ export type PenaltyAction =
 
 export interface ReporterInfo {
   userId?: string;
+  userNo?: string; // 用户展示号（对齐后端 app_users.user_id / userNo）
   uid: string;
   nickname: string;
   avatar: string;
@@ -57,6 +58,7 @@ export interface ReporterInfo {
 
 export interface TargetUserInfo {
   userId?: string;
+  userNo?: string; // 用户展示号（对齐后端 app_users.user_id / userNo）
   uid: string;
   nickname: string;
   avatar: string;

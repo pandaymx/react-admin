@@ -381,7 +381,7 @@ export const PostDetailDrawer: React.FC<PostDetailDrawerProps> = ({
                 )}
               </div>
               <div style={{ marginTop: 4, fontSize: 12, color: token.colorTextSecondary }}>
-                展示号 UID: <Text code>{post.author.uid}</Text> | 用户名: @
+                展示号 UID: <Text code>{post.author.uid || post.author.userNo}</Text> | 用户名: @
                 {post.author.username || 'user'}
               </div>
               {post.author.verifyLabel && (

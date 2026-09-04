@@ -90,6 +90,7 @@ export interface ModerationRevokeReqVO {
 export interface AdminUserRespVO {
   id: string;
   userId: number | string; // 展示号 / UID (如 100001)
+  userNo?: string | number; // 用户展示号（对齐后端 app_users.user_id / userNo）
   phoneNumber: string; // 手机号 (如 13800138000)
   status: 1 | 2 | 3; // 账号状态：1=正常, 2=禁用/封禁, 3=注销
   nickname: string;
@@ -130,6 +131,7 @@ export interface PageResult<T> {
 /** 前端用户列表渲染通用模型 (兼容后端 VO 字段与前端治理视图) */
 export interface UserItem {
   id: string;
+  userNo?: string | number; // 用户展示号（对齐后端 app_users.user_id / userNo）
   userId: number | string; // 展示号 / UID
   uid?: string; // 兼容展示
   username?: string; // 账号名
@@ -200,6 +202,7 @@ export interface UserPersona {
 
 /** 用户分页检索入参实体: AdminUserPageReqVO */
 export interface AdminUserPageReqVO {
+  userNo?: string | number; // 用户展示号
   userId?: string | number; // 展示号 / UID
   phoneNumber?: string; // 手机号
   nickname?: string; // 昵称
@@ -213,7 +216,9 @@ export interface AdminUserPageReqVO {
 
 /** 用户分页检索参数 (完全对齐 AdminUserPageReqVO) */
 export interface UserQueryParams {
+  userNo?: string | number; // 用户展示号
   userId?: string | number; // 展示号 / UID
+  uid?: string | number; // 兼容展示号
   phoneNumber?: string; // 手机号
   nickname?: string; // 昵称
   keyword?: string; // 综合关键词

@@ -184,7 +184,7 @@ export const ReportDetailDrawer: React.FC<ReportDetailDrawerProps> = ({
               </Space>
             </Descriptions.Item>
             <Descriptions.Item label="举报人 UID">
-              <Text code>{report.reporter.uid}</Text>
+              <Text code>{report.reporter.uid || report.reporter.userNo}</Text>
             </Descriptions.Item>
             <Descriptions.Item label="违规陈述说明" span={2}>
               <Paragraph style={{ margin: 0, color: '#cf1322' }}>{report.reasonDesc}</Paragraph>
@@ -229,7 +229,7 @@ export const ReportDetailDrawer: React.FC<ReportDetailDrawerProps> = ({
               </Space>
             </Descriptions.Item>
             <Descriptions.Item label="被举报人 UID">
-              <Text code>{report.target.targetUser.uid}</Text>
+              <Text code>{report.target.targetUser.uid || report.target.targetUser.userNo}</Text>
             </Descriptions.Item>
             <Descriptions.Item label="目标标识 ID" span={2}>
               <Text code>{report.target.targetId}</Text>

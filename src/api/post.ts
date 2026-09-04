@@ -674,6 +674,15 @@ let mockPostsDataset: PostItem[] = [
   },
 ];
 
+mockPostsDataset = mockPostsDataset.map((item) => ({
+  ...item,
+  author: {
+    ...item.author,
+    userNo: item.author.userNo || item.author.uid.replace(/^dy_/, ''),
+    userId: item.author.userId || item.userId,
+  },
+}));
+
 /**
  * 分页获取帖子列表（Dual-Mode：后端 AdminFeedsPostController 真实接口优先 + 本地高保真降级）
  */
@@ -689,7 +698,8 @@ export const getPostList = async (
       params: {
         keyword: params.keyword,
         userId: params.userId,
-        uid: params.uid,
+        userNo: params.userNo || params.uid,
+        uid: params.uid || params.userNo,
         postType: params.postType !== 'all' ? params.postType : undefined,
         status: params.status !== 'all' ? params.status : undefined,
         visibility: params.visibility !== 'all' ? params.visibility : undefined,
@@ -701,26 +711,35 @@ export const getPostList = async (
       headers: { 'x-skip-error-message': 'true' },
     });
     if ((res.code === 200 || res.code === 0) && res.data?.list) {
-      const list = res.data.list.map((p) => ({
-        ...p,
-        type: p.postType || p.type || 'post',
-        coverUrl: p.coverUrl || p.mediaList?.[0]?.coverUrl || p.mediaList?.[0]?.url || '',
-        videoUrl: p.videoUrl || p.mediaList?.find((m) => m.mediaType === 'video')?.url,
-        likeCount: p.statistics?.likeCount ?? p.likeCount ?? 0,
-        commentCount: p.statistics?.commentCount ?? p.commentCount ?? 0,
-        shareCount: p.statistics?.shareCount ?? p.shareCount ?? 0,
-        collectCount: p.statistics?.favoriteCount ?? p.collectCount ?? 0,
-        favoriteCount: p.statistics?.favoriteCount ?? p.collectCount ?? 0,
-        statistics: p.statistics || {
-          viewCount: (p.likeCount || 0) * 4,
-          likeCount: p.likeCount ?? 0,
-          commentCount: p.commentCount ?? 0,
-          shareCount: p.shareCount ?? 0,
-          favoriteCount: p.collectCount ?? 0,
-        },
-        publishTime: p.createdAt || p.publishTime || '',
-        topics: p.topics || [],
-      }));
+      const list = res.data.list.map((p) => {
+        const authorUserNo = p.author?.userNo || p.author?.uid || '';
+        const authorUid = p.author?.uid || p.author?.userNo || '';
+        return {
+          ...p,
+          author: {
+            ...p.author,
+            userNo: authorUserNo,
+            uid: authorUid,
+          },
+          type: p.postType || p.type || 'post',
+          coverUrl: p.coverUrl || p.mediaList?.[0]?.coverUrl || p.mediaList?.[0]?.url || '',
+          videoUrl: p.videoUrl || p.mediaList?.find((m) => m.mediaType === 'video')?.url,
+          likeCount: p.statistics?.likeCount ?? p.likeCount ?? 0,
+          commentCount: p.statistics?.commentCount ?? p.commentCount ?? 0,
+          shareCount: p.statistics?.shareCount ?? p.shareCount ?? 0,
+          collectCount: p.statistics?.favoriteCount ?? p.collectCount ?? 0,
+          favoriteCount: p.statistics?.favoriteCount ?? p.collectCount ?? 0,
+          statistics: p.statistics || {
+            viewCount: (p.likeCount || 0) * 4,
+            likeCount: p.likeCount ?? 0,
+            commentCount: p.commentCount ?? 0,
+            shareCount: p.shareCount ?? 0,
+            favoriteCount: p.collectCount ?? 0,
+          },
+          publishTime: p.createdAt || p.publishTime || '',
+          topics: p.topics || [],
+        };
+      });
       return {
         code: 200,
         data: { list, total: Number(res.data.total) || list.length },
@@ -745,14 +764,15 @@ export const getPostList = async (
     );
   }
 
-  // 作者筛选
-  if (params.userId?.trim() || params.uid?.trim()) {
-    const searchUid = (params.userId || params.uid || '').trim().toLowerCase();
+  // 作者筛选 (用户号 userNo / uid / userId / 昵称)
+  if (params.userNo?.trim() || params.userId?.trim() || params.uid?.trim()) {
+    const searchTarget = (params.userNo || params.userId || params.uid || '').trim().toLowerCase();
     filtered = filtered.filter(
       (item) =>
-        item.author.uid.toLowerCase().includes(searchUid) ||
-        item.userId?.toLowerCase().includes(searchUid) ||
-        item.author.nickname.toLowerCase().includes(searchUid),
+        item.author.userNo?.toLowerCase().includes(searchTarget) ||
+        item.author.uid.toLowerCase().includes(searchTarget) ||
+        item.userId?.toLowerCase().includes(searchTarget) ||
+        item.author.nickname.toLowerCase().includes(searchTarget),
     );
   }
 

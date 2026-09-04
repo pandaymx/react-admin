@@ -4,7 +4,8 @@ export type AuditStatus = 'pending' | 'approved' | 'rejected' | 'revoked';
 
 export interface PersonalVerificationItem {
   id: string; // 申请流水号，如 AUTH_P202609001
-  uid: string; // 用户 UID
+  userNo?: string; // 用户展示号（对齐后端 app_users.user_id / userNo）
+  uid: string; // 兼容用户 UID
   nickname: string;
   avatar: string;
   realName: string; // 真实姓名
@@ -23,7 +24,8 @@ export interface PersonalVerificationItem {
 
 export interface EnterpriseVerificationItem {
   id: string; // 申请编号，如 AUTH_E202609001
-  uid: string; // 申请人 UID
+  userNo?: string; // 用户展示号（对齐后端 app_users.user_id / userNo）
+  uid: string; // 兼容申请人 UID
   nickname: string;
   avatar: string;
   companyName: string; // 企业名称
@@ -40,7 +42,8 @@ export interface EnterpriseVerificationItem {
 
 export interface VerificationQueryParams {
   keyword?: string; // 姓名/企业名/昵称
-  uid?: string;
+  userNo?: string; // 用户展示号
+  uid?: string; // 兼容展示号
   idCardNo?: string;
   status?: AuditStatus | 'all';
   idCardType?: IdCardType | 'all';

@@ -144,7 +144,7 @@ export const PostAuditModal: React.FC<PostAuditModalProps> = ({
                 {post.title}
               </div>
               <div style={{ fontSize: 12, marginTop: 4, color: token.colorTextSecondary }}>
-                发布作者: {post.author.nickname} (@{post.author.uid})
+                发布作者: {post.author.nickname} (UID: {post.author.uid || post.author.userNo})
               </div>
               <div style={{ fontSize: 11, marginTop: 2 }}>
                 <Space size={6}>

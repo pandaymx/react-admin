@@ -162,7 +162,13 @@ const initialAppeals: AppealItem[] = [
   },
 ];
 
-let currentAppeals = [...initialAppeals];
+let currentAppeals: AppealItem[] = initialAppeals.map((item) => ({
+  ...item,
+  user: {
+    ...item.user,
+    userNo: item.user.userNo || item.user.uid.replace(/^dy_/, ''),
+  },
+}));
 
 /**
  * 获取申诉列表（支持分页、关键词与多维筛选）
@@ -174,7 +180,7 @@ export const getAppealList = async (
 
   let list = [...currentAppeals];
 
-  // 关键词检索（单号/昵称/@用户名/UID/申诉理由）
+  // 关键词检索（单号/昵称/@用户名/用户展示号/UID/申诉理由）
   if (params.keyword?.trim()) {
     const kw = params.keyword.trim().toLowerCase();
     list = list.filter(
@@ -182,8 +188,18 @@ export const getAppealList = async (
         item.id.toLowerCase().includes(kw) ||
         item.user.nickname.toLowerCase().includes(kw) ||
         item.user.username.toLowerCase().includes(kw) ||
+        item.user.userNo?.toLowerCase().includes(kw) ||
         item.user.uid.toLowerCase().includes(kw) ||
         item.appealReason.toLowerCase().includes(kw),
+    );
+  }
+
+  // 用户展示号筛选
+  if (params.userNo?.trim() || params.uid?.trim()) {
+    const uKw = (params.userNo || params.uid || '').trim().toLowerCase();
+    list = list.filter(
+      (item) =>
+        item.user.userNo?.toLowerCase().includes(uKw) || item.user.uid.toLowerCase().includes(uKw),
     );
   }
 

@@ -75,6 +75,7 @@ export const CommentsPage: React.FC = () => {
         const values = form.getFieldsValue();
         const params: CommentQueryParams = {
           keyword: values.keyword,
+          userNo: values.uid,
           uid: values.uid,
           postId: values.postId,
           status: values.status,
@@ -148,7 +149,8 @@ export const CommentsPage: React.FC = () => {
   // 快捷禁言
   const handleMuteUser = async (record: CommentItem) => {
     try {
-      const res = await updateUserStatus(record.author.uid, 'muted');
+      const targetUserId = record.author.userId || record.author.userNo || record.author.uid;
+      const res = await updateUserStatus(targetUserId, 'muted');
       if (res.code === 200) {
         message.success(`已将用户【${record.author.nickname}】禁言`);
       }
@@ -209,7 +211,11 @@ export const CommentsPage: React.FC = () => {
           { title: '所属作品ID', key: 'postId' },
           { title: '所属作品标题', key: 'postTitle' },
           { title: '评论人昵称', key: 'author', render: (r) => r.author.nickname },
-          { title: '评论人UID', key: 'author', render: (r) => r.author.uid },
+          {
+            title: '评论人UID',
+            key: 'author',
+            render: (r) => r.author.uid || r.author.userNo || '',
+          },
           { title: '评论正文内容', key: 'content' },
           { title: '获赞数', key: 'likeCount' },
           { title: '子回复数', key: 'replyCount' },
@@ -328,7 +334,7 @@ export const CommentsPage: React.FC = () => {
               {record.author.nickname}
             </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              UID: {record.author.uid}
+              UID: {record.author.uid || record.author.userNo}
             </Text>
           </div>
         </Space>

@@ -10,7 +10,9 @@ export type CommentStatus =
 export type CommentRiskTag = 'normal' | 'ad_suspect' | 'abuse' | 'spam';
 
 export interface CommentAuthor {
-  uid: string;
+  userNo?: string; // 用户展示号（对齐后端 app_users.user_id / userNo）
+  uid: string; // 兼容旧展示号
+  userId?: string; // 内部用户 ID
   nickname: string;
   username: string;
   avatar: string;
@@ -40,7 +42,8 @@ export interface CommentQueryParams {
   postId?: string; // 按特定作品筛选
   targetType?: string; // 目标类型，默认 post
   keyword?: string; // 评论内容关键词
-  uid?: string; // 评论人 UID
+  userNo?: string; // 评论人展示号
+  uid?: string; // 兼容评论人 UID
   status?: CommentStatus | 'all';
   riskTag?: CommentRiskTag | 'all';
   dateRange?: [string, string];

@@ -469,7 +469,10 @@ const mockUsers: UserItem[] = [
   },
 ];
 
-let currentDataset: UserItem[] = [...mockUsers];
+let currentDataset: UserItem[] = mockUsers.map((item) => ({
+  ...item,
+  userNo: item.userNo || item.userId || item.uid,
+}));
 
 /**
  * 转换后端 UserStatus 映射
@@ -498,8 +501,16 @@ export const getUserList = async (
   params: UserQueryParams,
 ): Promise<ApiResponse<UserListResult>> => {
   try {
+    const searchUserNo =
+      params.userNo !== undefined && params.userNo !== ''
+        ? params.userNo
+        : params.userId !== undefined && params.userId !== ''
+          ? params.userId
+          : undefined;
+
     const reqVo: AdminUserPageReqVO = {
-      userId: params.userId !== undefined && params.userId !== '' ? params.userId : undefined,
+      userNo: searchUserNo,
+      userId: searchUserNo,
       phoneNumber: params.phoneNumber ? String(params.phoneNumber).trim() : undefined,
       nickname: params.nickname
         ? String(params.nickname).trim()
@@ -535,11 +546,14 @@ export const getUserList = async (
           vo.certificationSummary?.certificationLabel ||
           (vo.qualification === 2 ? '企业认证' : vo.qualification === 1 ? '个人认证' : '未实名');
 
+        const userNo = vo.userNo || vo.userId;
+
         return {
           id: String(vo.id),
+          userNo: String(userNo),
           userId: vo.userId,
-          uid: String(vo.userId),
-          username: String(vo.userId),
+          uid: String(userNo),
+          username: String(userNo),
           nickname: vo.nickname,
           avatar: vo.avatarUrl,
           avatarUrl: vo.avatarUrl,
@@ -590,10 +604,13 @@ export const getUserList = async (
 
   let filtered = [...currentDataset];
 
-  if (params.userId) {
-    const uStr = String(params.userId).toLowerCase();
+  if (params.userNo || params.userId || params.uid) {
+    const uStr = String(params.userNo || params.userId || params.uid).toLowerCase();
     filtered = filtered.filter(
-      (u) => String(u.userId).includes(uStr) || String(u.uid).includes(uStr),
+      (u) =>
+        (u.userNo && String(u.userNo).toLowerCase().includes(uStr)) ||
+        String(u.userId).toLowerCase().includes(uStr) ||
+        (u.uid && String(u.uid).toLowerCase().includes(uStr)),
     );
   }
 
@@ -612,6 +629,7 @@ export const getUserList = async (
     filtered = filtered.filter(
       (u) =>
         u.nickname.toLowerCase().includes(k) ||
+        (u.userNo && String(u.userNo).includes(k)) ||
         String(u.userId).includes(k) ||
         u.phoneNumber?.includes(k),
     );
@@ -667,7 +685,13 @@ export const getUserDetail = async (id: string | number): Promise<ApiResponse<Ad
     // ignore
   }
 
-  const user = currentDataset.find((u) => u.id === String(id));
+  const user = currentDataset.find(
+    (u) =>
+      u.id === String(id) ||
+      (u.userNo && String(u.userNo) === String(id)) ||
+      String(u.userId) === String(id) ||
+      (u.uid && String(u.uid) === String(id)),
+  );
   if (!user) {
     return { code: 404, data: {} as any, message: '用户不存在' };
   }
@@ -677,6 +701,7 @@ export const getUserDetail = async (id: string | number): Promise<ApiResponse<Ad
     data: {
       id: user.id,
       userId: user.userId,
+      userNo: user.userNo || user.userId,
       phoneNumber: user.phoneNumber || user.phone || '',
       status: user.rawStatus || mapFrontendStatusToBackend(user.status),
       nickname: user.nickname,
@@ -718,7 +743,13 @@ export const updateUserStatus = async (
     // ignore
   }
 
-  const targetIndex = currentDataset.findIndex((u) => u.id === String(id));
+  const targetIndex = currentDataset.findIndex(
+    (u) =>
+      u.id === String(id) ||
+      (u.userNo && String(u.userNo) === String(id)) ||
+      String(u.userId) === String(id) ||
+      (u.uid && String(u.uid) === String(id)),
+  );
   if (targetIndex !== -1) {
     currentDataset[targetIndex] = {
       ...currentDataset[targetIndex],
