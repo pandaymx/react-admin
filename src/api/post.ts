@@ -371,15 +371,358 @@ let mockPostsDataset: PostItem[] = [
     collectCount: 0,
     publishTime: '2026-09-01 14:10:00',
   },
+  {
+    id: '1892837482910283906',
+    userId: '1006',
+    title: '【川西大环线】重装骑行折多山！零下5度的绝美日照金山 🚴‍♂️',
+    content:
+      '历经8天爬坡，终于在清晨登顶折多山垭口！迎面遇上了今年最震撼的贡嘎日照金山。虽然手指冻得发麻，但看到雪山那一刻所有疲惫烟消云散。骑行路线与装备清单已在下方整理，祝每一位追风者安全出发！',
+    postType: 'video',
+    location: '四川省·甘孜藏族自治州·折多山垭口',
+    ipLocation: '四川',
+    visibility: 'public',
+    status: 'published',
+    manualReviewFlag: 0,
+    isTop: true,
+    commentPermission: 'open',
+    createdAt: '2026-09-03 07:15:00',
+    updatedAt: '2026-09-03 07:15:00',
+    author: {
+      uid: 'dy_55102934',
+      nickname: '骑迹行者·大鹏',
+      username: 'rider_dapeng',
+      avatar:
+        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+      verifyStatus: 'creator',
+      verifyLabel: '户外运动签约博主',
+      ipLocation: '四川',
+    },
+    mediaList: [
+      {
+        id: 'MED_20260906_01',
+        mediaType: 'video',
+        url: 'https://www.w3schools.com/html/mov_bbb.mp4',
+        coverUrl:
+          'https://images.unsplash.com/photo-1502680390469-be75c86b636f?w=800&auto=format&fit=crop&q=80',
+        width: 1920,
+        height: 1080,
+        duration: 245,
+      },
+    ],
+    statistics: {
+      viewCount: 220000,
+      likeCount: 68400,
+      commentCount: 4210,
+      favoriteCount: 21800,
+      shareCount: 8900,
+    },
+    equipmentList: [
+      {
+        userEquipmentId: 'EQ_06_1',
+        productName: 'TCR Advanced Pro 全碳纤维公路车',
+        brandName: '捷安特 (GIANT)',
+        categoryName: '骑行器材/公路车',
+        pictureUrl:
+          'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=150&auto=format&fit=crop&q=80',
+      },
+      {
+        userEquipmentId: 'EQ_06_2',
+        productName: 'Ace Pro 运动全景相机',
+        brandName: '影石 (Insta360)',
+        categoryName: '摄影器材/运动相机',
+        pictureUrl:
+          'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=150&auto=format&fit=crop&q=80',
+      },
+    ],
+    type: 'video',
+    coverUrl:
+      'https://images.unsplash.com/photo-1502680390469-be75c86b636f?w=800&auto=format&fit=crop&q=80',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    topics: ['川西骑行', '日照金山', '户外探险', '公路车'],
+    likeCount: 68400,
+    commentCount: 4210,
+    shareCount: 8900,
+    collectCount: 21800,
+    publishTime: '2026-09-03 07:15:00',
+  },
+  {
+    id: '1892837482910283907',
+    userId: '1007',
+    title: '【官方公告】关于打击社区侵权搬运与低俗恶意导流的专项治理声明',
+    content:
+      '为维护健康阳光、真诚友善的社区创作环境，平台安全合规治理中心将自即日起升级 AI 绿网巡检系统，对恶意批量引流、侵犯他人著作权的内容从严处置，情节严重者将永久封号。',
+    postType: 'post',
+    location: '上海市·浦东新区',
+    ipLocation: '上海',
+    visibility: 'public',
+    status: 'published',
+    manualReviewFlag: 0,
+    isTop: true,
+    commentPermission: 'open',
+    createdAt: '2026-09-03 09:00:00',
+    updatedAt: '2026-09-03 09:00:00',
+    author: {
+      uid: 'dy_10000001',
+      nickname: '社区安全小助手',
+      username: 'community_safety_official',
+      avatar:
+        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+      verifyStatus: 'enterprise',
+      verifyLabel: '官方安全运营团队',
+      ipLocation: '上海',
+    },
+    mediaList: [
+      {
+        id: 'MED_20260907_01',
+        mediaType: 'image',
+        url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80',
+        width: 1080,
+        height: 600,
+      },
+    ],
+    statistics: {
+      viewCount: 512000,
+      likeCount: 32000,
+      commentCount: 1800,
+      favoriteCount: 8900,
+      shareCount: 4300,
+    },
+    type: 'post',
+    coverUrl:
+      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80',
+    images: [
+      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80',
+    ],
+    topics: ['社区公约', '安全治理', '官方公告'],
+    likeCount: 32000,
+    commentCount: 1800,
+    shareCount: 4300,
+    collectCount: 8900,
+    publishTime: '2026-09-03 09:00:00',
+  },
+  {
+    id: '1892837482910283908',
+    userId: '1008',
+    title: '【待人工审核】关于某品牌新能源汽车电池续航实测虚标争议调查',
+    content:
+      '收集了30位真实车主冬季续航数据，实测低温达成率仅为52%，是否存在虚标宣传？视频正在接受平台人工合规事实复核，请等待结果公布。',
+    postType: 'post',
+    location: '武汉市·洪山区',
+    ipLocation: '湖北',
+    visibility: 'public',
+    status: 'pending',
+    manualReviewFlag: 1,
+    isTop: false,
+    commentPermission: 'open',
+    createdAt: '2026-09-03 11:40:00',
+    updatedAt: '2026-09-03 11:40:00',
+    author: {
+      uid: 'dy_77182901',
+      nickname: '汽车客观实验室',
+      username: 'auto_truth_lab',
+      avatar:
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+      verifyStatus: 'creator',
+      verifyLabel: '汽车领域优质自媒体',
+      ipLocation: '湖北',
+    },
+    mediaList: [
+      {
+        id: 'MED_20260908_01',
+        mediaType: 'image',
+        url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&auto=format&fit=crop&q=80',
+        width: 1080,
+        height: 720,
+      },
+    ],
+    statistics: {
+      viewCount: 45,
+      likeCount: 3,
+      commentCount: 0,
+      favoriteCount: 1,
+      shareCount: 0,
+    },
+    auditTasks: [
+      {
+        id: 'AUDIT_08',
+        auditMode: 'alicloud',
+        contentType: 'text',
+        suggestion: 'review',
+        label: 'controversy',
+        reason: '涉及敏感消费维权与大额商品争议指控，需运营专员核实凭证后放行',
+        createdAt: '2026-09-03 11:40:10',
+        operator: '阿里绿网智能AI质检',
+      },
+    ],
+    type: 'post',
+    coverUrl:
+      'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&auto=format&fit=crop&q=80',
+    images: [
+      'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&auto=format&fit=crop&q=80',
+    ],
+    topics: ['新能源汽车', '硬核测评', '消费维权'],
+    likeCount: 3,
+    commentCount: 0,
+    shareCount: 0,
+    collectCount: 1,
+    publishTime: '2026-09-03 11:40:00',
+  },
+  {
+    id: '1892837482910283909',
+    userId: '1009',
+    title: '【仅互关好友可见】风吹过青岛八大关的银杏叶，秋天真的来了 🍂',
+    content:
+      '带上胶片相机在居庸关路散步，满地金黄踩上去沙沙作响。老建筑与黄叶相映成趣，这是今年拍到最温柔的阳光。只想分享给列表里的好朋友们，周末快乐。',
+    postType: 'post',
+    location: '青岛市·市南区八大关风景区',
+    ipLocation: '山东',
+    visibility: 'friend',
+    status: 'published',
+    manualReviewFlag: 0,
+    isTop: false,
+    commentPermission: 'open',
+    createdAt: '2026-09-03 15:30:00',
+    updatedAt: '2026-09-03 15:30:00',
+    author: {
+      uid: 'dy_22390184',
+      nickname: '胶片漫游家',
+      username: 'film_wander',
+      avatar:
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      verifyStatus: 'unverified',
+      ipLocation: '山东',
+    },
+    mediaList: [
+      {
+        id: 'MED_20260909_01',
+        mediaType: 'image',
+        url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80',
+        width: 1080,
+        height: 1080,
+      },
+      {
+        id: 'MED_20260909_02',
+        mediaType: 'image',
+        url: 'https://images.unsplash.com/photo-1519046904884-53103b34b206?w=800&auto=format&fit=crop&q=80',
+        width: 1080,
+        height: 1080,
+      },
+    ],
+    statistics: {
+      viewCount: 1680,
+      likeCount: 432,
+      commentCount: 56,
+      favoriteCount: 120,
+      shareCount: 18,
+    },
+    type: 'post',
+    coverUrl:
+      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80',
+    images: [
+      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1519046904884-53103b34b206?w=800&auto=format&fit=crop&q=80',
+    ],
+    topics: ['秋日写真', '胶片摄影', '城市漫步'],
+    likeCount: 432,
+    commentCount: 56,
+    shareCount: 18,
+    collectCount: 120,
+    publishTime: '2026-09-03 15:30:00',
+  },
+  {
+    id: '1892837482910283910',
+    userId: '1010',
+    title: '【草稿箱】下周长假川西自驾游行前准备与路线规划清单（未发布）',
+    content:
+      '路线规划：成都出发 -> 康定 -> 新都桥 -> 理塘 -> 稻城亚丁。已准备氧气瓶4罐、防滑链、防风冲锋衣、保温壶，待确认酒店预订后正式发出。',
+    postType: 'whimsy',
+    backgroundStyle: 'aurora_green',
+    location: '成都市·武侯区',
+    ipLocation: '四川',
+    visibility: 'private',
+    status: 'draft',
+    manualReviewFlag: 0,
+    isTop: false,
+    commentPermission: 'closed',
+    createdAt: '2026-09-03 18:20:00',
+    updatedAt: '2026-09-03 18:20:00',
+    author: {
+      uid: 'dy_99018273',
+      nickname: '爱旅行的旅行猫',
+      username: 'travel_cat_2026',
+      avatar:
+        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+      verifyStatus: 'unverified',
+      ipLocation: '四川',
+    },
+    mediaList: [],
+    statistics: {
+      viewCount: 0,
+      likeCount: 0,
+      commentCount: 0,
+      favoriteCount: 0,
+      shareCount: 0,
+    },
+    type: 'whimsy',
+    coverUrl: '',
+    topics: ['旅行攻略', '自驾游', '随身备忘'],
+    likeCount: 0,
+    commentCount: 0,
+    shareCount: 0,
+    collectCount: 0,
+    publishTime: '2026-09-03 18:20:00',
+  },
 ];
 
 /**
- * 分页获取帖子列表（基于后端 FeedsPostDO 领域模型的高保真检索）
- * 注：后端目前仅开放 App 移动端接口，管理端 /feeds/post/page 待后端 AdminPostController 上线后开启直连
+ * 分页获取帖子列表（Dual-Mode：后端真实接口优先 + 降级离线检索）
  */
 export const getPostList = async (
   params: PostQueryParams = {},
 ): Promise<ApiResponse<{ list: PostItem[]; total: number }>> => {
+  try {
+    const pageNo = params.pageNo || params.page || 1;
+    const pageSize = params.pageSize || 10;
+    const res = await request<{ list: PostItem[]; total: number }>({
+      url: '/feeds/post/page',
+      method: 'GET',
+      params: {
+        keyword: params.keyword,
+        userId: params.userId,
+        uid: params.uid,
+        postType: params.postType !== 'all' ? params.postType : undefined,
+        status: params.status !== 'all' ? params.status : undefined,
+        visibility: params.visibility !== 'all' ? params.visibility : undefined,
+        isTop: params.isTop,
+        createdAt: params.dateRange,
+        pageNo,
+        pageSize,
+      },
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if ((res.code === 200 || res.code === 0) && res.data?.list) {
+      const list = res.data.list.map((p) => ({
+        ...p,
+        type: p.postType || p.type || 'post',
+        coverUrl: p.coverUrl || p.mediaList?.[0]?.coverUrl || p.mediaList?.[0]?.url || '',
+        videoUrl: p.videoUrl || p.mediaList?.find((m) => m.mediaType === 'video')?.url,
+        likeCount: p.statistics?.likeCount ?? p.likeCount ?? 0,
+        commentCount: p.statistics?.commentCount ?? p.commentCount ?? 0,
+        shareCount: p.statistics?.shareCount ?? p.shareCount ?? 0,
+        collectCount: p.statistics?.favoriteCount ?? p.collectCount ?? 0,
+        publishTime: p.createdAt || p.publishTime || '',
+        topics: p.topics || [],
+      }));
+      return {
+        code: 200,
+        data: { list, total: Number(res.data.total) || list.length },
+        message: 'success',
+      };
+    }
+  } catch {
+    // 接口降级走本地数据集检索
+  }
+
   await new Promise((resolve) => setTimeout(resolve, 80));
   let filtered = [...mockPostsDataset];
 
@@ -461,6 +804,19 @@ export const getPostList = async (
  * 获取帖子全局统计总览（动态聚合统计，消除 404）
  */
 export const getPostStatisticsSummary = async (): Promise<ApiResponse<PostStatisticsSummaryVO>> => {
+  try {
+    const res = await request<PostStatisticsSummaryVO>({
+      url: '/feeds/post/summary',
+      method: 'GET',
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if ((res.code === 200 || res.code === 0) && res.data) {
+      return res;
+    }
+  } catch {
+    // 降级动态聚合
+  }
+
   const totalCount = mockPostsDataset.length;
   const pendingReviewCount = mockPostsDataset.filter(
     (p) => p.status === 'pending' || (p.status as any) === 'auditing',
