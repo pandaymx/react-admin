@@ -142,8 +142,16 @@ instance.interceptors.response.use(
       return Promise.reject(new Error(res.msg || res.message || 'Unauthorized'));
     }
 
+    const skipErrorMessage =
+      (config as any)?.skipErrorHandler ||
+      (config.headers as any)?.['x-skip-error-message'] === 'true' ||
+      (typeof config.headers?.get === 'function' &&
+        config.headers.get('x-skip-error-message') === 'true');
+
     const errorMsg = res.msg || res.message || '请求处理失败';
-    message.error(errorMsg);
+    if (!skipErrorMessage) {
+      message.error(errorMsg);
+    }
     return Promise.reject(new Error(errorMsg));
   },
   async (error) => {
@@ -206,7 +214,9 @@ instance.interceptors.response.use(
 
     const skipErrorMessage =
       (error.config as any)?.skipErrorHandler ||
-      error.config?.headers?.['x-skip-error-message'] === 'true';
+      error.config?.headers?.['x-skip-error-message'] === 'true' ||
+      (typeof error.config?.headers?.get === 'function' &&
+        error.config.headers.get('x-skip-error-message') === 'true');
 
     if (!skipErrorMessage) {
       let errorMsg = '网络连接异常，请稍后重试';
