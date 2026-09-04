@@ -112,6 +112,7 @@ export interface ReportItem {
   handleTime?: string; // 处理时间
   createTime: string; // 举报时间
   handling?: ReportHandlingInfo;
+  handlingHistory?: ReportHandlingInfo[];
 }
 
 export interface ReportQueryParams {

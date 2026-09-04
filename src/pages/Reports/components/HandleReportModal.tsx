@@ -22,6 +22,8 @@ export const HandleReportModal: React.FC<HandleReportModalProps> = ({
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [status, setStatus] = useState<ReportStatus>('processed');
 
+  const [penaltyAction, setPenaltyAction] = useState<PenaltyAction>('warn_user');
+
   useEffect(() => {
     if (open && report) {
       form.resetFields();
@@ -33,12 +35,14 @@ export const HandleReportModal: React.FC<HandleReportModalProps> = ({
       } else if (report.targetType === 'comment') {
         defaultPenalty = 'delete_comment';
       } else {
-        defaultPenalty = 'mute_user';
+        defaultPenalty = 'warn_user';
       }
+      setPenaltyAction(defaultPenalty);
 
       form.setFieldsValue({
         status: 'processed',
         penaltyAction: defaultPenalty,
+        durationDays: 7,
         handleRemark: '经平台安全风控核查，举报内容属实，已执行相应违规处罚。',
       });
     }
@@ -69,9 +73,13 @@ export const HandleReportModal: React.FC<HandleReportModalProps> = ({
         values.status,
         values.penaltyAction || 'none',
         values.handleRemark,
+        {
+          targetType: report.targetType,
+          durationDays: Number(values.durationDays) || 7,
+        },
       );
-      if (res.code === 200) {
-        message.success(res.message);
+      if (res.code === 200 || res.code === 0) {
+        message.success(res.message || '处置成功');
         onSuccess();
       }
     } catch {
@@ -110,25 +118,46 @@ export const HandleReportModal: React.FC<HandleReportModalProps> = ({
         </Form.Item>
 
         {status === 'processed' && (
-          <Form.Item
-            label="联动处罚方案"
-            name="penaltyAction"
-            rules={[{ required: true, message: '请选择处罚方案' }]}
-          >
-            <Select
-              options={[
-                ...(report?.targetType === 'post'
-                  ? [{ label: '违规下架该作品帖子', value: 'ban_post' }]
-                  : []),
-                ...(report?.targetType === 'comment'
-                  ? [{ label: '违规隐藏/删除该评论', value: 'delete_comment' }]
-                  : []),
-                { label: '禁言被举报用户（7天禁评发帖）', value: 'mute_user' },
-                { label: '永久封禁被举报用户账号', value: 'ban_user' },
-                { label: '下发违规整改警告站内信', value: 'warn_user' },
-              ]}
-            />
-          </Form.Item>
+          <>
+            <Form.Item
+              label="联动处罚方案"
+              name="penaltyAction"
+              rules={[{ required: true, message: '请选择处罚方案' }]}
+            >
+              <Select
+                onChange={(val) => setPenaltyAction(val)}
+                options={[
+                  ...(report?.targetType === 'post'
+                    ? [{ label: '违规下架该作品帖子 (delete_target)', value: 'ban_post' }]
+                    : []),
+                  ...(report?.targetType === 'comment'
+                    ? [{ label: '违规隐藏/删除该评论 (delete_target)', value: 'delete_comment' }]
+                    : []),
+                  { label: '下发违规整改警告站内信 (warn_user)', value: 'warn_user' },
+                  { label: '限期封禁/禁言被举报用户 (temp_ban)', value: 'mute_user' },
+                  { label: '永久封禁被举报用户账号 (perm_ban)', value: 'ban_user' },
+                ]}
+              />
+            </Form.Item>
+
+            {penaltyAction === 'mute_user' && (
+              <Form.Item
+                label="封禁/禁言时长"
+                name="durationDays"
+                rules={[{ required: true, message: '请选择封禁时长' }]}
+              >
+                <Select
+                  options={[
+                    { label: '1 天 (24 小时)', value: 1 },
+                    { label: '3 天 (72 小时)', value: 3 },
+                    { label: '7 天 (1 周)', value: 7 },
+                    { label: '14 天 (2 周)', value: 14 },
+                    { label: '30 天 (1 个月)', value: 30 },
+                  ]}
+                />
+              </Form.Item>
+            )}
+          </>
         )}
 
         <Form.Item

@@ -131,7 +131,160 @@ const normalizedMockReports: ReportItem[] = mockReports.map((item) => ({
 let reportsDataset: ReportItem[] = [...normalizedMockReports];
 
 /**
- * 获取举报统计概览（Dual-Mode）
+ * 将后端 AdminFeedsReportRespVO 统一转换为前端 ReportItem
+ */
+export const convertBackendReport = (r: any): ReportItem => {
+  const reporterUserNo =
+    r.reporter?.userNo ||
+    r.reporterUserNo ||
+    r.reporter?.uid?.replace(/^dy_/, '') ||
+    r.reporterUserId ||
+    '';
+  const reporterUid = r.reporter?.uid || r.reporter?.userNo || r.reporterUserId || '未知';
+  const reporterInfo: ReporterInfo = {
+    userId: r.reporter?.userId || r.reporterUserId,
+    userNo: reporterUserNo,
+    uid: reporterUid,
+    nickname:
+      r.reporter?.nickname || `用户_${String(reporterUserNo || reporterUid || '').slice(-4)}`,
+    avatar:
+      r.reporter?.avatar ||
+      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+  };
+
+  const targetUserNo =
+    r.targetUser?.userNo ||
+    r.targetUserNo ||
+    r.targetUser?.uid?.replace(/^dy_/, '') ||
+    r.targetUserId ||
+    '';
+  const targetUid = r.targetUser?.uid || r.targetUser?.userNo || r.targetUserId || '未知';
+  const targetUserInfo: TargetUserInfo = {
+    userId: r.targetUser?.userId || r.targetUserId,
+    userNo: targetUserNo,
+    uid: targetUid,
+    nickname:
+      r.targetUser?.nickname || `创作者_${String(targetUserNo || targetUid || '').slice(-4)}`,
+    avatar:
+      r.targetUser?.avatar ||
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    violationCount: Number(r.targetUser?.violationCount) || 0,
+  };
+  const snapshot = r.targetSnapshot || {};
+
+  // 解析举证图片（支持 evidenceImages 数组或 evidenceUrls JSON 字符串）
+  let evidenceImages: string[] = [];
+  if (Array.isArray(r.evidenceImages) && r.evidenceImages.length > 0) {
+    evidenceImages = r.evidenceImages.filter(Boolean);
+  } else if (typeof r.evidenceUrls === 'string' && r.evidenceUrls.trim()) {
+    try {
+      const parsed = JSON.parse(r.evidenceUrls);
+      if (Array.isArray(parsed)) evidenceImages = parsed.filter(Boolean);
+    } catch {}
+  }
+
+  // 状态映射：后端 resolved 映射为前端 processed
+  let status: ReportStatus = r.status || 'pending';
+  if (status === 'resolved') {
+    status = 'processed';
+  } else if (status === 'cancelled') {
+    status = 'ignored';
+  }
+
+  // 原因描述解析：如果后端有 reasonText，则使用 reasonText，否则根据 reasonCode 匹配友好描述
+  const reasonTextMap: Record<string, string> = {
+    porn: '色情低俗内容违规',
+    abuse: '侮辱谩骂/人身攻击违规',
+    spam: '恶意营销/垃圾广告违规',
+    fraud: '涉嫌诈骗/非法引流',
+    other: '其他违反社区规范行为',
+  };
+  const reasonDesc = r.reasonText || reasonTextMap[r.reasonCode] || '违规举报投诉反馈';
+
+  // 处罚动作映射
+  let penaltyAction: PenaltyAction = 'none';
+  if (r.handling?.action) {
+    const action = r.handling.action;
+    if (action === 'delete_target') {
+      penaltyAction = r.targetType === 'comment' ? 'delete_comment' : 'ban_post';
+    } else if (action === 'temp_ban') {
+      penaltyAction = 'mute_user';
+    } else if (action === 'perm_ban') {
+      penaltyAction = 'ban_user';
+    } else if (action === 'warn_user') {
+      penaltyAction = 'warn_user';
+    } else if (action === 'dismiss') {
+      penaltyAction = 'none';
+    } else {
+      penaltyAction = action;
+    }
+  }
+
+  // 历史处置记录转换
+  const handlingHistory = Array.isArray(r.handlingHistory)
+    ? r.handlingHistory.map((h: any) => ({
+        id: h.id,
+        handlerUserId: h.handlerUserId,
+        handlerName: h.handlerName || h.handlerUserId || '安全管理员',
+        action: h.action,
+        actionDetail: h.actionDetail,
+        memo: h.memo,
+        handleTime: formatDateTime(h.handleTime || h.createdAt),
+      }))
+    : [];
+
+  return {
+    id: String(r.id),
+    targetType: (r.targetType || 'post') as any,
+    targetId: r.targetId || snapshot.targetId,
+    reason: (r.reasonCode || 'other') as any,
+    reasonCode: r.reasonCode,
+    reasonDesc,
+    evidenceImages,
+    reporter: reporterInfo,
+    targetUser: targetUserInfo,
+    targetSnapshot: {
+      targetId: snapshot.targetId || r.targetId || '',
+      targetType: snapshot.targetType || r.targetType || 'post',
+      title: snapshot.title,
+      content: snapshot.content,
+      coverUrl: snapshot.coverUrl,
+      currentStatus: snapshot.currentStatus || snapshot.status,
+      publishTime: formatDateTime(snapshot.publishTime),
+    },
+    target: {
+      targetId: r.targetId || snapshot.targetId || '',
+      targetType: (r.targetType || 'post') as any,
+      titleOrContent:
+        snapshot.title ||
+        snapshot.content ||
+        (r.targetType === 'user' ? '用户违规行为投诉' : '被举报内容快照'),
+      coverUrl: snapshot.coverUrl,
+      targetUser: targetUserInfo,
+    },
+    status,
+    penaltyAction,
+    handleRemark: r.handling?.memo || '',
+    handler: r.handling?.handlerName || r.handling?.handlerUserId || '',
+    handleTime: formatDateTime(r.handling?.handleTime),
+    createTime: formatDateTime(r.createdAt || r.createTime || Date.now()),
+    handling: r.handling
+      ? {
+          id: r.handling.id,
+          handlerUserId: r.handling.handlerUserId,
+          handlerName: r.handling.handlerName || r.handling.handlerUserId || '安全管理员',
+          action: penaltyAction,
+          actionDetail: r.handling.actionDetail,
+          memo: r.handling.memo,
+          handleTime: formatDateTime(r.handling.handleTime),
+        }
+      : undefined,
+    handlingHistory,
+  };
+};
+
+/**
+ * 获取举报统计概览（直连后端 GET /feeds/report/summary，支持 Mock 降级）
  */
 export const getReportSummary = async (): Promise<ApiResponse<ReportSummaryVO>> => {
   try {
@@ -141,7 +294,17 @@ export const getReportSummary = async (): Promise<ApiResponse<ReportSummaryVO>> 
       headers: { 'x-skip-error-message': 'true' },
     });
     if ((res.code === 200 || res.code === 0) && res.data) {
-      return res;
+      return {
+        code: 200,
+        data: {
+          pendingCount: Number(res.data.pendingCount) || 0,
+          todayNewCount: Number(res.data.todayNewCount) || 0,
+          resolvedCount: Number(res.data.resolvedCount) || 0,
+          rejectedCount: Number(res.data.rejectedCount) || 0,
+          avgHandleTimeMinutes: Number(res.data.avgHandleTimeMinutes) || 0,
+        },
+        message: 'success',
+      };
     }
   } catch {
     // 降级动态聚合
@@ -167,7 +330,7 @@ export const getReportSummary = async (): Promise<ApiResponse<ReportSummaryVO>> 
 };
 
 /**
- * 查询举报列表（Dual-Mode：对接后端 AdminFeedsReportController 聚合数据）
+ * 查询举报列表（直连后端 GET /feeds/report/page，支持双模降级）
  */
 export const getReportList = async (
   params: ReportQueryParams = {},
@@ -175,85 +338,74 @@ export const getReportList = async (
   try {
     const pageNo = params.pageNo || params.page || 1;
     const pageSize = params.pageSize || 10;
+
+    // 状态映射：前端 processed 对应后端 resolved，ignored 对应 cancelled
+    let backendStatus: string | undefined;
+    if (params.status && params.status !== 'all') {
+      if (params.status === 'processed') backendStatus = 'resolved';
+      else if (params.status === 'ignored') backendStatus = 'cancelled';
+      else backendStatus = params.status;
+    }
+
+    // 原因代码映射：对齐 FeedsReportReasonCode (porn, abuse, spam, fraud, other)
+    let backendReasonCode: string | undefined;
+    if (params.reason && params.reason !== 'all') {
+      const reasonCodeMap: Record<string, string> = {
+        ad_fraud: 'spam',
+        gambling: 'fraud',
+        porn: 'porn',
+        abuse: 'abuse',
+        spam: 'spam',
+        fraud: 'fraud',
+        other: 'other',
+      };
+      backendReasonCode = reasonCodeMap[params.reason] || params.reason;
+    }
+
+    // 时间范围格式化为 [YYYY-MM-DD 00:00:00, YYYY-MM-DD 23:59:59]
+    let createTime: [string, string] | undefined;
+    if (
+      params.dateRange &&
+      params.dateRange.length === 2 &&
+      params.dateRange[0] &&
+      params.dateRange[1]
+    ) {
+      const start = params.dateRange[0].includes(' ')
+        ? params.dateRange[0]
+        : `${params.dateRange[0]} 00:00:00`;
+      const end = params.dateRange[1].includes(' ')
+        ? params.dateRange[1]
+        : `${params.dateRange[1]} 23:59:59`;
+      createTime = [start, end];
+    }
+
+    const queryParams: Record<string, any> = {
+      pageNo,
+      pageSize,
+    };
+    if (backendStatus) queryParams.status = backendStatus;
+    if (params.targetType && params.targetType !== 'all')
+      queryParams.targetType = params.targetType;
+    if (backendReasonCode) queryParams.reasonCode = backendReasonCode;
+    if (createTime) queryParams.createTime = createTime;
+
+    // 关键词：若是纯数字可作为 reporterUserId 或 targetUserId
+    if (params.keyword?.trim()) {
+      const kw = params.keyword.trim();
+      if (/^\d+$/.test(kw)) {
+        queryParams.reporterUserId = kw;
+      }
+    }
+
     const res = await request<{ list: any[]; total: number }>({
       url: '/feeds/report/page',
       method: 'GET',
-      params: {
-        status: params.status !== 'all' ? params.status : undefined,
-        targetType: params.targetType !== 'all' ? params.targetType : undefined,
-        pageNo,
-        pageSize,
-      },
+      params: queryParams,
       headers: { 'x-skip-error-message': 'true' },
     });
 
     if ((res.code === 200 || res.code === 0) && res.data?.list) {
-      const list: ReportItem[] = res.data.list.map((r) => {
-        const reporterUserNo =
-          r.reporter?.userNo ||
-          r.reporterUserNo ||
-          r.reporter?.uid?.replace(/^dy_/, '') ||
-          r.reporterUserId ||
-          '';
-        const reporterUid = r.reporter?.uid || r.reporter?.userNo || r.reporterUserId || '未知';
-        const reporterInfo: ReporterInfo = {
-          userId: r.reporter?.userId || r.reporterUserId,
-          userNo: reporterUserNo,
-          uid: reporterUid,
-          nickname:
-            r.reporter?.nickname || `用户_${(reporterUserNo || reporterUid || '').slice(-4)}`,
-          avatar:
-            r.reporter?.avatar ||
-            'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-        };
-
-        const targetUserNo =
-          r.targetUser?.userNo ||
-          r.targetUserNo ||
-          r.targetUser?.uid?.replace(/^dy_/, '') ||
-          r.targetUserId ||
-          '';
-        const targetUid = r.targetUser?.uid || r.targetUser?.userNo || r.targetUserId || '未知';
-        const targetUserInfo: TargetUserInfo = {
-          userId: r.targetUser?.userId || r.targetUserId,
-          userNo: targetUserNo,
-          uid: targetUid,
-          nickname:
-            r.targetUser?.nickname || `创作者_${(targetUserNo || targetUid || '').slice(-4)}`,
-          avatar:
-            r.targetUser?.avatar ||
-            'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-          violationCount: r.targetUser?.violationCount || 0,
-        };
-        const snapshot = r.targetSnapshot || {};
-
-        return {
-          id: String(r.id),
-          targetType: r.targetType || 'post',
-          targetId: r.targetId || snapshot.targetId,
-          reason: r.reasonCode || 'other',
-          reasonCode: r.reasonCode,
-          reasonDesc: r.reasonText || '举报反馈违规',
-          evidenceImages: r.evidenceImages || [],
-          reporter: reporterInfo,
-          targetUser: targetUserInfo,
-          targetSnapshot: snapshot,
-          target: {
-            targetId: r.targetId || snapshot.targetId || '',
-            targetType: r.targetType || 'post',
-            titleOrContent: snapshot.title || snapshot.content || '被举报内容快照',
-            coverUrl: snapshot.coverUrl,
-            targetUser: targetUserInfo,
-          },
-          status: r.status || 'pending',
-          penaltyAction: r.handling?.action || 'none',
-          handleRemark: r.handling?.memo || '',
-          handler: r.handling?.handlerName || r.handling?.handlerUserId || '',
-          handleTime: r.handling?.handleTime,
-          createTime: formatDateTime(r.createdAt || '2026-09-04 10:00:00'),
-        };
-      });
-
+      const list: ReportItem[] = res.data.list.map(convertBackendReport);
       return {
         code: 200,
         data: { list, total: Number(res.data.total) || list.length },
@@ -312,24 +464,74 @@ export const getReportList = async (
 };
 
 /**
- * 处置举报并联动业务状态
+ * 查询单条举报工单详情（直连后端 GET /feeds/report/get?id=xxx，支持 Mock 降级）
+ */
+export const getReportDetail = async (id: string | number): Promise<ApiResponse<ReportItem>> => {
+  try {
+    const res = await request<any>({
+      url: '/feeds/report/get',
+      method: 'GET',
+      params: { id: Number(id) || id },
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if ((res.code === 200 || res.code === 0) && res.data) {
+      return {
+        code: 200,
+        data: convertBackendReport(res.data),
+        message: 'success',
+      };
+    }
+  } catch {
+    // 降级本地查找
+  }
+
+  const item = reportsDataset.find((r) => r.id === String(id));
+  if (item) {
+    return { code: 200, data: item, message: 'success' };
+  }
+  return { code: 404, data: null as any, message: '未查询到该工单' };
+};
+
+/**
+ * 处置举报并联动业务状态（直连后端 PUT /feeds/report/handle，支持 Mock 降级）
  */
 export const handleReport = async (
   id: string,
   status: ReportStatus,
   penaltyAction: PenaltyAction,
   handleRemark: string,
+  extra?: { targetType?: string; durationDays?: number },
 ): Promise<ApiResponse<null>> => {
   try {
-    const actionMap: Record<string, string> = {
-      ban_post: 'delete_target',
-      delete_comment: 'delete_target',
-      mute_user: 'temp_ban',
-      ban_user: 'perm_ban',
-      warn_user: 'warn_user',
-      none: 'dismiss',
-    };
-    const backendAction = actionMap[penaltyAction] || penaltyAction;
+    let backendAction: string;
+    let actionDetail: string | undefined;
+
+    if (status === 'rejected') {
+      backendAction = 'dismiss';
+    } else {
+      const actionMap: Record<string, string> = {
+        ban_post: 'delete_target',
+        delete_comment: 'delete_target',
+        mute_user: 'temp_ban',
+        ban_user: 'perm_ban',
+        warn_user: 'warn_user',
+        none: 'dismiss',
+      };
+      backendAction = actionMap[penaltyAction] || penaltyAction;
+
+      // 如果目标是 user 且动作为 delete_target，纠正为 warn_user
+      if (extra?.targetType === 'user' && backendAction === 'delete_target') {
+        backendAction = 'warn_user';
+      }
+
+      // 如果是 temp_ban，后端必须携带包含 duration_days 的 actionDetail JSON
+      if (backendAction === 'temp_ban') {
+        actionDetail = JSON.stringify({
+          duration_days: extra?.durationDays || 7,
+          ban_reason: handleRemark,
+        });
+      }
+    }
 
     const res = await request<boolean>({
       url: '/feeds/report/handle',
@@ -337,12 +539,19 @@ export const handleReport = async (
       data: {
         reportId: Number(id) || id,
         action: backendAction,
+        actionDetail,
         memo: handleRemark,
+        notifyAuthor: true,
       },
       headers: { 'x-skip-error-message': 'true' },
     });
-    if (res.code === 200 || res.code === 0)
-      return { code: 200, data: null, message: '举报处置成功' };
+    if (res.code === 200 || res.code === 0) {
+      return {
+        code: 200,
+        data: null,
+        message: status === 'rejected' ? '已驳回该举报申请' : '举报处置成功',
+      };
+    }
   } catch {
     // 降级本地更新
   }
@@ -394,21 +603,24 @@ export const handleReport = async (
 };
 
 /**
- * 批量处理举报
+ * 批量处理举报（直连后端 PUT /feeds/report/batch-handle，支持 Mock 降级）
  */
 export const batchHandleReports = async (
   ids: string[],
   status: ReportStatus,
   handleRemark: string,
+  action: 'dismiss' | 'delete_target' | 'warn_user' = 'delete_target',
 ): Promise<ApiResponse<{ count: number }>> => {
   try {
+    const backendAction = status === 'rejected' ? 'dismiss' : action;
     const res = await request<number>({
       url: '/feeds/report/batch-handle',
       method: 'PUT',
       data: {
         reportIds: ids.map((i) => Number(i) || i),
-        action: status === 'rejected' ? 'dismiss' : 'delete_target',
+        action: backendAction,
         memo: handleRemark,
+        notifyAuthor: true,
       },
       headers: { 'x-skip-error-message': 'true' },
     });
