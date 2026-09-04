@@ -8,6 +8,7 @@ import type {
   PostStatus,
   PostVisibility,
 } from '@/types';
+import { formatDateTime } from '@/utils/time';
 import { request } from './request';
 
 /**
@@ -736,7 +737,7 @@ export const getPostList = async (
             shareCount: p.shareCount ?? 0,
             favoriteCount: p.collectCount ?? 0,
           },
-          publishTime: p.createdAt || p.publishTime || '',
+          publishTime: formatDateTime(p.createdAt ?? p.publishTime),
           topics: p.topics || [],
         };
       });
@@ -810,8 +811,10 @@ export const getPostList = async (
     const [start, end] = params.dateRange;
     if (start && end) {
       filtered = filtered.filter((item) => {
-        const itemDate = (item.createdAt || item.publishTime).slice(0, 10);
-        return itemDate >= start && itemDate <= end;
+        const itemDate = formatDateTime(item.createdAt ?? item.publishTime).slice(0, 10);
+        const startDate = String(start).slice(0, 10);
+        const endDate = String(end).slice(0, 10);
+        return itemDate >= startDate && itemDate <= endDate;
       });
     }
   }
@@ -854,7 +857,7 @@ export const getPostStatisticsSummary = async (): Promise<ApiResponse<PostStatis
   ).length;
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayNewCount = mockPostsDataset.filter((p) =>
-    (p.createdAt || p.publishTime).startsWith(todayStr),
+    formatDateTime(p.createdAt ?? p.publishTime).startsWith(todayStr),
   ).length;
   const totalInteractions = mockPostsDataset.reduce((sum, p) => {
     const stats = p.statistics || {
@@ -917,7 +920,7 @@ export const getPostDetail = async (id: string): Promise<ApiResponse<PostItem>> 
             shareCount: p.shareCount ?? 0,
             favoriteCount: p.collectCount ?? 0,
           },
-          publishTime: p.createdAt || p.publishTime || '',
+          publishTime: formatDateTime(p.createdAt ?? p.publishTime),
           topics: p.topics || [],
         },
         message: 'success',

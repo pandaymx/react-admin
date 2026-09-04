@@ -8,6 +8,7 @@ import type {
   ReportSummaryVO,
   TargetUserInfo,
 } from '@/types';
+import { formatDateTime } from '@/utils/time';
 import { updateCommentStatus } from './comment';
 import { updatePostStatus } from './post';
 import { request } from './request';
@@ -249,9 +250,7 @@ export const getReportList = async (
           handleRemark: r.handling?.memo || '',
           handler: r.handling?.handlerName || r.handling?.handlerUserId || '',
           handleTime: r.handling?.handleTime,
-          createTime: r.createdAt
-            ? r.createdAt.replace('T', ' ').slice(0, 19)
-            : '2026-09-04 10:00:00',
+          createTime: formatDateTime(r.createdAt || '2026-09-04 10:00:00'),
         };
       });
 

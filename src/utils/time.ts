@@ -20,8 +20,17 @@ export const formatDateTime = (val: any): string => {
     return `${y}-${pad(m)}-${pad(d)} ${pad(h)}:${pad(min)}:${pad(s)}`;
   }
 
-  // 字符串格式 (如 2026-09-02T10:45:00 或 2026-09-02 10:45:00)
+  // 字符串格式 (如纯数字时间戳 "1725264300000" 或 "2026-09-02T10:45:00" 或 "2026-09-02 10:45:00")
   if (typeof val === 'string') {
+    if (/^\d{10,13}$/.test(val)) {
+      const num = Number(val);
+      const timestamp = num < 10000000000 ? num * 1000 : num;
+      const date = new Date(timestamp);
+      if (!Number.isNaN(date.getTime())) {
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+      }
+    }
     return val.replace('T', ' ').slice(0, 19);
   }
 

@@ -6,6 +6,7 @@ import type {
   CommentRiskTag,
   CommentStatus,
 } from '@/types';
+import { formatDateTime } from '@/utils/time';
 
 // 后端 AdminInteractionCommentController 真实响应模型
 export interface AdminCommentRespVO {
@@ -38,8 +39,8 @@ export interface AdminCommentRespVO {
     avatar?: string;
     avatarUrl?: string;
   };
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt?: string | number;
+  updatedAt?: string | number;
 }
 
 // 评论 Mock 数据集（全面覆盖 10 大帖子 Snowflake ID 与全场景状态）
@@ -547,7 +548,7 @@ export const getCommentList = async (
           replyCount: item.replyCount ?? 0,
           status: (item.status as CommentStatus) || 'published',
           riskTag,
-          createTime: item.createdAt ? item.createdAt.replace('T', ' ').slice(0, 19) : '',
+          createTime: formatDateTime(item.createdAt),
           ipLocation: item.location || '未知',
           parentId: item.parentId,
           targetType: item.targetType,

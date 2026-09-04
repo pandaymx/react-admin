@@ -68,6 +68,7 @@ import type {
   PostStatus,
 } from '@/types';
 import { exportToCsv } from '@/utils/export';
+import { formatDateTime } from '@/utils/time';
 import { PostAuditModal } from './components/PostAuditModal';
 import { PostCommentsDrawer } from './components/PostCommentsDrawer';
 import { PostDetailDrawer } from './components/PostDetailDrawer';
@@ -163,8 +164,8 @@ export const PostsPage: React.FC = () => {
 
         if (formValues.dateRange && formValues.dateRange.length === 2) {
           params.dateRange = [
-            formValues.dateRange[0].format('YYYY-MM-DD'),
-            formValues.dateRange[1].format('YYYY-MM-DD'),
+            formValues.dateRange[0].startOf('day').format('YYYY-MM-DD HH:mm:ss'),
+            formValues.dateRange[1].endOf('day').format('YYYY-MM-DD HH:mm:ss'),
           ];
         }
 
@@ -313,7 +314,7 @@ export const PostsPage: React.FC = () => {
           {
             title: '发布时间',
             key: 'publishTime',
-            render: (r: any) => r.createdAt || r.publishTime || '',
+            render: (r: any) => formatDateTime(r.createdAt ?? r.publishTime),
           },
         ];
         exportToCsv(
@@ -769,9 +770,9 @@ export const PostsPage: React.FC = () => {
       title: '发布时间',
       dataIndex: 'publishTime',
       key: 'publishTime',
-      width: 150,
+      width: 160,
       render: (_, record) => {
-        const time = record.createdAt || record.publishTime || '-';
+        const time = formatDateTime(record.createdAt ?? record.publishTime);
         return <span style={{ fontSize: 12, color: token.colorTextSecondary }}>{time}</span>;
       },
     },

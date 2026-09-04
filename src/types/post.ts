@@ -93,7 +93,8 @@ export interface PostAuditTaskItem {
   suggestion?: 'pass' | 'review' | 'block';
   label?: string; // 命中标签，如 porn, terrorism, ad
   reason?: string; // 驳回原因
-  createdAt: string;
+  createdAt?: string | number;
+  updatedAt?: string | number;
   operator?: string;
 }
 
@@ -123,9 +124,9 @@ export interface PostItem {
   currentActivity?: PostCurrentActivity;
   auditTasks?: PostAuditTaskItem[];
 
-  // 时间维度
-  createdAt?: string;
-  updatedAt?: string;
+  // 时间维度（后端为 Long 时间戳数字，前端支持 number 与 string 双向兼容）
+  createdAt?: string | number;
+  updatedAt?: string | number;
 
   // 向下兼容历史前端展示字段
   type: PostType;
@@ -138,7 +139,7 @@ export interface PostItem {
   shareCount: number;
   collectCount: number;
   favoriteCount?: number;
-  publishTime: string;
+  publishTime: string | number;
 }
 
 /**

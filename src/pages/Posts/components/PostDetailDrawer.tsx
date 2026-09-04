@@ -2,6 +2,7 @@ import {
   CalendarOutlined,
   CameraOutlined,
   CheckCircleFilled,
+  ClockCircleOutlined,
   CloseCircleFilled,
   CompassOutlined,
   CustomerServiceOutlined,
@@ -39,6 +40,7 @@ import {
 import type React from 'react';
 import { useThemeStore } from '@/store/theme';
 import type { PostItem, PostMediaItem } from '@/types';
+import { formatDateTime } from '@/utils/time';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -338,14 +340,20 @@ export const PostDetailDrawer: React.FC<PostDetailDrawerProps> = ({
 
           <Divider style={{ margin: '12px 0' }} />
 
-          <Row gutter={16}>
-            <Col span={12}>
+          <Row gutter={[16, 8]}>
+            <Col span={8}>
               <Space size={4} style={{ fontSize: 12, color: token.colorTextSecondary }}>
-                <EnvironmentOutlined />
-                <span>发布地理位置: {post.location || '未标记定位'}</span>
+                <ClockCircleOutlined />
+                <span>发布时间: {formatDateTime(post.createdAt ?? post.publishTime)}</span>
               </Space>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
+              <Space size={4} style={{ fontSize: 12, color: token.colorTextSecondary }}>
+                <EnvironmentOutlined />
+                <span>发布位置: {post.location || '未标记定位'}</span>
+              </Space>
+            </Col>
+            <Col span={8}>
               <Space size={4} style={{ fontSize: 12, color: token.colorTextSecondary }}>
                 <CompassOutlined />
                 <span>IP 属地: {post.ipLocation || post.author.ipLocation || '未知'}</span>
@@ -546,7 +554,7 @@ export const PostDetailDrawer: React.FC<PostDetailDrawerProps> = ({
                         {task.reason || (isPass ? '内容符合社区发布公约' : '不符合社区发布标准')}
                       </div>
                       <div style={{ marginTop: 2, color: token.colorTextSecondary, fontSize: 11 }}>
-                        {task.createdAt} · 操作人: {task.operator || '系统质检'}
+                        {formatDateTime(task.createdAt)} · 操作人: {task.operator || '系统质检'}
                       </div>
                     </div>
                   ),
