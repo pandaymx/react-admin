@@ -374,8 +374,7 @@ let mockPostsDataset: PostItem[] = [
 ];
 
 /**
- * 分页获取帖子列表（基于后端 FeedsPostDO 领域模型的高保真检索）
- * 注：后端目前仅开放 App 移动端接口，管理端 /feeds/post/page 待后端 AdminPostController 上线后开启直连
+ * 分页获取帖子列表（Dual-Mode：后端真实接口优先 + 降级离线检索）
  */
 export const getPostList = async (
   params: PostQueryParams = {},
