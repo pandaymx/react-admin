@@ -795,7 +795,7 @@ export const PostsPage: React.FC = () => {
         return (
           <Dropdown
             menu={{ items: renderActionMenu(record) }}
-            trigger={['hover', 'click']}
+            trigger={['click']}
             placement="bottomRight"
             getPopupContainer={() => document.body}
           >

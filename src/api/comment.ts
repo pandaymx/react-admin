@@ -487,83 +487,86 @@ let commentsDataset: CommentItem[] = [...normalizedMockComments];
 export const getCommentList = async (
   params: CommentQueryParams = {},
 ): Promise<ApiResponse<{ list: CommentItem[]; total: number }>> => {
-  // 1. 如果指定了 postId（作品ID），尝试调用后端 AdminInteractionCommentController 真实分页接口
-  if (params.postId?.trim()) {
-    try {
-      const res = await request<{ list: AdminCommentRespVO[]; total: number }>({
-        url: '/interaction/comment/page',
-        method: 'GET',
-        params: {
-          targetType: params.targetType || 'post',
-          targetId: params.postId.trim(),
-          keyword: params.keyword?.trim() || undefined,
-          status: params.status && params.status !== 'all' ? params.status : undefined,
-          pageNo: params.page || 1,
-          pageSize: params.pageSize || 10,
-        },
-        headers: { 'x-skip-error-message': 'true' },
-      });
+  const pageNo = params.pageNo || params.page || 1;
+  const pageSize = params.pageSize || 10;
 
-      if ((res.code === 200 || res.code === 0) && res.data?.list) {
-        const postMeta = commentsDataset.find((c) => c.postId === params.postId?.trim());
-        const mappedList: CommentItem[] = res.data.list.map((item) => {
-          const authorUserNo =
-            item.author?.userNo ||
-            item.author?.uid?.replace(/^dy_/, '') ||
-            item.author?.userId ||
-            item.userId ||
-            '';
-          const authorUid =
-            item.author?.uid || item.author?.userNo || item.author?.userId || item.userId || '';
-          const authorNickname = item.author?.nickname || item.nickname || '匿名用户';
-          const authorAvatar =
-            item.author?.avatar ||
-            item.author?.avatarUrl ||
-            item.avatar ||
-            'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
-          const riskTags = item.sensitiveWordTags || item.sensitiveLabels || item.hitTags || [];
-          const riskTag: CommentRiskTag = riskTags.length > 0 ? 'spam' : 'normal';
+  // 1. 尝试调用后端 AdminInteractionCommentController 真实分页接口（Dual-Mode 真实请求优先）
+  try {
+    const res = await request<{ list: AdminCommentRespVO[]; total: number }>({
+      url: '/interaction/comment/page',
+      method: 'GET',
+      params: {
+        targetType: params.targetType || (params.postId?.trim() ? 'post' : undefined),
+        targetId: params.postId?.trim() || undefined,
+        keyword: params.keyword?.trim() || undefined,
+        userNo: params.userNo || params.uid,
+        uid: params.uid || params.userNo,
+        status: params.status && params.status !== 'all' ? params.status : undefined,
+        pageNo,
+        pageSize,
+      },
+      headers: { 'x-skip-error-message': 'true' },
+    });
 
-          return {
-            id: item.id || item.commentId || '',
-            postId: item.targetId || params.postId?.trim() || '',
-            postTitle: postMeta?.postTitle || `作品 #${item.targetId}`,
-            postCover: postMeta?.postCover,
-            author: {
-              userNo: authorUserNo,
-              uid: authorUid,
-              userId: item.author?.userId || item.userId,
-              nickname: authorNickname,
-              username: authorUserNo || authorUid,
-              avatar: authorAvatar,
-            },
-            content: item.content || '',
-            replyTo: item.replyToUserId ? `用户#${item.replyToUserId}` : undefined,
-            likeCount: item.likeCount ?? 0,
-            replyCount: item.replyCount ?? 0,
-            status: (item.status as CommentStatus) || 'published',
-            riskTag,
-            createTime: item.createdAt ? item.createdAt.replace('T', ' ').slice(0, 19) : '',
-            ipLocation: item.location || '未知',
-            parentId: item.parentId,
-            targetType: item.targetType,
-            sensitiveWordTags: item.sensitiveWordTags,
-            sensitiveLabels: item.sensitiveLabels,
-          };
-        });
+    if ((res.code === 200 || res.code === 0) && res.data?.list) {
+      const mappedList: CommentItem[] = res.data.list.map((item) => {
+        const postMeta = commentsDataset.find((c) => c.postId === String(item.targetId));
+        const authorUserNo =
+          item.author?.userNo ||
+          item.author?.uid?.replace(/^dy_/, '') ||
+          item.author?.userId ||
+          item.userId ||
+          '';
+        const authorUid =
+          item.author?.uid || item.author?.userNo || item.author?.userId || item.userId || '';
+        const authorNickname = item.author?.nickname || item.nickname || '匿名用户';
+        const authorAvatar =
+          item.author?.avatar ||
+          item.author?.avatarUrl ||
+          item.avatar ||
+          'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
+        const riskTags = item.sensitiveWordTags || item.sensitiveLabels || item.hitTags || [];
+        const riskTag: CommentRiskTag = riskTags.length > 0 ? 'spam' : 'normal';
 
         return {
-          code: 200,
-          data: {
-            list: mappedList,
-            total: res.data.total ?? mappedList.length,
+          id: item.id || item.commentId || '',
+          postId: item.targetId || params.postId?.trim() || '',
+          postTitle: postMeta?.postTitle || `作品 #${item.targetId || '2026'}`,
+          postCover: postMeta?.postCover,
+          author: {
+            userNo: authorUserNo,
+            uid: authorUid,
+            userId: item.author?.userId || item.userId,
+            nickname: authorNickname,
+            username: authorUserNo || authorUid,
+            avatar: authorAvatar,
           },
-          message: 'success',
+          content: item.content || '',
+          replyTo: item.replyToUserId ? `用户#${item.replyToUserId}` : undefined,
+          likeCount: item.likeCount ?? 0,
+          replyCount: item.replyCount ?? 0,
+          status: (item.status as CommentStatus) || 'published',
+          riskTag,
+          createTime: item.createdAt ? item.createdAt.replace('T', ' ').slice(0, 19) : '',
+          ipLocation: item.location || '未知',
+          parentId: item.parentId,
+          targetType: item.targetType,
+          sensitiveWordTags: item.sensitiveWordTags,
+          sensitiveLabels: item.sensitiveLabels,
         };
-      }
-    } catch {
-      // 后端未部署或调用失败，自动走下方 Mock 数据集高保真兜底
+      });
+
+      return {
+        code: 200,
+        data: {
+          list: mappedList,
+          total: res.data.total ?? mappedList.length,
+        },
+        message: 'success',
+      };
     }
+  } catch {
+    // 后端未部署或调用失败，自动走下方 Mock 数据集高保真兜底
   }
 
   // 2. 本地 Mock 数据集过滤降级逻辑
@@ -703,8 +706,7 @@ export const getCommentList = async (
     }
   }
 
-  const page = params.page || 1;
-  const pageSize = params.pageSize || 10;
+  const page = pageNo;
   const total = filtered.length;
   const list = filtered.slice((page - 1) * pageSize, page * pageSize);
 

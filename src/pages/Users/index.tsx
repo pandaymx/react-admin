@@ -1318,7 +1318,7 @@ export const UsersPage: React.FC = () => {
             )}
             <Dropdown
               menu={{ items: moreMenuItems }}
-              trigger={['hover', 'click']}
+              trigger={['click']}
               placement="bottomRight"
               getPopupContainer={() => document.body}
             >

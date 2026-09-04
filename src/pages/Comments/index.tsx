@@ -515,6 +515,11 @@ export const CommentsPage: React.FC = () => {
           </Row>
 
           <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item label="作品 ID" name="postId" style={{ marginBottom: 0 }}>
+                <Input placeholder="输入作品 Snowflake ID 筛选" allowClear />
+              </Form.Item>
+            </Col>
             <Col xs={24} sm={12} md={10} lg={8}>
               <Form.Item label="发评日期" name="dateRange" style={{ marginBottom: 0 }}>
                 <RangePicker style={{ width: '100%' }} />

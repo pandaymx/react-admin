@@ -48,5 +48,6 @@ export interface CommentQueryParams {
   riskTag?: CommentRiskTag | 'all';
   dateRange?: [string, string];
   page?: number;
+  pageNo?: number;
   pageSize?: number;
 }
