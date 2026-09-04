@@ -350,8 +350,14 @@ export const CommentsPage: React.FC = () => {
         if (status === 'top') {
           return <Badge status="success" text={<Text type="success">作者置顶</Text>} />;
         }
-        if (status === 'hidden') {
+        if (status === 'hidden' || status === 'rejected') {
           return <Badge status="error" text={<Text type="danger">违规隐藏</Text>} />;
+        }
+        if (status === 'pending') {
+          return <Badge status="warning" text={<Text type="warning">待审核</Text>} />;
+        }
+        if (status === 'deleted') {
+          return <Badge status="default" text={<Text type="secondary">已删除</Text>} />;
         }
         return <Badge status="processing" text="正常展示" />;
       },
@@ -370,47 +376,55 @@ export const CommentsPage: React.FC = () => {
       width: 180,
       render: (_, record) => (
         <Space size="small">
-          {record.status === 'hidden' ? (
-            <Button
-              type="link"
-              size="small"
-              icon={<EyeOutlined />}
-              style={{ color: '#52c41a' }}
-              onClick={() => handleStatusChange(record, 'normal')}
-            >
-              展示
-            </Button>
+          {record.status === 'deleted' ? (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              已软删除
+            </Text>
           ) : (
-            <Button
-              type="link"
-              size="small"
-              icon={<EyeInvisibleOutlined />}
-              danger
-              onClick={() => handleStatusChange(record, 'hidden')}
-            >
-              隐藏
-            </Button>
+            <>
+              {record.status === 'hidden' || record.status === 'rejected' ? (
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<EyeOutlined />}
+                  style={{ color: '#52c41a' }}
+                  onClick={() => handleStatusChange(record, 'normal')}
+                >
+                  展示
+                </Button>
+              ) : (
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<EyeInvisibleOutlined />}
+                  danger
+                  onClick={() => handleStatusChange(record, 'hidden')}
+                >
+                  隐藏
+                </Button>
+              )}
+
+              <Popconfirm
+                title="禁言发评人"
+                description={`确定对用户【${record.author.nickname}】执行禁言处置吗？`}
+                onConfirm={() => handleMuteUser(record)}
+              >
+                <Button type="link" size="small" style={{ color: '#fa8c16' }}>
+                  禁言
+                </Button>
+              </Popconfirm>
+
+              <Popconfirm
+                title="删除确认"
+                description="确定软删除此条评论及其子回复吗？"
+                onConfirm={() => handleDelete(record)}
+              >
+                <Button type="link" size="small" danger>
+                  删除
+                </Button>
+              </Popconfirm>
+            </>
           )}
-
-          <Popconfirm
-            title="禁言发评人"
-            description={`确定对用户【${record.author.nickname}】执行禁言处置吗？`}
-            onConfirm={() => handleMuteUser(record)}
-          >
-            <Button type="link" size="small" style={{ color: '#fa8c16' }}>
-              禁言
-            </Button>
-          </Popconfirm>
-
-          <Popconfirm
-            title="删除确认"
-            description="确定删除此条评论吗？"
-            onConfirm={() => handleDelete(record)}
-          >
-            <Button type="link" size="small" danger>
-              删除
-            </Button>
-          </Popconfirm>
         </Space>
       ),
     },
@@ -467,9 +481,11 @@ export const CommentsPage: React.FC = () => {
                 <Select
                   options={[
                     { label: '全部状态', value: 'all' },
-                    { label: '正常展示', value: 'normal' },
-                    { label: '作者置顶', value: 'top' },
-                    { label: '违规隐藏', value: 'hidden' },
+                    { label: '正常展示 (published)', value: 'published' },
+                    { label: '审核中 (pending)', value: 'pending' },
+                    { label: '违规隐藏 (rejected)', value: 'rejected' },
+                    { label: '已软删除 (deleted)', value: 'deleted' },
+                    { label: '作者置顶 (top)', value: 'top' },
                   ]}
                 />
               </Form.Item>

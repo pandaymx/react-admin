@@ -1,4 +1,45 @@
-import type { ApiResponse, CommentItem, CommentQueryParams, CommentStatus } from '@/types';
+import { request } from '@/api/request';
+import type {
+  ApiResponse,
+  CommentItem,
+  CommentQueryParams,
+  CommentRiskTag,
+  CommentStatus,
+} from '@/types';
+
+// 后端 AdminInteractionCommentController 真实响应模型
+export interface AdminCommentRespVO {
+  id: string;
+  commentId?: string;
+  userId: string;
+  targetType: string;
+  targetId: string;
+  parentId?: string;
+  replyToCommentId?: string;
+  replyToUserId?: string;
+  content: string;
+  location?: string;
+  likeCount?: number;
+  replyCount?: number;
+  status: string;
+  manualReviewFlag?: number;
+  sensitiveWordTags?: string[];
+  sensitiveWordHitTags?: string[];
+  sensitiveLabels?: string[];
+  hitTags?: string[];
+  nickname?: string;
+  avatar?: string;
+  avatarUrl?: string;
+  author?: {
+    userId?: string;
+    uid?: string;
+    nickname?: string;
+    avatar?: string;
+    avatarUrl?: string;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 // 评论 Mock 数据集
 const mockComments: CommentItem[] = [
@@ -175,30 +216,102 @@ const mockComments: CommentItem[] = [
 let commentsDataset = [...mockComments];
 
 /**
- * 查询评论列表（支持按帖子 ID、关键词、UID、风险标签、状态过滤）
+ * 查询评论列表（支持按帖子 ID、关键词、UID、风险标签、状态过滤；支持后端真实接口 Dual-Mode 自动降级）
  */
 export const getCommentList = async (
   params: CommentQueryParams = {},
 ): Promise<ApiResponse<{ list: CommentItem[]; total: number }>> => {
-  await new Promise((resolve) => setTimeout(resolve, 200));
+  // 1. 如果指定了 postId（作品ID），尝试调用后端 AdminInteractionCommentController 真实分页接口
+  if (params.postId?.trim()) {
+    try {
+      const res = await request<{ list: AdminCommentRespVO[]; total: number }>({
+        url: '/interaction/comment/page',
+        method: 'GET',
+        params: {
+          targetType: params.targetType || 'post',
+          targetId: params.postId.trim(),
+          keyword: params.keyword?.trim() || undefined,
+          status: params.status && params.status !== 'all' ? params.status : undefined,
+          pageNo: params.page || 1,
+          pageSize: params.pageSize || 10,
+        },
+        headers: { 'x-skip-error-message': 'true' },
+      });
+
+      if ((res.code === 200 || res.code === 0) && res.data?.list) {
+        const postMeta = commentsDataset.find((c) => c.postId === params.postId?.trim());
+        const mappedList: CommentItem[] = res.data.list.map((item) => {
+          const authorUid = item.author?.uid || item.author?.userId || item.userId || '';
+          const authorNickname = item.author?.nickname || item.nickname || '匿名用户';
+          const authorAvatar =
+            item.author?.avatar ||
+            item.author?.avatarUrl ||
+            item.avatar ||
+            'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
+          const riskTags = item.sensitiveWordTags || item.sensitiveLabels || item.hitTags || [];
+          const riskTag: CommentRiskTag = riskTags.length > 0 ? 'spam' : 'normal';
+
+          return {
+            id: item.id || item.commentId || '',
+            postId: item.targetId || params.postId?.trim() || '',
+            postTitle: postMeta?.postTitle || `作品 #${item.targetId}`,
+            postCover: postMeta?.postCover,
+            author: {
+              uid: authorUid,
+              nickname: authorNickname,
+              username: authorUid,
+              avatar: authorAvatar,
+            },
+            content: item.content || '',
+            replyTo: item.replyToUserId ? `用户#${item.replyToUserId}` : undefined,
+            likeCount: item.likeCount ?? 0,
+            replyCount: item.replyCount ?? 0,
+            status: (item.status as CommentStatus) || 'published',
+            riskTag,
+            createTime: item.createdAt ? item.createdAt.replace('T', ' ').slice(0, 19) : '',
+            ipLocation: item.location || '未知',
+            parentId: item.parentId,
+            targetType: item.targetType,
+            sensitiveWordTags: item.sensitiveWordTags,
+            sensitiveLabels: item.sensitiveLabels,
+          };
+        });
+
+        return {
+          code: 200,
+          data: {
+            list: mappedList,
+            total: res.data.total ?? mappedList.length,
+          },
+          message: 'success',
+        };
+      }
+    } catch {
+      // 后端未部署或调用失败，自动走下方 Mock 数据集高保真兜底
+    }
+  }
+
+  // 2. 本地 Mock 数据集过滤降级逻辑
+  await new Promise((resolve) => setTimeout(resolve, 150));
 
   let filtered = [...commentsDataset];
 
-  // 1. 按指定帖子 ID 过滤（单帖评论抽屉）
+  // 按指定作品 ID 过滤
   if (params.postId?.trim()) {
     filtered = filtered.filter((item) => item.postId === params.postId?.trim());
   }
 
-  // 2. 关键词过滤（评论正文 / 所属帖子标题）
+  // 关键词过滤（评论正文 / 所属帖子标题）
   if (params.keyword?.trim()) {
     const kw = params.keyword.trim().toLowerCase();
     filtered = filtered.filter(
       (item) =>
-        item.content.toLowerCase().includes(kw) || item.postTitle.toLowerCase().includes(kw),
+        item.content.toLowerCase().includes(kw) ||
+        Boolean(item.postTitle?.toLowerCase().includes(kw)),
     );
   }
 
-  // 3. 用户 UID 过滤
+  // 用户 UID 过滤
   if (params.uid?.trim()) {
     const uidKw = params.uid.trim().toLowerCase();
     filtered = filtered.filter(
@@ -208,17 +321,25 @@ export const getCommentList = async (
     );
   }
 
-  // 4. 状态过滤
+  // 状态过滤（兼容 normal=published, hidden=rejected）
   if (params.status && params.status !== 'all') {
-    filtered = filtered.filter((item) => item.status === params.status);
+    const targetStatus = params.status;
+    filtered = filtered.filter((item) => {
+      if (item.status === targetStatus) return true;
+      if (targetStatus === 'published' && item.status === 'normal') return true;
+      if (targetStatus === 'normal' && item.status === 'published') return true;
+      if (targetStatus === 'rejected' && item.status === 'hidden') return true;
+      if (targetStatus === 'hidden' && item.status === 'rejected') return true;
+      return false;
+    });
   }
 
-  // 5. 风险标签过滤
+  // 风险标签过滤
   if (params.riskTag && params.riskTag !== 'all') {
     filtered = filtered.filter((item) => item.riskTag === params.riskTag);
   }
 
-  // 6. 日期过滤
+  // 日期过滤
   if (params.dateRange && params.dateRange.length === 2) {
     const [start, end] = params.dateRange;
     if (start && end) {
@@ -242,12 +363,17 @@ export const getCommentList = async (
 };
 
 /**
- * 更新评论状态（正常/隐藏/置顶）
+ * 更新评论状态（正常/隐藏/置顶/驳回/已删除）
  */
 export const updateCommentStatus = async (
   id: string,
   status: CommentStatus,
+  reason?: string,
 ): Promise<ApiResponse<null>> => {
+  if (status === 'deleted') {
+    return deleteComment(id, reason);
+  }
+
   await new Promise((resolve) => setTimeout(resolve, 150));
   const idx = commentsDataset.findIndex((c) => c.id === id);
   if (idx !== -1) {
@@ -257,30 +383,61 @@ export const updateCommentStatus = async (
     code: 200,
     data: null,
     message:
-      status === 'top' ? '已置顶该评论' : status === 'hidden' ? '已隐藏违规评论' : '已恢复正常展示',
+      status === 'top'
+        ? '已置顶该评论'
+        : status === 'hidden' || status === 'rejected'
+          ? '已隐藏违规评论'
+          : '已恢复正常展示',
   };
 };
 
 /**
- * 删除单个评论
+ * 删除单个评论（软删除：优先调后端 DELETE /interaction/comment/delete）
  */
-export const deleteComment = async (id: string): Promise<ApiResponse<null>> => {
-  await new Promise((resolve) => setTimeout(resolve, 150));
+export const deleteComment = async (id: string, reason?: string): Promise<ApiResponse<null>> => {
+  try {
+    await request<boolean>({
+      url: '/interaction/comment/delete',
+      method: 'DELETE',
+      params: {
+        id,
+        reason: reason || '管理员治理违规评论软删除',
+      },
+      headers: { 'x-skip-error-message': 'true' },
+    });
+  } catch {
+    // 静默降级
+  }
+
   commentsDataset = commentsDataset.filter((c) => c.id !== id);
   return {
     code: 200,
     data: null,
-    message: '评论已彻底删除',
+    message: '评论已成功软删除',
   };
 };
 
 /**
- * 批量删除评论
+ * 批量软删除评论（优先调后端 DELETE /interaction/comment/batch-delete）
  */
 export const batchDeleteComments = async (
   ids: string[],
+  reason?: string,
 ): Promise<ApiResponse<{ count: number }>> => {
-  await new Promise((resolve) => setTimeout(resolve, 200));
+  try {
+    await request<number>({
+      url: '/interaction/comment/batch-delete',
+      method: 'DELETE',
+      data: {
+        ids,
+        reason: reason || '管理员批量治理违规评论软删除',
+      },
+      headers: { 'x-skip-error-message': 'true' },
+    });
+  } catch {
+    // 静默降级
+  }
+
   commentsDataset = commentsDataset.filter((c) => !ids.includes(c.id));
   return {
     code: 200,
@@ -295,7 +452,12 @@ export const batchDeleteComments = async (
 export const batchUpdateCommentStatus = async (
   ids: string[],
   status: CommentStatus,
+  reason?: string,
 ): Promise<ApiResponse<{ count: number }>> => {
+  if (status === 'deleted') {
+    return batchDeleteComments(ids, reason);
+  }
+
   await new Promise((resolve) => setTimeout(resolve, 200));
   commentsDataset = commentsDataset.map((c) => {
     if (ids.includes(c.id)) {

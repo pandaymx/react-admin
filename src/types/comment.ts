@@ -19,7 +19,7 @@ export interface CommentAuthor {
 export interface CommentItem {
   id: string; // 评论 ID，如 CMT_10001
   postId: string; // 所属作品 ID
-  postTitle: string; // 所属作品标题
+  postTitle?: string; // 所属作品标题
   postCover?: string; // 所属作品封面
   author: CommentAuthor;
   content: string; // 评论正文
@@ -30,10 +30,15 @@ export interface CommentItem {
   riskTag: CommentRiskTag;
   createTime: string;
   ipLocation?: string; // IP 属地
+  parentId?: string;
+  targetType?: string;
+  sensitiveWordTags?: string[];
+  sensitiveLabels?: string[];
 }
 
 export interface CommentQueryParams {
-  postId?: string; // 按特定帖子筛选
+  postId?: string; // 按特定作品筛选
+  targetType?: string; // 目标类型，默认 post
   keyword?: string; // 评论内容关键词
   uid?: string; // 评论人 UID
   status?: CommentStatus | 'all';

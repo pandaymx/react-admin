@@ -219,9 +219,11 @@ export const PostCommentsDrawer: React.FC<PostCommentsDrawerProps> = ({
                 style={{ width: 120 }}
                 options={[
                   { label: '全部状态', value: 'all' },
-                  { label: '正常展示', value: 'normal' },
+                  { label: '正常展示', value: 'published' },
+                  { label: '待审核', value: 'pending' },
+                  { label: '违规隐藏', value: 'rejected' },
+                  { label: '已软删除', value: 'deleted' },
                   { label: '作者置顶', value: 'top' },
-                  { label: '违规隐藏', value: 'hidden' },
                 ]}
               />
               <Button type="primary" size="middle" onClick={fetchComments}>
@@ -246,73 +248,82 @@ export const PostCommentsDrawer: React.FC<PostCommentsDrawerProps> = ({
                   borderRadius: 6,
                   marginBottom: 8,
                   border: item.status === 'top' ? '1px solid #b7eb8f' : '1px solid #f0f0f0',
+                  opacity: item.status === 'deleted' ? 0.6 : 1,
                 }}
-                actions={[
-                  item.status === 'top' ? (
-                    <Button
-                      key="untop"
-                      type="link"
-                      size="small"
-                      onClick={() => handleStatusChange(item, 'normal')}
-                    >
-                      取消置顶
-                    </Button>
-                  ) : (
-                    <Button
-                      key="top"
-                      type="link"
-                      size="small"
-                      icon={<VerticalAlignTopOutlined />}
-                      onClick={() => handleStatusChange(item, 'top')}
-                    >
-                      置顶
-                    </Button>
-                  ),
-                  item.status === 'hidden' ? (
-                    <Button
-                      key="unhide"
-                      type="link"
-                      size="small"
-                      style={{ color: '#52c41a' }}
-                      onClick={() => handleStatusChange(item, 'normal')}
-                    >
-                      恢复展示
-                    </Button>
-                  ) : (
-                    <Button
-                      key="hide"
-                      type="link"
-                      size="small"
-                      danger
-                      onClick={() => handleStatusChange(item, 'hidden')}
-                    >
-                      隐藏
-                    </Button>
-                  ),
-                  <Popconfirm
-                    key="mute"
-                    title="禁言确认"
-                    description={`确定对用户【${item.author.nickname}】执行封禁/禁言吗？`}
-                    onConfirm={() => handleMuteUser(item)}
-                  >
-                    <Button type="text" size="small" danger icon={<StopOutlined />}>
-                      禁言
-                    </Button>
-                  </Popconfirm>,
-                  <Popconfirm
-                    key="del"
-                    title="删除评论"
-                    description="确定永久删除这条评论吗？"
-                    onConfirm={() => handleDeleteComment(item)}
-                  >
-                    <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-                  </Popconfirm>,
-                ]}
+                actions={
+                  item.status === 'deleted'
+                    ? [
+                        <Text key="del-text" type="secondary">
+                          已安全软删除
+                        </Text>,
+                      ]
+                    : [
+                        item.status === 'top' ? (
+                          <Button
+                            key="untop"
+                            type="link"
+                            size="small"
+                            onClick={() => handleStatusChange(item, 'normal')}
+                          >
+                            取消置顶
+                          </Button>
+                        ) : (
+                          <Button
+                            key="top"
+                            type="link"
+                            size="small"
+                            icon={<VerticalAlignTopOutlined />}
+                            onClick={() => handleStatusChange(item, 'top')}
+                          >
+                            置顶
+                          </Button>
+                        ),
+                        item.status === 'hidden' || item.status === 'rejected' ? (
+                          <Button
+                            key="unhide"
+                            type="link"
+                            size="small"
+                            style={{ color: '#52c41a' }}
+                            onClick={() => handleStatusChange(item, 'normal')}
+                          >
+                            恢复展示
+                          </Button>
+                        ) : (
+                          <Button
+                            key="hide"
+                            type="link"
+                            size="small"
+                            danger
+                            onClick={() => handleStatusChange(item, 'hidden')}
+                          >
+                            隐藏
+                          </Button>
+                        ),
+                        <Popconfirm
+                          key="mute"
+                          title="禁言确认"
+                          description={`确定对用户【${item.author.nickname}】执行封禁/禁言吗？`}
+                          onConfirm={() => handleMuteUser(item)}
+                        >
+                          <Button type="text" size="small" danger icon={<StopOutlined />}>
+                            禁言
+                          </Button>
+                        </Popconfirm>,
+                        <Popconfirm
+                          key="del"
+                          title="软删除评论"
+                          description="确定将该条评论及所有子回复安全软删除吗？"
+                          onConfirm={() => handleDeleteComment(item)}
+                        >
+                          <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                        </Popconfirm>,
+                      ]
+                }
               >
                 <List.Item.Meta
                   avatar={<Avatar src={item.author.avatar} icon={<UserOutlined />} />}
                   title={
-                    <Space size="small">
+                    <Space size="small" wrap>
                       <Text strong style={{ fontSize: 13 }}>
                         {item.author.nickname}
                       </Text>
@@ -329,12 +340,27 @@ export const PostCommentsDrawer: React.FC<PostCommentsDrawerProps> = ({
                           置顶
                         </Tag>
                       )}
-                      {item.status === 'hidden' && (
+                      {(item.status === 'hidden' || item.status === 'rejected') && (
                         <Tag color="red" style={{ margin: 0 }}>
                           已隐藏
                         </Tag>
                       )}
+                      {item.status === 'pending' && (
+                        <Tag color="blue" style={{ margin: 0 }}>
+                          待审核
+                        </Tag>
+                      )}
+                      {item.status === 'deleted' && (
+                        <Tag color="default" style={{ margin: 0 }}>
+                          已删除
+                        </Tag>
+                      )}
                       {renderRiskTag(item.riskTag)}
+                      {item.sensitiveWordTags?.map((tag) => (
+                        <Tag key={tag} color="volcano" style={{ margin: 0 }}>
+                          {tag}
+                        </Tag>
+                      ))}
                     </Space>
                   }
                   description={
