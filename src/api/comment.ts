@@ -41,22 +41,23 @@ export interface AdminCommentRespVO {
   updatedAt?: string;
 }
 
-// 评论 Mock 数据集
+// 评论 Mock 数据集（全面覆盖 10 大帖子 Snowflake ID 与全场景状态）
 const mockComments: CommentItem[] = [
+  // 1892837482910283901: 【深度评测】2026款全地形越野公路车实测体验
   {
     id: 'CMT_10001',
-    postId: 'POST_202609001',
-    postTitle: '【沉浸式开箱】2026旗舰芯片真机上手体验测评！到底值不值得冲？',
+    postId: '1892837482910283901',
+    postTitle: '【深度评测】2026款全地形越野公路车实测体验',
     postCover:
-      'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=200&auto=format&fit=crop&q=80',
     author: {
       uid: 'dy_87219904',
-      nickname: '小甜心美食志',
-      username: 'sweet_foodie',
+      nickname: '骑行老炮儿·阿伟',
+      username: 'rider_wei',
       avatar:
-        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
     },
-    content: '博主测评太专业细致了！特别是发热控制对比，瞬间拔草了之前的犹豫！🔥',
+    content: '博主测评太专业细致了！特别是碎石路面的滤震表现与电子变速响应，瞬间打消了我的顾虑！🔥',
     likeCount: 1420,
     replyCount: 28,
     status: 'top',
@@ -66,10 +67,10 @@ const mockComments: CommentItem[] = [
   },
   {
     id: 'CMT_10002',
-    postId: 'POST_202609001',
-    postTitle: '【沉浸式开箱】2026旗舰芯片真机上手体验测评！到底值不值得冲？',
+    postId: '1892837482910283901',
+    postTitle: '【深度评测】2026款全地形越野公路车实测体验',
     postCover:
-      'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=200&auto=format&fit=crop&q=80',
     author: {
       uid: 'dy_22394018',
       nickname: '代码小白日记',
@@ -77,62 +78,66 @@ const mockComments: CommentItem[] = [
       avatar:
         'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80',
     },
-    content: '请问续航在开启最高画质游戏下能支撑多久？有测过重度使用场景吗？',
+    content: '请问整车重量含脚踏是多少？在连续大陡坡场景下摇车刚性足够吗？',
     likeCount: 89,
     replyCount: 4,
-    status: 'normal',
+    status: 'published',
     riskTag: 'normal',
     createTime: '2026-09-02 10:55:00',
     ipLocation: '北京',
   },
   {
     id: 'CMT_10003',
-    postId: 'POST_202609001',
-    postTitle: '【沉浸式开箱】2026旗舰芯片真机上手体验测评！到底值不值得冲？',
+    postId: '1892837482910283901',
+    postTitle: '【深度评测】2026款全地形越野公路车实测体验',
     postCover:
-      'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=200&auto=format&fit=crop&q=80',
     author: {
       uid: 'dy_33219011',
-      nickname: '每日福利领取点我',
+      nickname: '同款特价内购',
       username: 'spammer_bot_99',
       avatar:
         'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
     },
-    content: '最新同款手机低价内购渠道，点击主页头像加微免费领取优惠券红包！',
-    likeCount: 1,
+    content: '最新同款公路车工厂渠道特价，加V免费领专属优惠券红包：bikexx_99',
+    likeCount: 0,
     replyCount: 0,
-    status: 'hidden',
+    status: 'rejected',
     riskTag: 'ad_suspect',
+    sensitiveWordTags: ['外部导流', '私下交易'],
     createTime: '2026-09-02 11:00:22',
     ipLocation: '广东',
   },
+
+  // 1892837482910283902: 【探店指南】藏在成都老巷里的地道慢焙精品咖啡馆
   {
-    id: 'CMT_10004',
-    postId: 'POST_202609002',
-    postTitle: '胡同深处的百年铜锅涮肉！入口即化的鲜切羊肉绝了 🍲',
+    id: 'CMT_20001',
+    postId: '1892837482910283902',
+    postTitle: '【探店指南】藏在成都老巷里的地道慢焙精品咖啡馆',
     postCover:
-      'https://images.unsplash.com/photo-1543353071-873f17a7a088?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=200&auto=format&fit=crop&q=80',
     author: {
       uid: 'dy_55410982',
-      nickname: '张三走天涯',
-      username: 'zhang_san_travel',
+      nickname: '咖啡星人小鹿',
+      username: 'coffee_deer',
       avatar:
-        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
     },
-    content: '这家店我上周刚去过！糖蒜和麻酱底料真是一绝，建议一定要早点去排队。',
+    content:
+      '这家的瑰夏冷萃真是一绝！一定要配他们家的开心果巴斯克蛋糕，下午阳光照进庭院超级出片 ☕',
     likeCount: 520,
     replyCount: 12,
-    status: 'normal',
+    status: 'top',
     riskTag: 'normal',
     createTime: '2026-09-02 09:40:15',
-    ipLocation: '北京',
+    ipLocation: '四川',
   },
   {
-    id: 'CMT_10005',
-    postId: 'POST_202609002',
-    postTitle: '胡同深处的百年铜锅涮肉！入口即化的鲜切羊肉绝了 🍲',
+    id: 'CMT_20002',
+    postId: '1892837482910283902',
+    postTitle: '【探店指南】藏在成都老巷里的地道慢焙精品咖啡馆',
     postCover:
-      'https://images.unsplash.com/photo-1543353071-873f17a7a088?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=200&auto=format&fit=crop&q=80',
     author: {
       uid: 'dy_12093847',
       nickname: '夜幕狂刀',
@@ -140,76 +145,327 @@ const mockComments: CommentItem[] = [
       avatar:
         'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
     },
-    content: '收了多少广告费啊？这么难吃也吹，真是服了你们这些探店博主。',
+    content: '收了多少广告费啊？这么难喝也吹，环境吵死人，纯纯割韭菜！',
     likeCount: 15,
     replyCount: 9,
-    status: 'hidden',
+    status: 'rejected',
     riskTag: 'abuse',
+    sensitiveWordTags: ['攻击辱骂'],
     createTime: '2026-09-02 10:12:00',
     ipLocation: '河北',
   },
+
+  // 1892837482910283903: 【夜色胶片】零下5度重装夜爬四姑娘山二峰全记录
   {
-    id: 'CMT_10006',
-    postId: 'POST_202609003',
-    postTitle: '指弹吉他《晴天》治愈前奏教学｜零基础也能学会的小技巧 🎸',
+    id: 'CMT_30001',
+    postId: '1892837482910283903',
+    postTitle: '【夜色胶片】零下5度重装夜爬四姑娘山二峰全记录',
     postCover:
-      'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=200&auto=format&fit=crop&q=80',
     author: {
-      uid: 'dy_98263102',
-      nickname: '极客先锋·Tech',
-      username: 'geek_vanguard',
+      uid: 'dy_99018274',
+      nickname: '高山协作·阿布',
+      username: 'mountain_guide_abu',
       avatar:
-        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
     },
-    content: '按和弦的手法讲解得好清晰，终于搞懂击弦和滑音的过渡节奏了！',
+    content: '作为本地高山协作，提醒各位雪线以上必须佩戴冰爪与头盔，夜爬切勿单独脱队！安全第一！🏔️',
+    likeCount: 2400,
+    replyCount: 36,
+    status: 'top',
+    riskTag: 'normal',
+    createTime: '2026-09-02 07:15:00',
+    ipLocation: '四川',
+  },
+  {
+    id: 'CMT_30002',
+    postId: '1892837482910283903',
+    postTitle: '【夜色胶片】零下5度重装夜爬四姑娘山二峰全记录',
+    postCover:
+      'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=200&auto=format&fit=crop&q=80',
+    author: {
+      uid: 'dy_66281903',
+      nickname: '追星人林风',
+      username: 'stargazer_lin',
+      avatar:
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    },
+    content: '大本营凌晨三点起步登顶那段延时摄影绝美，贡嘎群山的日出云海太震撼了！',
     likeCount: 380,
     replyCount: 5,
-    status: 'normal',
+    status: 'published',
     riskTag: 'normal',
     createTime: '2026-09-02 10:30:00',
     ipLocation: '浙江',
   },
   {
-    id: 'CMT_10007',
-    postId: 'POST_202609003',
-    postTitle: '指弹吉他《晴天》治愈前奏教学｜零基础也能学会的小技巧 🎸',
+    id: 'CMT_30003',
+    postId: '1892837482910283903',
+    postTitle: '【夜色胶片】零下5度重装夜爬四姑娘山二峰全记录',
     postCover:
-      'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=200&auto=format&fit=crop&q=80',
     author: {
       uid: 'dy_88990011',
-      nickname: '刷粉推广大师',
-      username: 'growth_bot',
+      nickname: '户外小萌新',
+      username: 'outdoor_rookie',
+      avatar:
+        'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
+    },
+    content: '请问零基础小白第一次尝试登雪山，需要提前几个月做体能储备？',
+    likeCount: 42,
+    replyCount: 3,
+    status: 'pending',
+    riskTag: 'normal',
+    createTime: '2026-09-02 11:20:00',
+    ipLocation: '江苏',
+  },
+
+  // 1892837482910283904: 【财富密码】零门槛日赚千元？揭秘最新自媒体引流黑灰产
+  {
+    id: 'CMT_40001',
+    postId: '1892837482910283904',
+    postTitle: '【财富密码】零门槛日赚千元？揭秘最新自媒体引流黑灰产',
+    postCover:
+      'https://images.unsplash.com/photo-1553729459-efe14ef6055d?w=200&auto=format&fit=crop&q=80',
+    author: {
+      uid: 'dy_33918274',
+      nickname: '暴富导师李哥',
+      username: 'wealth_mentor_li',
       avatar:
         'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
     },
-    content: '代涨播放量、粉丝关注、双击点赞，低价高效，需要的滴滴',
-    likeCount: 0,
+    content: '想学习无人直播带货日入过万的加我微信，免费送全套实操教程包教包会：vx_money888',
+    likeCount: 1,
     replyCount: 0,
-    status: 'hidden',
-    riskTag: 'spam',
-    createTime: '2026-09-02 10:35:10',
-    ipLocation: '江苏',
+    status: 'rejected',
+    riskTag: 'ad_suspect',
+    sensitiveWordTags: ['涉诈高危', '诱导私聊'],
+    createTime: '2026-09-02 11:20:10',
+    ipLocation: '湖北',
   },
   {
-    id: 'CMT_10008',
-    postId: 'POST_202609004',
-    postTitle: '用长焦镜头记录野生雪豹！高原绝美雪域生灵 🐆🏔️',
+    id: 'CMT_40002',
+    postId: '1892837482910283904',
+    postTitle: '【财富密码】零门槛日赚千元？揭秘最新自媒体引流黑灰产',
     postCover:
-      'https://images.unsplash.com/photo-1564349683136-77e08dba1ef6?w=200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1553729459-efe14ef6055d?w=200&auto=format&fit=crop&q=80',
     author: {
-      uid: 'dy_99018274',
-      nickname: '网络安全哨兵',
-      username: 'cyber_security_pro',
+      uid: 'dy_10000001',
+      nickname: '社区安全小助手',
+      username: 'community_safety_official',
       avatar:
-        'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
     },
-    content: '致敬摄影师！在那种零下二三十度的极寒环境蹲守，太不容易了。画面非常震撼！',
-    likeCount: 2900,
-    replyCount: 42,
+    content: '平台严厉打击各类假借兼职培训名义的刷单涉诈导流行为，请广大创作者提高警惕！',
+    likeCount: 920,
+    replyCount: 18,
     status: 'top',
     riskTag: 'normal',
-    createTime: '2026-09-02 07:15:00',
+    createTime: '2026-09-02 11:30:00',
+    ipLocation: '上海',
+  },
+
+  // 1892837482910283905: 【已违规下架】低俗营销导流黑灰产推广测试帖
+  {
+    id: 'CMT_50001',
+    postId: '1892837482910283905',
+    postTitle: '【已违规下架】低俗营销导流黑灰产推广测试帖',
+    postCover:
+      'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=200&auto=format&fit=crop&q=80',
+    author: {
+      uid: 'dy_11902844',
+      nickname: '灰产黑客帝国',
+      username: 'dark_crawler',
+      avatar:
+        'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150&auto=format&fit=crop&q=80',
+    },
+    content: '该评论因发布带有外部违规链接已被治理系统软删除',
+    likeCount: 0,
+    replyCount: 0,
+    status: 'deleted',
+    riskTag: 'spam',
+    createTime: '2026-09-01 14:15:00',
     ipLocation: '四川',
+  },
+
+  // 1892837482910283906: 【川西大环线】重装骑行折多山！零下5度的绝美日照金山
+  {
+    id: 'CMT_60001',
+    postId: '1892837482910283906',
+    postTitle: '【川西大环线】重装骑行折多山！零下5度的绝美日照金山',
+    postCover:
+      'https://images.unsplash.com/photo-1502680390469-be75c86b636f?w=200&auto=format&fit=crop&q=80',
+    author: {
+      uid: 'dy_55102934',
+      nickname: '骑迹行者·大鹏',
+      username: 'rider_dapeng',
+      avatar:
+        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+    },
+    content:
+      '感谢大家的鼓励！折多山下坡路段暗冰较多，速度一定要控制在25km/h以内，备用刹车皮和防风保暖手套是刚需！',
+    likeCount: 3120,
+    replyCount: 45,
+    status: 'top',
+    riskTag: 'normal',
+    createTime: '2026-09-03 07:30:00',
+    ipLocation: '四川',
+  },
+  {
+    id: 'CMT_60002',
+    postId: '1892837482910283906',
+    postTitle: '【川西大环线】重装骑行折多山！零下5度的绝美日照金山',
+    postCover:
+      'https://images.unsplash.com/photo-1502680390469-be75c86b636f?w=200&auto=format&fit=crop&q=80',
+    author: {
+      uid: 'dy_77182901',
+      nickname: '追风少年阿杰',
+      username: 'wind_runner',
+      avatar:
+        'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80',
+    },
+    content: '画面太美了！今年我也准备重装走川藏线，博主的骑行路书和全景相机型号已收藏！🚴‍♂️',
+    likeCount: 650,
+    replyCount: 11,
+    status: 'published',
+    riskTag: 'normal',
+    createTime: '2026-09-03 08:15:00',
+    ipLocation: '广东',
+  },
+
+  // 1892837482910283907: 【官方公告】关于打击社区侵权搬运与低俗恶意导流的专项治理声明
+  {
+    id: 'CMT_70001',
+    postId: '1892837482910283907',
+    postTitle: '【官方公告】关于打击社区侵权搬运与低俗恶意导流的专项治理声明',
+    postCover:
+      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=200&auto=format&fit=crop&q=80',
+    author: {
+      uid: 'dy_10000001',
+      nickname: '社区安全小助手',
+      username: 'community_safety_official',
+      avatar:
+        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    },
+    content:
+      '净化社区环境离不开每一位创作者的监督，如发现违规搬运与侵权行为，请随时点击作品右上角进行举报投诉！',
+    likeCount: 5800,
+    replyCount: 62,
+    status: 'top',
+    riskTag: 'normal',
+    createTime: '2026-09-03 09:10:00',
+    ipLocation: '上海',
+  },
+  {
+    id: 'CMT_70002',
+    postId: '1892837482910283907',
+    postTitle: '【官方公告】关于打击社区侵权搬运与低俗恶意导流的专项治理声明',
+    postCover:
+      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=200&auto=format&fit=crop&q=80',
+    author: {
+      uid: 'dy_87219904',
+      nickname: '原创手绘师米粒',
+      username: 'mili_art',
+      avatar:
+        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    },
+    content: '支持官方重拳出击！最近好多无良营销号搬运我的插画抹去水印，真是太气人了！',
+    likeCount: 1400,
+    replyCount: 23,
+    status: 'published',
+    riskTag: 'normal',
+    createTime: '2026-09-03 09:35:00',
+    ipLocation: '浙江',
+  },
+
+  // 1892837482910283908: 【待人工审核】关于某品牌新能源汽车电池续航实测虚标争议调查
+  {
+    id: 'CMT_80001',
+    postId: '1892837482910283908',
+    postTitle: '【待人工审核】关于某品牌新能源汽车电池续航实测虚标争议调查',
+    postCover:
+      'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=200&auto=format&fit=crop&q=80',
+    author: {
+      uid: 'dy_22390184',
+      nickname: '真实车主老陈',
+      username: 'chen_car_owner',
+      avatar:
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    },
+    content: '实测数据很客观！我北方的冬天开暖风确实只能跑官方标称的一半，支持博主客观发声！',
+    likeCount: 890,
+    replyCount: 31,
+    status: 'published',
+    riskTag: 'normal',
+    createTime: '2026-09-03 11:50:00',
+    ipLocation: '辽宁',
+  },
+  {
+    id: 'CMT_80002',
+    postId: '1892837482910283908',
+    postTitle: '【待人工审核】关于某品牌新能源汽车电池续航实测虚标争议调查',
+    postCover:
+      'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=200&auto=format&fit=crop&q=80',
+    author: {
+      uid: 'dy_77182901',
+      nickname: '匿名网友_5521',
+      username: 'user_5521',
+      avatar:
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    },
+    content: '涉及具体车企参数对比，正在等待第三方检测机构出具质检报告，该评论正在审核中',
+    likeCount: 24,
+    replyCount: 2,
+    status: 'pending',
+    riskTag: 'normal',
+    createTime: '2026-09-03 12:10:00',
+    ipLocation: '北京',
+  },
+
+  // 1892837482910283909: 【旅行随笔】大理双廊洱海边的静谧午后与落日余晖
+  {
+    id: 'CMT_90001',
+    postId: '1892837482910283909',
+    postTitle: '【旅行随笔】大理双廊洱海边的静谧午后与落日余晖',
+    postCover:
+      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=200&auto=format&fit=crop&q=80',
+    author: {
+      uid: 'dy_22390184',
+      nickname: '云南在地慢生活',
+      username: 'dali_life',
+      avatar:
+        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    },
+    content: '大理的海风总是能抚平焦躁，选在淡季去双廊坐在海边喝咖啡真的很惬意 🌅',
+    likeCount: 420,
+    replyCount: 8,
+    status: 'published',
+    riskTag: 'normal',
+    createTime: '2026-09-03 15:40:00',
+    ipLocation: '云南',
+  },
+
+  // 1892837482910283910: 【草稿未发布】AI原生时代前端工程化演进思考与架构蓝图
+  {
+    id: 'CMT_91001',
+    postId: '1892837482910283910',
+    postTitle: '【草稿未发布】AI原生时代前端工程化演进思考与架构蓝图',
+    postCover:
+      'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=200&auto=format&fit=crop&q=80',
+    author: {
+      uid: 'dy_99018273',
+      nickname: '全栈架构探索者',
+      username: 'fullstack_architect',
+      avatar:
+        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    },
+    content: '草稿里的 Dual-Mode 双模降级思路很有启发性，期待博主完善后公开发布！',
+    likeCount: 88,
+    replyCount: 5,
+    status: 'published',
+    riskTag: 'normal',
+    createTime: '2026-09-03 16:30:00',
+    ipLocation: '北京',
   },
 ];
 
@@ -298,7 +554,84 @@ export const getCommentList = async (
 
   // 按指定作品 ID 过滤
   if (params.postId?.trim()) {
-    filtered = filtered.filter((item) => item.postId === params.postId?.trim());
+    const pid = params.postId.trim();
+    const legacyMap: Record<string, string> = {
+      '1892837482910283901': 'POST_202609001',
+      '1892837482910283902': 'POST_202609002',
+      '1892837482910283903': 'POST_202609003',
+      '1892837482910283904': 'POST_202609004',
+    };
+    const mappedPid = legacyMap[pid];
+
+    filtered = filtered.filter(
+      (item) => item.postId === pid || (mappedPid !== undefined && item.postId === mappedPid),
+    );
+
+    // 智能防御兜底：若暂无任何关联评论，自动为该作品实例化高保真互动评论数据
+    if (filtered.length === 0) {
+      const dynamicList: CommentItem[] = [
+        {
+          id: `CMT_${pid.slice(-6)}_01`,
+          postId: pid,
+          postTitle: `作品 #${pid}`,
+          author: {
+            uid: 'dy_98263102',
+            nickname: '极客先锋·Tech',
+            username: 'geek_vanguard',
+            avatar:
+              'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+          },
+          content: '博主分享的内容太硬核专业了！每一个技术细节都很耐看，已一键三连持续关注！🔥',
+          likeCount: 520,
+          replyCount: 18,
+          status: 'top',
+          riskTag: 'normal',
+          createTime: '2026-09-03 14:20:00',
+          ipLocation: '四川',
+        },
+        {
+          id: `CMT_${pid.slice(-6)}_02`,
+          postId: pid,
+          postTitle: `作品 #${pid}`,
+          author: {
+            uid: 'dy_87219904',
+            nickname: '小甜心美食志',
+            username: 'sweet_foodie',
+            avatar:
+              'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+          },
+          content: '请问作品里展示的操作流程，初学者如果尝试上手的话有什么前置准备建议吗？',
+          likeCount: 96,
+          replyCount: 6,
+          status: 'published',
+          riskTag: 'normal',
+          createTime: '2026-09-03 15:10:00',
+          ipLocation: '上海',
+        },
+        {
+          id: `CMT_${pid.slice(-6)}_03`,
+          postId: pid,
+          postTitle: `作品 #${pid}`,
+          author: {
+            uid: 'dy_33219011',
+            nickname: '推广刷量客服',
+            username: 'spammer_bot_99',
+            avatar:
+              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          },
+          content: '低价代涨播放量粉丝关注，点击主页头像加微免费领取大额优惠券红包',
+          likeCount: 0,
+          replyCount: 0,
+          status: 'rejected',
+          riskTag: 'ad_suspect',
+          sensitiveWordTags: ['违规引流', '低俗营销'],
+          createTime: '2026-09-03 16:05:00',
+          ipLocation: '广东',
+        },
+      ];
+      commentsDataset.unshift(...dynamicList);
+      filtered = dynamicList;
+    }
   }
 
   // 关键词过滤（评论正文 / 所属帖子标题）
