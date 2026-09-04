@@ -1,4 +1,11 @@
-export type CommentStatus = 'normal' | 'hidden' | 'top';
+export type CommentStatus =
+  | 'normal'
+  | 'hidden'
+  | 'top'
+  | 'published'
+  | 'rejected'
+  | 'deleted'
+  | 'pending';
 
 export type CommentRiskTag = 'normal' | 'ad_suspect' | 'abuse' | 'spam';
 

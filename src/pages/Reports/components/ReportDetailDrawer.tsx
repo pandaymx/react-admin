@@ -52,6 +52,7 @@ export const ReportDetailDrawer: React.FC<ReportDetailDrawerProps> = ({
       ad_fraud: { label: '营销广告/欺诈', color: 'orange' },
       copyright: { label: '抄袭侵权', color: 'purple' },
       rumor: { label: '不实谣言', color: 'geekblue' },
+      gambling: { label: '涉赌涉诈', color: 'red' },
       other: { label: '其他违规', color: 'default' },
     };
     const item = map[reason] || { label: '其他', color: 'default' };
