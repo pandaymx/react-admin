@@ -525,7 +525,16 @@ export const PostDetailDrawer: React.FC<PostDetailDrawerProps> = ({
         {/* 内容安全审核流转记录 */}
         <Card
           size="small"
-          title={<span style={{ fontWeight: 600 }}>内容安全合规与审核记录</span>}
+          title={
+            <Space size={8} align="center">
+              <span style={{ fontWeight: 600 }}>内容安全合规与全量审核记录</span>
+              {post.auditTasks && post.auditTasks.length > 0 && (
+                <Tag color="processing" style={{ borderRadius: 10, padding: '0 8px' }}>
+                  共 {post.auditTasks.length} 条流水
+                </Tag>
+              )}
+            </Space>
+          }
           style={{
             background: isDark ? token.colorBgElevated : '#ffffff',
             border: `1px solid ${token.colorBorderSecondary}`,
@@ -533,33 +542,101 @@ export const PostDetailDrawer: React.FC<PostDetailDrawerProps> = ({
         >
           {post.auditTasks && post.auditTasks.length > 0 ? (
             <Timeline
-              style={{ marginTop: 12 }}
-              items={post.auditTasks.map((task) => {
-                const isPass = task.suggestion === 'pass';
-                return {
-                  color: isPass ? 'green' : 'red',
-                  dot: isPass ? <CheckCircleFilled /> : <CloseCircleFilled />,
-                  children: (
-                    <div style={{ fontSize: 12 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Tag color={task.auditMode === 'alicloud' ? 'cyan' : 'purple'}>
-                          {task.auditMode === 'alicloud' ? '智能AI机审' : '人工运营复审'}
-                        </Tag>
-                        <Tag color={isPass ? 'success' : 'error'}>
-                          {isPass ? '审核通过' : '审核驳回'}
-                        </Tag>
-                        {task.label && <Tag color="volcano">命中标签: {task.label}</Tag>}
+              style={{ marginTop: 14 }}
+              items={[...post.auditTasks]
+                .sort((a, b) => {
+                  const timeA = new Date(a.createdAt || 0).getTime();
+                  const timeB = new Date(b.createdAt || 0).getTime();
+                  return timeA - timeB; // 时间正序流转展示
+                })
+                .map((task, idx) => {
+                  const isPass = task.suggestion === 'pass';
+                  const isReview = task.suggestion === 'review';
+                  const dotColor = isPass ? 'green' : isReview ? 'orange' : 'red';
+
+                  const modeText =
+                    task.auditMode === 'alicloud'
+                      ? 'AI机审'
+                      : task.auditMode === 'manual'
+                        ? '人工运营复审'
+                        : '系统策略风控';
+                  const modeColor =
+                    task.auditMode === 'alicloud'
+                      ? 'cyan'
+                      : task.auditMode === 'manual'
+                        ? 'purple'
+                        : 'geekblue';
+
+                  const contentLabel =
+                    task.contentType === 'text'
+                      ? '文本检测'
+                      : task.contentType === 'image'
+                        ? '图像合规'
+                        : task.contentType === 'video'
+                          ? '音视频安全'
+                          : task.contentType === 'profile'
+                            ? '资料审核'
+                            : null;
+
+                  return {
+                    key: task.id || `audit-${idx}`,
+                    color: dotColor,
+                    dot: isPass ? (
+                      <CheckCircleFilled />
+                    ) : isReview ? (
+                      <ExclamationCircleFilled />
+                    ) : (
+                      <CloseCircleFilled />
+                    ),
+                    children: (
+                      <div style={{ fontSize: 12, paddingBottom: 4 }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: 6,
+                          }}
+                        >
+                          <span style={{ fontWeight: 600, color: token.colorTextSecondary }}>
+                            #{idx + 1}
+                          </span>
+                          <Tag color={modeColor}>{modeText}</Tag>
+                          {contentLabel && <Tag color="blue">{contentLabel}</Tag>}
+                          {isPass && <Tag color="success">放行通过</Tag>}
+                          {isReview && <Tag color="warning">存疑转人工</Tag>}
+                          {!isPass && !isReview && <Tag color="error">违规下架/驳回</Tag>}
+                          {task.label && task.label !== 'normal' && (
+                            <Tag color="volcano">命中标签: {task.label}</Tag>
+                          )}
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 6,
+                            color: isDark ? token.colorText : '#434343',
+                            lineHeight: 1.6,
+                          }}
+                        >
+                          {task.reason ||
+                            (isPass
+                              ? '内容符合社区发布公约与内容安全标准'
+                              : isReview
+                                ? '检测到疑似不合规特征，已转入人工复核队列'
+                                : '内容不符合社区发布标准，已执行下架处置')}
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 4,
+                            color: token.colorTextSecondary,
+                            fontSize: 11,
+                          }}
+                        >
+                          {formatDateTime(task.createdAt)} · 处置主体: {task.operator || '系统质检'}
+                        </div>
                       </div>
-                      <div style={{ marginTop: 4, color: isDark ? token.colorText : '#595959' }}>
-                        {task.reason || (isPass ? '内容符合社区发布公约' : '不符合社区发布标准')}
-                      </div>
-                      <div style={{ marginTop: 2, color: token.colorTextSecondary, fontSize: 11 }}>
-                        {formatDateTime(task.createdAt)} · 操作人: {task.operator || '系统质检'}
-                      </div>
-                    </div>
-                  ),
-                };
-              })}
+                    ),
+                  };
+                })}
             />
           ) : (
             <div

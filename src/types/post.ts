@@ -88,14 +88,14 @@ export interface PostAuthor {
 /** 审核任务与违规记录（对齐后端 FeedsPostAuditTaskDO） */
 export interface PostAuditTaskItem {
   id: string;
-  auditMode: 'alicloud' | 'manual'; // 机审 / 人工
-  contentType?: 'text' | 'image' | 'video';
-  suggestion?: 'pass' | 'review' | 'block';
-  label?: string; // 命中标签，如 porn, terrorism, ad
-  reason?: string; // 驳回原因
+  auditMode: 'alicloud' | 'manual' | 'system' | string; // 机审 / 人工 / 系统策略
+  contentType?: 'text' | 'image' | 'video' | 'profile' | string;
+  suggestion?: 'pass' | 'review' | 'block' | string;
+  label?: string; // 命中标签，如 porn, terrorism, ad, sens_politics
+  reason?: string; // 驳回或判定原因
   createdAt?: string | number;
   updatedAt?: string | number;
-  operator?: string;
+  operator?: string; // 操作人 / 智能引擎标识
 }
 
 /**

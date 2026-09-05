@@ -26,3 +26,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Backend requirements docs (local only, do not commit)
+docs/backend-*.md
