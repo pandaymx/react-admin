@@ -376,10 +376,18 @@ export const AppealsPage: React.FC = () => {
       width: 170,
       render: (_, record) => (
         <div>
-          <Space size={4}>
+          <Space size={4} wrap>
             <Text strong copyable={{ text: record.id }}>
               {record.id}
             </Text>
+            {record.restrictionId && (
+              <Tag
+                color="geekblue"
+                style={{ fontSize: 10, margin: 0, padding: '0 4px', lineHeight: '16px' }}
+              >
+                限制#{record.restrictionId}
+              </Tag>
+            )}
           </Space>
           <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>
             <ClockCircleOutlined style={{ marginRight: 4 }} />
@@ -404,7 +412,7 @@ export const AppealsPage: React.FC = () => {
             <div style={{ fontSize: 11, color: '#8c8c8c' }}>
               <span>@{record.user.username}</span>
               <span style={{ margin: '0 4px' }}>·</span>
-              <span>UID: {record.user.uid}</span>
+              <span>展示号: {record.user.userNo || record.user.uid}</span>
             </div>
           </div>
         </Space>

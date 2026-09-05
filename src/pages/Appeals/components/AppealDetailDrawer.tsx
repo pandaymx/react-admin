@@ -207,6 +207,7 @@ export const AppealDetailDrawer: React.FC<AppealDetailDrawerProps> = ({
                 </Text>
               </div>
               <div style={{ marginTop: 4, display: 'flex', gap: 16, fontSize: 12 }}>
+                <Text type="secondary">展示号: {appeal.user.userNo || appeal.user.uid}</Text>
                 <Text type="secondary">UID: {appeal.user.uid}</Text>
                 <Text type="secondary">
                   联系手机:{' '}
@@ -225,6 +226,11 @@ export const AppealDetailDrawer: React.FC<AppealDetailDrawerProps> = ({
             <Space>
               <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
               <span>原始违规处罚记录</span>
+              {appeal.restrictionId && (
+                <Tag color="geekblue" style={{ marginLeft: 8 }}>
+                  后端限制单: #{appeal.restrictionId}
+                </Tag>
+              )}
             </Space>
           }
           size="small"
@@ -235,6 +241,11 @@ export const AppealDetailDrawer: React.FC<AppealDetailDrawerProps> = ({
               {renderAppealTypeTag(appeal.appealType)}
             </Descriptions.Item>
             <Descriptions.Item label="处罚发生时间">{appeal.originalPunishTime}</Descriptions.Item>
+            {appeal.restrictionId && (
+              <Descriptions.Item label="后端治理限制ID" span={2}>
+                <Text code>RESTRICTION_{appeal.restrictionId}</Text>
+              </Descriptions.Item>
+            )}
             <Descriptions.Item label="原始处置原因" span={2}>
               <Text type="danger" strong>
                 {appeal.originalPunishReason}

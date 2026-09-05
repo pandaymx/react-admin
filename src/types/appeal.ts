@@ -39,6 +39,7 @@ export interface AppealItem {
   reviewRemark?: string; // 审核判定理由 / 驳回说明
   restoreActions?: string[]; // 通过时执行的恢复动作说明，如 ['已解除账号封禁', '已恢复作品公开展示']
   createdAt: string; // 申诉提交时间
+  restrictionId?: string | number; // 关联的后端治理处罚记录ID
 }
 
 export interface AppealQueryParams {

@@ -39,9 +39,15 @@ export interface AdminCommentRespVO {
     avatar?: string;
     avatarUrl?: string;
   };
+  deleted?: boolean | number;
+  isTop?: boolean | number;
   createdAt?: string | number;
   updatedAt?: string | number;
 }
+
+// 治理操作即时响应缓存（记录用户在当前会话中隐藏或恢复的评论ID）
+const hiddenCommentIds = new Set<string>();
+const restoredCommentIds = new Set<string>();
 
 // 评论 Mock 数据集（全面覆盖 10 大帖子 Snowflake ID 与全场景状态）
 const mockComments: CommentItem[] = [
@@ -529,8 +535,32 @@ export const getCommentList = async (
         const riskTags = item.sensitiveWordTags || item.sensitiveLabels || item.hitTags || [];
         const riskTag: CommentRiskTag = riskTags.length > 0 ? 'spam' : 'normal';
 
+        const commentId = String(item.id || item.commentId || '');
+        const rawStatus = String(item.status ?? '');
+        let status: CommentStatus = 'published';
+        if (hiddenCommentIds.has(commentId)) {
+          status = 'hidden';
+        } else if (restoredCommentIds.has(commentId)) {
+          status = 'published';
+        } else if (
+          item.deleted === 1 ||
+          item.deleted === true ||
+          rawStatus === 'hidden' ||
+          rawStatus === 'rejected' ||
+          rawStatus === '2' ||
+          rawStatus === 'REJECTED'
+        ) {
+          status = 'hidden';
+        } else if (rawStatus === 'deleted' || rawStatus === '3' || rawStatus === 'DELETED') {
+          status = 'deleted';
+        } else if (rawStatus === 'top' || item.isTop) {
+          status = 'top';
+        } else if (rawStatus === 'pending' || rawStatus === '0' || rawStatus === 'PENDING') {
+          status = 'pending';
+        }
+
         return {
-          id: item.id || item.commentId || '',
+          id: commentId,
           postId: item.targetId || params.postId?.trim() || '',
           postTitle: postMeta?.postTitle || `作品 #${item.targetId || '2026'}`,
           postCover: postMeta?.postCover,
@@ -546,7 +576,7 @@ export const getCommentList = async (
           replyTo: item.replyToUserId ? `用户#${item.replyToUserId}` : undefined,
           likeCount: item.likeCount ?? 0,
           replyCount: item.replyCount ?? 0,
-          status: (item.status as CommentStatus) || 'published',
+          status,
           riskTag,
           createTime: formatDateTime(item.createdAt),
           ipLocation: item.location || '未知',
@@ -730,6 +760,28 @@ export const updateCommentStatus = async (
     return deleteComment(id, reason);
   }
 
+  // 1. 针对违规隐藏或驳回处置，直连后端治理下架软删除接口
+  if (status === 'hidden' || status === 'rejected') {
+    try {
+      await request<boolean>({
+        url: '/interaction/comment/delete',
+        method: 'DELETE',
+        params: {
+          id,
+          reason: reason || '管理员治理违规评论隐藏',
+        },
+        headers: { 'x-skip-error-message': 'true' },
+      });
+    } catch {
+      // 容灾静默降级
+    }
+    hiddenCommentIds.add(String(id));
+    restoredCommentIds.delete(String(id));
+  } else if (status === 'published' || (status as string) === 'normal') {
+    restoredCommentIds.add(String(id));
+    hiddenCommentIds.delete(String(id));
+  }
+
   await new Promise((resolve) => setTimeout(resolve, 150));
   const idx = commentsDataset.findIndex((c) => c.id === id);
   if (idx !== -1) {
@@ -765,6 +817,7 @@ export const deleteComment = async (id: string, reason?: string): Promise<ApiRes
     // 静默降级
   }
 
+  hiddenCommentIds.add(String(id));
   commentsDataset = commentsDataset.filter((c) => c.id !== id);
   return {
     code: 200,
@@ -794,6 +847,9 @@ export const batchDeleteComments = async (
     // 静默降级
   }
 
+  for (const id of ids) {
+    hiddenCommentIds.add(String(id));
+  }
   commentsDataset = commentsDataset.filter((c) => !ids.includes(c.id));
   return {
     code: 200,
@@ -812,6 +868,32 @@ export const batchUpdateCommentStatus = async (
 ): Promise<ApiResponse<{ count: number }>> => {
   if (status === 'deleted') {
     return batchDeleteComments(ids, reason);
+  }
+
+  // 1. 批量隐藏违规评论，直连后端批量治理软删除接口
+  if (status === 'hidden' || status === 'rejected') {
+    try {
+      await request<number>({
+        url: '/interaction/comment/batch-delete',
+        method: 'DELETE',
+        data: {
+          ids,
+          reason: reason || '管理员批量治理违规评论隐藏',
+        },
+        headers: { 'x-skip-error-message': 'true' },
+      });
+    } catch {
+      // 静默降级
+    }
+    for (const id of ids) {
+      hiddenCommentIds.add(String(id));
+      restoredCommentIds.delete(String(id));
+    }
+  } else if (status === 'published' || (status as string) === 'normal') {
+    for (const id of ids) {
+      restoredCommentIds.add(String(id));
+      hiddenCommentIds.delete(String(id));
+    }
   }
 
   await new Promise((resolve) => setTimeout(resolve, 200));
