@@ -261,6 +261,15 @@ export const PostCommentsDrawer: React.FC<PostCommentsDrawerProps> = ({
                         <Text key="del-text" type="secondary">
                           已安全软删除
                         </Text>,
+                        <Button
+                          key="restore-del"
+                          type="link"
+                          size="small"
+                          style={{ color: '#52c41a' }}
+                          onClick={() => handleStatusChange(item, 'published')}
+                        >
+                          恢复展示
+                        </Button>,
                       ]
                     : [
                         item.status === 'top' ? (
@@ -268,7 +277,7 @@ export const PostCommentsDrawer: React.FC<PostCommentsDrawerProps> = ({
                             key="untop"
                             type="link"
                             size="small"
-                            onClick={() => handleStatusChange(item, 'normal')}
+                            onClick={() => handleStatusChange(item, 'published')}
                           >
                             取消置顶
                           </Button>
@@ -289,7 +298,7 @@ export const PostCommentsDrawer: React.FC<PostCommentsDrawerProps> = ({
                             type="link"
                             size="small"
                             style={{ color: '#52c41a' }}
-                            onClick={() => handleStatusChange(item, 'normal')}
+                            onClick={() => handleStatusChange(item, 'published')}
                           >
                             恢复展示
                           </Button>

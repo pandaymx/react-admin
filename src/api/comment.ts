@@ -45,9 +45,64 @@ export interface AdminCommentRespVO {
   updatedAt?: string | number;
 }
 
-// 治理操作即时响应缓存（记录用户在当前会话中隐藏或恢复的评论ID）
-const hiddenCommentIds = new Set<string>();
-const restoredCommentIds = new Set<string>();
+// 治理操作持久化辅助函数 (解决 Vite HMR 或刷新后状态丢失问题)
+const loadIdSet = (key: string): Set<string> => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        return new Set(JSON.parse(stored));
+      }
+    }
+  } catch {
+    // 忽略异常
+  }
+  return new Set<string>();
+};
+
+const saveIdSet = (key: string, set: Set<string>) => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem(key, JSON.stringify(Array.from(set)));
+    }
+  } catch {
+    // 忽略异常
+  }
+};
+
+const hiddenCommentIds = loadIdSet('admin_hidden_comments');
+const restoredCommentIds = loadIdSet('admin_restored_comments');
+const deletedCommentIds = loadIdSet('admin_deleted_comments');
+
+const markHidden = (id: string) => {
+  const sid = String(id);
+  hiddenCommentIds.add(sid);
+  restoredCommentIds.delete(sid);
+  deletedCommentIds.delete(sid);
+  saveIdSet('admin_hidden_comments', hiddenCommentIds);
+  saveIdSet('admin_restored_comments', restoredCommentIds);
+  saveIdSet('admin_deleted_comments', deletedCommentIds);
+};
+
+const markRestored = (id: string) => {
+  const sid = String(id);
+  restoredCommentIds.add(sid);
+  hiddenCommentIds.delete(sid);
+  deletedCommentIds.delete(sid);
+  saveIdSet('admin_restored_comments', restoredCommentIds);
+  saveIdSet('admin_hidden_comments', hiddenCommentIds);
+  saveIdSet('admin_deleted_comments', deletedCommentIds);
+};
+
+const markDeleted = (id: string) => {
+  const sid = String(id);
+  deletedCommentIds.add(sid);
+  hiddenCommentIds.delete(sid);
+  restoredCommentIds.delete(sid);
+  saveIdSet('admin_deleted_comments', deletedCommentIds);
+  saveIdSet('admin_hidden_comments', hiddenCommentIds);
+  saveIdSet('admin_restored_comments', restoredCommentIds);
+};
 
 // 评论 Mock 数据集（全面覆盖 10 大帖子 Snowflake ID 与全场景状态）
 const mockComments: CommentItem[] = [
@@ -538,25 +593,35 @@ export const getCommentList = async (
         const commentId = String(item.id || item.commentId || '');
         const rawStatus = String(item.status ?? '');
         let status: CommentStatus = 'published';
-        if (hiddenCommentIds.has(commentId)) {
-          status = 'hidden';
-        } else if (restoredCommentIds.has(commentId)) {
+
+        // 1. 最高优先级：显式展示白名单（即便后端处于 DELETED 软删除，只要管理员点击了展示，依然保持正常展示）
+        if (restoredCommentIds.has(commentId)) {
           status = 'published';
+        } else if (hiddenCommentIds.has(commentId)) {
+          status = 'hidden';
+        } else if (deletedCommentIds.has(commentId)) {
+          status = 'deleted';
         } else if (
-          item.deleted === 1 ||
-          item.deleted === true ||
           rawStatus === 'hidden' ||
           rawStatus === 'rejected' ||
           rawStatus === '2' ||
           rawStatus === 'REJECTED'
         ) {
           status = 'hidden';
-        } else if (rawStatus === 'deleted' || rawStatus === '3' || rawStatus === 'DELETED') {
+        } else if (
+          item.deleted === 1 ||
+          item.deleted === true ||
+          rawStatus === 'deleted' ||
+          rawStatus === '3' ||
+          rawStatus === 'DELETED'
+        ) {
           status = 'deleted';
         } else if (rawStatus === 'top' || item.isTop) {
           status = 'top';
         } else if (rawStatus === 'pending' || rawStatus === '0' || rawStatus === 'PENDING') {
           status = 'pending';
+        } else {
+          status = 'published';
         }
 
         return {
@@ -756,6 +821,7 @@ export const updateCommentStatus = async (
   status: CommentStatus,
   reason?: string,
 ): Promise<ApiResponse<null>> => {
+  const sid = String(id);
   if (status === 'deleted') {
     return deleteComment(id, reason);
   }
@@ -767,7 +833,7 @@ export const updateCommentStatus = async (
         url: '/interaction/comment/delete',
         method: 'DELETE',
         params: {
-          id,
+          id: sid,
           reason: reason || '管理员治理违规评论隐藏',
         },
         headers: { 'x-skip-error-message': 'true' },
@@ -775,17 +841,17 @@ export const updateCommentStatus = async (
     } catch {
       // 容灾静默降级
     }
-    hiddenCommentIds.add(String(id));
-    restoredCommentIds.delete(String(id));
+    markHidden(sid);
   } else if (status === 'published' || (status as string) === 'normal') {
-    restoredCommentIds.add(String(id));
-    hiddenCommentIds.delete(String(id));
+    // 恢复正常展示（清除已隐藏和已删除状态，写入持久化展示白名单）
+    markRestored(sid);
   }
 
   await new Promise((resolve) => setTimeout(resolve, 150));
-  const idx = commentsDataset.findIndex((c) => c.id === id);
+  const idx = commentsDataset.findIndex((c) => String(c.id) === sid);
   if (idx !== -1) {
-    commentsDataset[idx] = { ...commentsDataset[idx], status };
+    const targetStatus = (status as string) === 'normal' ? 'published' : status;
+    commentsDataset[idx] = { ...commentsDataset[idx], status: targetStatus };
   }
   return {
     code: 200,
@@ -803,12 +869,13 @@ export const updateCommentStatus = async (
  * 删除单个评论（软删除：优先调后端 DELETE /interaction/comment/delete）
  */
 export const deleteComment = async (id: string, reason?: string): Promise<ApiResponse<null>> => {
+  const sid = String(id);
   try {
     await request<boolean>({
       url: '/interaction/comment/delete',
       method: 'DELETE',
       params: {
-        id,
+        id: sid,
         reason: reason || '管理员治理违规评论软删除',
       },
       headers: { 'x-skip-error-message': 'true' },
@@ -817,8 +884,8 @@ export const deleteComment = async (id: string, reason?: string): Promise<ApiRes
     // 静默降级
   }
 
-  hiddenCommentIds.add(String(id));
-  commentsDataset = commentsDataset.filter((c) => c.id !== id);
+  markDeleted(sid);
+  commentsDataset = commentsDataset.filter((c) => String(c.id) !== sid);
   return {
     code: 200,
     data: null,
@@ -848,7 +915,7 @@ export const batchDeleteComments = async (
   }
 
   for (const id of ids) {
-    hiddenCommentIds.add(String(id));
+    markDeleted(String(id));
   }
   commentsDataset = commentsDataset.filter((c) => !ids.includes(c.id));
   return {
@@ -886,20 +953,19 @@ export const batchUpdateCommentStatus = async (
       // 静默降级
     }
     for (const id of ids) {
-      hiddenCommentIds.add(String(id));
-      restoredCommentIds.delete(String(id));
+      markHidden(String(id));
     }
   } else if (status === 'published' || (status as string) === 'normal') {
     for (const id of ids) {
-      restoredCommentIds.add(String(id));
-      hiddenCommentIds.delete(String(id));
+      markRestored(String(id));
     }
   }
 
   await new Promise((resolve) => setTimeout(resolve, 200));
+  const targetStatus = (status as string) === 'normal' ? 'published' : status;
   commentsDataset = commentsDataset.map((c) => {
     if (ids.includes(c.id)) {
-      return { ...c, status };
+      return { ...c, status: targetStatus };
     }
     return c;
   });

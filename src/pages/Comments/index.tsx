@@ -383,9 +383,20 @@ export const CommentsPage: React.FC = () => {
       render: (_, record) => (
         <Space size="small">
           {record.status === 'deleted' ? (
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              已软删除
-            </Text>
+            <Space size={4}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                已软删除
+              </Text>
+              <Button
+                type="link"
+                size="small"
+                icon={<EyeOutlined />}
+                style={{ color: '#52c41a', padding: '0 4px' }}
+                onClick={() => handleStatusChange(record, 'published')}
+              >
+                恢复展示
+              </Button>
+            </Space>
           ) : (
             <>
               {record.status === 'hidden' || record.status === 'rejected' ? (
@@ -394,7 +405,7 @@ export const CommentsPage: React.FC = () => {
                   size="small"
                   icon={<EyeOutlined />}
                   style={{ color: '#52c41a' }}
-                  onClick={() => handleStatusChange(record, 'normal')}
+                  onClick={() => handleStatusChange(record, 'published')}
                 >
                   展示
                 </Button>
@@ -547,7 +558,7 @@ export const CommentsPage: React.FC = () => {
             {selectedRowKeys.length > 0 && (
               <Space>
                 <Text type="secondary">已选择 {selectedRowKeys.length} 条</Text>
-                <Button size="small" onClick={() => handleBatchStatus('normal')}>
+                <Button size="small" onClick={() => handleBatchStatus('published')}>
                   批量恢复展示
                 </Button>
                 <Button size="small" danger onClick={() => handleBatchStatus('hidden')}>
