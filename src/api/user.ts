@@ -484,14 +484,41 @@ export function mapBackendStatusToFrontend(rawStatus?: number): UserStatus {
   return 'normal';
 }
 
-export function mapFrontendStatusToBackend(status: UserStatus | number): 1 | 2 | 3 {
+export function mapFrontendStatusToBackend(status: UserStatus | number | string): 1 | 2 | 3 {
   if (typeof status === 'number') {
     if (status === 2 || status === 3) return status;
     return 1;
   }
-  if (status === 'banned' || status === 'muted') return 2;
+  if (status === 'banned' || status === 'muted' || status === 'penalized') return 2;
   if (status === 'cancelled' || status === 'cancelling') return 3;
   return 1;
+}
+
+/**
+ * 计算用户处置排序权重：
+ * 权重 3: 全量账号封号中 (最高优先级置顶)
+ * 权重 2: 违规受限中 (禁言/禁评/禁发帖/禁活动等生效限制中)
+ * 权重 1: 正常活跃合规
+ * 权重 0: 已注销档案
+ */
+export function getUserSortWeight(
+  user: UserItem,
+  restrictionsMap?: Record<string, ContentRestrictionItem[]>,
+): number {
+  const uid = String(user.id || user.userId || user.userNo);
+  const hasActiveRestrictions =
+    (restrictionsMap &&
+      (restrictionsMap[uid]?.some((r) => r.status === 'active') ||
+        (restrictionsMap[user.id] &&
+          restrictionsMap[user.id].some((r) => r.status === 'active')))) ||
+    user.restrictions?.some((r) => r.status === 'active');
+
+  const isBanned = user.status === 'banned' || user.rawStatus === 2;
+
+  if (isBanned) return 3;
+  if (hasActiveRestrictions || user.status === 'muted') return 2;
+  if (user.status === 'normal' || user.rawStatus === 1) return 1;
+  return 0;
 }
 
 /**
@@ -636,9 +663,62 @@ export const getUserList = async (
   }
 
   if (params.status && params.status !== 'all') {
-    const targetStatus =
-      typeof params.status === 'number' ? mapBackendStatusToFrontend(params.status) : params.status;
-    filtered = filtered.filter((u) => u.status === targetStatus);
+    if (params.status === 'penalized') {
+      filtered = filtered.filter(
+        (u) =>
+          u.status === 'banned' ||
+          u.status === 'muted' ||
+          u.rawStatus === 2 ||
+          u.restrictions?.some((r) => r.status === 'active'),
+      );
+    } else if (params.status === 'restricted') {
+      filtered = filtered.filter(
+        (u) =>
+          (u.status === 'muted' || u.restrictions?.some((r) => r.status === 'active')) &&
+          u.status !== 'banned' &&
+          u.rawStatus !== 2,
+      );
+    } else if (params.status === 'banned' || params.status === 2) {
+      filtered = filtered.filter((u) => u.status === 'banned' || u.rawStatus === 2);
+    } else if (params.status === 'normal' || params.status === 1) {
+      filtered = filtered.filter(
+        (u) =>
+          (u.status === 'normal' || u.rawStatus === 1) &&
+          !u.restrictions?.some((r) => r.status === 'active'),
+      );
+    } else if (params.status === 'cancelled' || params.status === 3) {
+      filtered = filtered.filter((u) => u.status === 'cancelled' || u.rawStatus === 3);
+    } else {
+      const targetStatus =
+        typeof params.status === 'number'
+          ? mapBackendStatusToFrontend(params.status)
+          : params.status;
+      filtered = filtered.filter((u) => u.status === targetStatus);
+    }
+  }
+
+  // 兼容合并后的实名认证筛选
+  if (params.authStatus && params.authStatus !== 'all') {
+    if (params.authStatus === 'unverified') {
+      filtered = filtered.filter(
+        (u) =>
+          (!u.certified && u.verifyStatus === 'unverified') || u.certificationLabel === '未实名',
+      );
+    } else if (params.authStatus === 'personal') {
+      filtered = filtered.filter(
+        (u) =>
+          u.qualification === 1 ||
+          u.verifyStatus === 'personal' ||
+          u.certificationLabel === '个人认证',
+      );
+    } else if (params.authStatus === 'enterprise') {
+      filtered = filtered.filter(
+        (u) =>
+          u.qualification === 2 ||
+          u.verifyStatus === 'enterprise' ||
+          u.certificationLabel === '企业认证',
+      );
+    }
   }
 
   if (params.qualification && params.qualification !== 'all') {
@@ -650,6 +730,16 @@ export const getUserList = async (
     const cBool = Boolean(params.certified);
     filtered = filtered.filter((u) => u.certified === cBool);
   }
+
+  // 排序机制：被全量封号与违规受限的用户置顶优先展示，同等处置权重按注册时间倒序
+  filtered.sort((a, b) => {
+    const wA = getUserSortWeight(a);
+    const wB = getUserSortWeight(b);
+    if (wA !== wB) return wB - wA;
+    const tA = new Date(a.createTime || a.registerTime || 0).getTime();
+    const tB = new Date(b.createTime || b.registerTime || 0).getTime();
+    return tB - tA;
+  });
 
   const page = params.pageNo || params.page || 1;
   const pageSize = params.pageSize || 10;
@@ -782,47 +872,71 @@ export const getUserStatisticsSummary = async (): Promise<ApiResponse<UserStatis
     // ignore
   }
 
-  // 动态精确统计当前数据集中真正处于封禁或各项违规管控(禁言/禁帖/禁活动等)中的用户数
-  const dynamicDisabledCount = currentDataset.filter(
-    (u) =>
-      u.status === 'banned' ||
-      u.status === 'muted' ||
-      u.rawStatus === 2 ||
-      u.restrictions?.some((r) => r.status === 'active'),
+  // 尝试拉取当前所有生效中的违规内容限制，以精准识别违规受限用户数
+  let activeRestrictionsCount = 0;
+  try {
+    const restrRes = await getUserContentRestrictions({ status: 'active', pageSize: 100 });
+    if (restrRes?.data?.list) {
+      const uniqueRestrictedUsers = new Set(restrRes.data.list.map((r) => String(r.userId)));
+      activeRestrictionsCount = uniqueRestrictedUsers.size;
+    }
+  } catch {
+    // ignore
+  }
+
+  // 动态精确统计当前数据集中真正处于全量封号中的用户数 (status=2)
+  const dynamicBannedCount = currentDataset.filter(
+    (u) => u.status === 'banned' || u.rawStatus === 2,
   ).length;
 
-  const dynamicNormalCount = currentDataset.filter(
-    (u) =>
-      (u.status === 'normal' || u.rawStatus === 1) &&
-      !u.restrictions?.some((r) => r.status === 'active'),
-  ).length;
+  // 动态统计处于违规受限中且未全量封号的用户数
+  const dynamicRestrictedCount =
+    activeRestrictionsCount ||
+    currentDataset.filter(
+      (u) =>
+        (u.status === 'muted' || u.restrictions?.some((r) => r.status === 'active')) &&
+        u.status !== 'banned' &&
+        u.rawStatus !== 2,
+    ).length;
 
   const dynamicCancelledCount = currentDataset.filter(
     (u) => u.status === 'cancelled' || u.rawStatus === 3,
   ).length;
 
-  // 如果后端接口已返回数据，以真实数据为基准；若后端缺少统计或离线容灾，使用实时动态统计
-  if (backendData) {
-    return {
-      code: 200,
-      data: {
-        ...backendData,
-        disabledCount: backendData.disabledCount || dynamicDisabledCount,
-      },
-      message: 'success',
-    };
-  }
+  const dynamicPersonalCert = currentDataset.filter(
+    (u) => u.qualification === 1 || u.certificationLabel === '个人认证',
+  ).length;
+
+  const dynamicEnterpriseCert = currentDataset.filter(
+    (u) => u.qualification === 2 || u.certificationLabel === '企业认证',
+  ).length;
+
+  const dynamicUnverified = currentDataset.filter(
+    (u) => !u.certified && u.qualification !== 1 && u.qualification !== 2,
+  ).length;
+
+  const total = backendData?.totalCount || currentDataset.length;
+  const banned = backendData?.disabledCount ?? dynamicBannedCount;
+  const restricted = dynamicRestrictedCount;
+  const disciplinedTotal = banned + restricted;
+  const cancelled = backendData?.cancelledCount ?? dynamicCancelledCount;
+  const normal = Math.max(0, total - disciplinedTotal - cancelled);
 
   return {
     code: 200,
     data: {
-      totalCount: currentDataset.length,
-      normalCount: dynamicNormalCount,
-      disabledCount: dynamicDisabledCount,
-      cancelledCount: dynamicCancelledCount,
-      todayNewCount: 2,
-      weekNewCount: 5,
-      monthNewCount: currentDataset.length,
+      totalCount: total,
+      normalCount: normal,
+      disabledCount: banned,
+      restrictedCount: restricted,
+      disciplinedTotalCount: disciplinedTotal,
+      cancelledCount: cancelled,
+      todayNewCount: backendData?.todayNewCount ?? 0,
+      weekNewCount: backendData?.weekNewCount ?? 0,
+      monthNewCount: backendData?.monthNewCount ?? total,
+      personalCertCount: backendData?.personalCertCount ?? dynamicPersonalCert,
+      enterpriseCertCount: backendData?.enterpriseCertCount ?? dynamicEnterpriseCert,
+      unverifiedCount: backendData?.unverifiedCount ?? dynamicUnverified,
     },
     message: 'success',
   };

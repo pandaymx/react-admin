@@ -57,6 +57,7 @@ import {
   getAllFilteredUsers,
   getUserContentRestrictions,
   getUserList,
+  getUserSortWeight,
   getUserStatisticsSummary,
   revokeAllUserRestrictions,
   revokeUserContentRestriction,
@@ -413,13 +414,45 @@ export const UsersPage: React.FC = () => {
       setLoading(true);
       try {
         const formValues = form.getFieldsValue();
+
+        // 解构合并后的实名认证筛选状态
+        let qualification: number | undefined;
+        let certified: boolean | undefined;
+        if (formValues.authStatus === 'unverified') {
+          certified = false;
+        } else if (formValues.authStatus === 'personal') {
+          certified = true;
+          qualification = 1;
+        } else if (formValues.authStatus === 'enterprise') {
+          certified = true;
+          qualification = 2;
+        }
+
+        // 账号状态解构映射
+        let queryStatus: UserQueryParams['status'];
+        if (formValues.status && formValues.status !== 'all') {
+          if (formValues.status === 'banned') {
+            queryStatus = 2; // 仅全量封号
+          } else if (formValues.status === 'cancelled') {
+            queryStatus = 3; // 已注销
+          } else if (formValues.status === 'normal') {
+            queryStatus = 1; // 正常
+          } else if (formValues.status === 'penalized' || formValues.status === 'restricted') {
+            // 复合受限状态，向后端传 undefined 获取全部并在前端结合 restrictions 进行精准复合过滤
+            queryStatus = undefined;
+          } else {
+            queryStatus = formValues.status as UserQueryParams['status'];
+          }
+        }
+
         const params: UserQueryParams = {
           userId: formValues.userId,
           phoneNumber: formValues.phoneNumber,
           nickname: formValues.nickname,
-          status: formValues.status,
-          qualification: formValues.qualification,
-          certified: formValues.certified,
+          status: queryStatus,
+          authStatus: formValues.authStatus,
+          qualification,
+          certified,
           pageNo: page,
           pageSize: size,
         };
@@ -441,7 +474,10 @@ export const UsersPage: React.FC = () => {
         ]);
 
         if ((res.code === 200 || res.code === 0) && res.data) {
-          const rawList = res.data.list;
+          let rawList = [...res.data.list];
+
+          const grouped: Record<string, ContentRestrictionItem[]> = {};
+          const activeRestrictedUserIds = new Set<string>();
 
           if (
             restrictionRes &&
@@ -449,16 +485,104 @@ export const UsersPage: React.FC = () => {
             restrictionRes.data?.list
           ) {
             const activeList = restrictionRes.data.list;
-            const grouped: Record<string, ContentRestrictionItem[]> = {};
             for (const r of activeList) {
-              if (!grouped[r.userId]) grouped[r.userId] = [];
-              grouped[r.userId].push(r);
+              const uid = String(r.userId);
+              if (!grouped[uid]) grouped[uid] = [];
+              grouped[uid].push(r);
+              activeRestrictedUserIds.add(uid);
             }
             setRestrictionsMap((prev) => ({ ...prev, ...grouped }));
           }
 
+          // 如果用户选择了复合受限状态筛选项，进行精准联动过滤
+          if (formValues.status === 'penalized') {
+            rawList = rawList.filter((u) => {
+              const uid = String(u.id || u.userId || u.userNo);
+              const hasActive =
+                activeRestrictedUserIds.has(uid) ||
+                (grouped[uid] && grouped[uid].length > 0) ||
+                u.restrictions?.some((r) => r.status === 'active');
+              return (
+                u.rawStatus === 2 || u.status === 'banned' || u.status === 'muted' || hasActive
+              );
+            });
+          } else if (formValues.status === 'restricted') {
+            rawList = rawList.filter((u) => {
+              const uid = String(u.id || u.userId || u.userNo);
+              const hasActive =
+                activeRestrictedUserIds.has(uid) ||
+                (grouped[uid] && grouped[uid].length > 0) ||
+                u.restrictions?.some((r) => r.status === 'active');
+              return (
+                (hasActive || u.status === 'muted') && u.rawStatus !== 2 && u.status !== 'banned'
+              );
+            });
+          } else if (formValues.status === 'normal' || formValues.status === 1) {
+            // 过滤掉虽然 status=1 但处于受限处罚中的用户
+            rawList = rawList.filter((u) => {
+              const uid = String(u.id || u.userId || u.userNo);
+              const hasActive =
+                activeRestrictedUserIds.has(uid) ||
+                (grouped[uid] && grouped[uid].length > 0) ||
+                u.restrictions?.some((r) => r.status === 'active');
+              return !hasActive && (u.rawStatus === 1 || u.status === 'normal');
+            });
+          }
+
+          // 核心置顶算法：被全量封号与违规受限的用户置顶优先展示，同等处置权重按注册时间倒序
+          rawList.sort((a, b) => {
+            const wA = getUserSortWeight(a, grouped);
+            const wB = getUserSortWeight(b, grouped);
+            if (wA !== wB) return wB - wA;
+            const tA = new Date(a.createTime || a.registerTime || 0).getTime();
+            const tB = new Date(b.createTime || b.registerTime || 0).getTime();
+            return tB - tA;
+          });
+
+          // 同步动态校准大盘统计中的认证分布与受限人数
+          setSummary((prev) => {
+            const totalCount = prev.totalCount || res.data.total;
+            const disabledCount =
+              prev.disabledCount ||
+              rawList.filter((u) => u.rawStatus === 2 || u.status === 'banned').length;
+            const restrictedCount = activeRestrictedUserIds.size || prev.restrictedCount || 0;
+            const disciplinedTotalCount = disabledCount + restrictedCount;
+            const cancelledCount = prev.cancelledCount || 0;
+            const normalCount = Math.max(0, totalCount - disciplinedTotalCount - cancelledCount);
+
+            const personalCertCount =
+              prev.personalCertCount ||
+              rawList.filter((u) => u.qualification === 1 || u.certificationLabel === '个人认证')
+                .length;
+            const enterpriseCertCount =
+              prev.enterpriseCertCount ||
+              rawList.filter((u) => u.qualification === 2 || u.certificationLabel === '企业认证')
+                .length;
+            const unverifiedCount = Math.max(
+              0,
+              totalCount - personalCertCount - enterpriseCertCount,
+            );
+
+            return {
+              ...prev,
+              totalCount,
+              normalCount,
+              disabledCount,
+              restrictedCount,
+              disciplinedTotalCount,
+              cancelledCount,
+              personalCertCount,
+              enterpriseCertCount,
+              unverifiedCount,
+            };
+          });
+
           setUserList(rawList);
-          setTotal(res.data.total);
+          setTotal(
+            rawList.length < res.data.total && formValues.status && formValues.status !== 'all'
+              ? rawList.length
+              : res.data.total,
+          );
           setCurrentPage(res.data.page || page);
           setPageSize(res.data.pageSize || size);
         }
@@ -805,7 +929,15 @@ export const UsersPage: React.FC = () => {
             fontSize: 11,
           }}
         >
-          <span>违规处罚项</span>
+          <Space size={4}>
+            <Tag
+              color="error"
+              style={{ margin: 0, padding: '0 4px', fontSize: 10, lineHeight: '16px' }}
+            >
+              置顶管控
+            </Tag>
+            <span>违规处罚项</span>
+          </Space>
           <span>时效 / 快捷解除</span>
         </div>
 
@@ -1382,8 +1514,17 @@ export const UsersPage: React.FC = () => {
             }}
           >
             <Statistic
-              title="正常活跃状态"
-              value={summary.normalCount || total}
+              title="正常合规活跃"
+              value={
+                summary.normalCount ??
+                Math.max(
+                  0,
+                  (summary.totalCount || total) -
+                    (summary.disciplinedTotalCount ||
+                      (summary.disabledCount || 0) + (summary.restrictedCount || 0)) -
+                    (summary.cancelledCount || 0),
+                )
+              }
               valueStyle={{ color: '#52c41a', fontSize: 22, fontWeight: 600 }}
               prefix={<CheckCircleFilled style={{ color: '#52c41a' }} />}
             />
@@ -1399,10 +1540,18 @@ export const UsersPage: React.FC = () => {
             }}
           >
             <Statistic
-              title="违规禁用/封禁"
-              value={summary.disabledCount || 0}
+              title="违规禁用与受限"
+              value={
+                summary.disciplinedTotalCount ??
+                (summary.disabledCount || 0) + (summary.restrictedCount || 0)
+              }
               valueStyle={{ color: '#ff4d4f', fontSize: 22, fontWeight: 600 }}
               prefix={<StopOutlined style={{ color: '#ff4d4f' }} />}
+              suffix={
+                <span style={{ fontSize: 12, color: token.colorTextSecondary, marginLeft: 8 }}>
+                  (封号 {summary.disabledCount || 0} · 受限 {summary.restrictedCount || 0})
+                </span>
+              }
             />
           </Card>
         </Col>
@@ -1439,9 +1588,8 @@ export const UsersPage: React.FC = () => {
           onFinish={handleSearch}
           onValuesChange={handleFormValuesChange}
           initialValues={{
-            qualification: 'all',
+            authStatus: 'all',
             status: 'all',
-            certified: 'all',
           }}
         >
           <Row gutter={[16, 12]}>
@@ -1475,40 +1623,61 @@ export const UsersPage: React.FC = () => {
               <Form.Item label="账号状态" name="status" style={{ marginBottom: 0 }}>
                 <Select
                   options={[
-                    { label: '全部状态', value: 'all' },
-                    { label: '🟢 正常 (1)', value: 1 },
-                    { label: '🔴 禁用/封禁 (2)', value: 2 },
-                    { label: '⚪ 已注销 (3)', value: 3 },
+                    {
+                      label: `全部状态 (${summary.totalCount || total || 0})`,
+                      value: 'all',
+                    },
+                    {
+                      label: `🟢 正常合规 (${summary.normalCount ?? 0})`,
+                      value: 'normal',
+                    },
+                    {
+                      label: `🔴 违规管控与封禁 (${summary.disciplinedTotalCount ?? (summary.disabledCount || 0) + (summary.restrictedCount || 0)})`,
+                      value: 'penalized',
+                    },
+                    {
+                      label: `🚫 仅全量封号 (${summary.disabledCount || 0})`,
+                      value: 'banned',
+                    },
+                    {
+                      label: `⚠️ 仅违规受限 (${summary.restrictedCount || 0})`,
+                      value: 'restricted',
+                    },
+                    {
+                      label: `⚪ 已注销 (${summary.cancelledCount || 0})`,
+                      value: 'cancelled',
+                    },
                   ]}
                 />
               </Form.Item>
             </Col>
 
             <Col xs={24} sm={12} md={8} lg={6}>
-              <Form.Item label="认证类型" name="qualification" style={{ marginBottom: 0 }}>
+              <Form.Item label="实名认证" name="authStatus" style={{ marginBottom: 0 }}>
                 <Select
                   options={[
-                    { label: '全部认证类型', value: 'all' },
-                    { label: '🟢 个人认证 (1)', value: 1 },
-                    { label: '🔵 企业认证 (2)', value: 2 },
+                    {
+                      label: `全部实名状态 (${summary.totalCount || total || 0})`,
+                      value: 'all',
+                    },
+                    {
+                      label: `⚪ 未实名认证 (${summary.unverifiedCount ?? Math.max(0, (summary.totalCount || total || 0) - (summary.personalCertCount || 0) - (summary.enterpriseCertCount || 0))})`,
+                      value: 'unverified',
+                    },
+                    {
+                      label: `🟢 个人实名认证 (${summary.personalCertCount || 0})`,
+                      value: 'personal',
+                    },
+                    {
+                      label: `🔵 企业官方认证 (${summary.enterpriseCertCount || 0})`,
+                      value: 'enterprise',
+                    },
                   ]}
                 />
               </Form.Item>
             </Col>
 
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <Form.Item label="实名认证" name="certified" style={{ marginBottom: 0 }}>
-                <Select
-                  options={[
-                    { label: '全部实名状态', value: 'all' },
-                    { label: '🟢 已实名认证', value: true },
-                    { label: '⚪ 未实名', value: false },
-                  ]}
-                />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} sm={16} md={12} lg={8}>
+            <Col xs={24} sm={16} md={12} lg={10}>
               <Form.Item label="注册时间范围" name="dateRange" style={{ marginBottom: 0 }}>
                 <RangePicker
                   style={{ width: '100%' }}
@@ -1521,7 +1690,7 @@ export const UsersPage: React.FC = () => {
               xs={24}
               sm={8}
               md={12}
-              lg={4}
+              lg={8}
               style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end' }}
             >
               <Space size="middle" style={{ marginBottom: 0 }}>
