@@ -7,6 +7,7 @@ import {
   EyeOutlined,
   MinusCircleFilled,
   ReloadOutlined,
+  SafetyCertificateOutlined,
   SearchOutlined,
   UserOutlined,
 } from '@ant-design/icons';
@@ -28,6 +29,7 @@ import {
   Row,
   Select,
   Space,
+  Statistic,
   Table,
   Tag,
   Tooltip,
@@ -36,14 +38,16 @@ import {
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
-import { getPersonalVerificationList } from '@/api/verification';
+import { getPersonalVerificationList, getVerificationSummaryStats } from '@/api/verification';
 import type {
   AuditStatus,
   IdCardType,
   PersonalVerificationItem,
   VerificationQueryParams,
+  VerificationSummaryStats,
 } from '@/types';
 import { exportToCsv } from '@/utils/export';
+import { formatDateTime } from '@/utils/time';
 import { AuditModal } from './AuditModal';
 
 const { Text } = Typography;
@@ -58,6 +62,14 @@ export const PersonalVerification: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
+  // 统计概览数据
+  const [summaryStats, setSummaryStats] = useState<VerificationSummaryStats>({
+    pendingCount: 0,
+    approvedCount: 0,
+    rejectedCount: 0,
+    totalCount: 0,
+  });
+
   // 证件号脱敏控制，记录用户手动展开查看的记录 ID 集合
   const [revealedIds, setRevealedIds] = useState<Record<string, boolean>>({});
 
@@ -69,6 +81,18 @@ export const PersonalVerification: React.FC = () => {
   const [auditModalVisible, setAuditModalVisible] = useState<boolean>(false);
   const [auditTarget, setAuditTarget] = useState<PersonalVerificationItem | null>(null);
 
+  // 拉取统计概览
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await getVerificationSummaryStats('personal');
+      if (res.code === 200 && res.data) {
+        setSummaryStats(res.data);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   // 数据拉取
   const fetchData = useCallback(
     async (page = 1, size = 10) => {
@@ -78,10 +102,13 @@ export const PersonalVerification: React.FC = () => {
         const params: VerificationQueryParams = {
           keyword: values.keyword,
           uid: values.uid,
+          userNo: values.uid,
+          userId: values.uid,
           idCardNo: values.idCardNo,
           idCardType: values.idCardType,
           status: values.status,
           page,
+          pageNo: page,
           pageSize: size,
         };
 
@@ -110,7 +137,8 @@ export const PersonalVerification: React.FC = () => {
 
   useEffect(() => {
     fetchData(1, 10);
-  }, [fetchData]);
+    fetchStats();
+  }, [fetchData, fetchStats]);
 
   const handleSearch = () => {
     fetchData(1, pageSize);
@@ -118,6 +146,12 @@ export const PersonalVerification: React.FC = () => {
 
   const handleReset = () => {
     form.resetFields();
+    fetchData(1, pageSize);
+  };
+
+  // 点击指标卡片快捷筛选状态
+  const handleQuickFilterStatus = (status: AuditStatus | 'all') => {
+    form.setFieldsValue({ status });
     fetchData(1, pageSize);
   };
 
@@ -139,7 +173,7 @@ export const PersonalVerification: React.FC = () => {
 
   // 手机号脱敏
   const formatMaskedPhone = (phone?: string, isRevealed = false) => {
-    if (!phone) return '未绑定';
+    if (!phone) return '未绑定手机';
     if (isRevealed) return phone;
     return phone
       .replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2')
@@ -158,7 +192,7 @@ export const PersonalVerification: React.FC = () => {
       case 'tw_pass':
         return <Tag color="orange">台湾通行证</Tag>;
       default:
-        return <Tag>其他证件</Tag>;
+        return <Tag>权威证件</Tag>;
     }
   };
 
@@ -228,7 +262,7 @@ export const PersonalVerification: React.FC = () => {
       }
       exportToCsv(
         [
-          { title: '申请编号', key: 'id' },
+          { title: '申请/档案编号', key: 'id' },
           { title: '用户UID', key: 'uid' },
           { title: '昵称', key: 'nickname' },
           { title: '真实姓名', key: 'realName' },
@@ -242,7 +276,7 @@ export const PersonalVerification: React.FC = () => {
                 hk_mo_pass: '港澳通行证',
                 tw_pass: '台湾通行证',
               };
-              return map[r.idCardType] || '其他证件';
+              return map[r.idCardType] || '居民身份证';
             },
           },
           { title: '证件号码', key: 'idCardNo' },
@@ -258,6 +292,11 @@ export const PersonalVerification: React.FC = () => {
               };
               return map[r.status] || '未知';
             },
+          },
+          {
+            title: '认证渠道/来源',
+            key: 'source',
+            render: (r) => (r.isManualReview ? '人工待审工单' : '三方自动实名核验'),
           },
           { title: '认证申请时间', key: 'verifyTime' },
           { title: '联系电话', key: 'phone', render: (r) => formatMaskedPhone(r.phone, false) },
@@ -276,42 +315,53 @@ export const PersonalVerification: React.FC = () => {
     }
   };
 
-  // 个人认证表格 8 列定义
+  // 个人认证表格列定义
   const columns: TableProps<PersonalVerificationItem>['columns'] = [
     {
-      title: 'ID',
+      title: '编号与标识',
       dataIndex: 'id',
       key: 'id',
       width: 170,
       render: (id: string, record) => (
         <div>
           <div>
-            <Text code copyable={{ tooltips: ['复制申请编号', '已复制'] }} style={{ fontSize: 12 }}>
+            <Text code copyable={{ tooltips: ['复制编号', '已复制'] }} style={{ fontSize: 12 }}>
               {id}
             </Text>
           </div>
-          <div>
+          <div style={{ marginTop: 2 }}>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              UID: {record.uid}
+              UID: {record.userNo || record.uid}
             </Text>
+          </div>
+          <div style={{ marginTop: 2 }}>
+            {record.isManualReview ? (
+              <Tag color="gold" style={{ fontSize: 10, lineHeight: '18px', padding: '0 4px' }}>
+                人工审核单
+              </Tag>
+            ) : (
+              <Tag color="cyan" style={{ fontSize: 10, lineHeight: '18px', padding: '0 4px' }}>
+                已认证档案
+              </Tag>
+            )}
           </div>
         </div>
       ),
     },
     {
-      title: '昵称',
+      title: '用户信息',
       dataIndex: 'nickname',
       key: 'nickname',
       width: 180,
       render: (nickname: string, record) => (
         <Space size={10}>
-          <Avatar src={record.avatar} size={36} icon={<UserOutlined />} />
+          <Avatar src={record.avatar} size={38} icon={<UserOutlined />} />
           <div>
             <Text strong style={{ fontSize: 13, display: 'block' }}>
               {nickname}
             </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              {formatMaskedPhone(record.phone, false)}
+              {formatMaskedPhone(record.phone || record.contactPhone, false)}
             </Text>
           </div>
         </Space>
@@ -328,25 +378,27 @@ export const PersonalVerification: React.FC = () => {
       title: '证件号',
       dataIndex: 'idCardNo',
       key: 'idCardNo',
-      width: 220,
+      width: 210,
       render: (idCardNo: string, record) => {
         const isRevealed = !!revealedIds[record.id];
         return (
-          <Space size={6}>
+          <Space size={4}>
             <Text
               code
-              copyable={{ text: idCardNo, tooltips: ['复制完整证件号', '已复制'] }}
+              copyable={{ text: idCardNo, tooltips: ['复制证件号', '已复制'] }}
               style={{ fontSize: 12 }}
             >
               {formatMaskedIdCard(idCardNo, isRevealed)}
             </Text>
-            <Button
-              type="text"
-              size="small"
-              icon={isRevealed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-              onClick={() => toggleRevealId(record.id)}
-              style={{ color: '#8c8c8c' }}
-            />
+            {idCardNo && idCardNo.length >= 8 && (
+              <Button
+                type="text"
+                size="small"
+                icon={isRevealed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                onClick={() => toggleRevealId(record.id)}
+                style={{ color: '#8c8c8c' }}
+              />
+            )}
           </Space>
         );
       },
@@ -355,7 +407,7 @@ export const PersonalVerification: React.FC = () => {
       title: '证件类型',
       dataIndex: 'idCardType',
       key: 'idCardType',
-      width: 130,
+      width: 120,
       render: (type: IdCardType) => renderIdCardTypeTag(type),
     },
     {
@@ -363,20 +415,20 @@ export const PersonalVerification: React.FC = () => {
       dataIndex: 'verifyTime',
       key: 'verifyTime',
       width: 160,
-      render: (time: string) => <Text style={{ fontSize: 12 }}>{time}</Text>,
+      render: (time: string) => <Text style={{ fontSize: 12 }}>{formatDateTime(time)}</Text>,
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      width: 110,
+      width: 100,
       render: (status: AuditStatus) => renderAuditStatus(status),
     },
     {
       title: '操作',
       key: 'action',
       fixed: 'right',
-      width: 150,
+      width: 140,
       render: (_, record) => (
         <Space size="small">
           {record.status === 'pending' ? (
@@ -390,7 +442,7 @@ export const PersonalVerification: React.FC = () => {
             >
               审核
             </Button>
-          ) : (
+          ) : record.isManualReview ? (
             <Button
               type="link"
               size="small"
@@ -401,7 +453,7 @@ export const PersonalVerification: React.FC = () => {
             >
               重审
             </Button>
-          )}
+          ) : null}
 
           <Button
             type="link"
@@ -420,6 +472,109 @@ export const PersonalVerification: React.FC = () => {
 
   return (
     <div>
+      {/* 顶部认证数据看板 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={12} md={6}>
+          <Card
+            hoverable
+            style={{
+              borderRadius: 8,
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+              cursor: 'pointer',
+              borderLeft: '4px solid #1677ff',
+            }}
+            onClick={() => handleQuickFilterStatus('pending')}
+          >
+            <Statistic
+              title={
+                <Space>
+                  <ClockCircleFilled style={{ color: '#1677ff' }} />
+                  <span>待人工审核申请</span>
+                </Space>
+              }
+              value={summaryStats.pendingCount}
+              suffix="件"
+              styles={{ content: { color: '#1677ff', fontWeight: 600 } }}
+            />
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} md={6}>
+          <Card
+            hoverable
+            style={{
+              borderRadius: 8,
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+              cursor: 'pointer',
+              borderLeft: '4px solid #52c41a',
+            }}
+            onClick={() => handleQuickFilterStatus('approved')}
+          >
+            <Statistic
+              title={
+                <Space>
+                  <CheckCircleFilled style={{ color: '#52c41a' }} />
+                  <span>已认证实名用户</span>
+                </Space>
+              }
+              value={summaryStats.approvedCount}
+              suffix="人"
+              styles={{ content: { color: '#52c41a', fontWeight: 600 } }}
+            />
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} md={6}>
+          <Card
+            hoverable
+            style={{
+              borderRadius: 8,
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+              cursor: 'pointer',
+              borderLeft: '4px solid #ff4d4f',
+            }}
+            onClick={() => handleQuickFilterStatus('rejected')}
+          >
+            <Statistic
+              title={
+                <Space>
+                  <CloseCircleFilled style={{ color: '#ff4d4f' }} />
+                  <span>人工审核驳回</span>
+                </Space>
+              }
+              value={summaryStats.rejectedCount}
+              suffix="件"
+              styles={{ content: { color: '#ff4d4f', fontWeight: 600 } }}
+            />
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} md={6}>
+          <Card
+            hoverable
+            style={{
+              borderRadius: 8,
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+              cursor: 'pointer',
+              borderLeft: '4px solid #722ed1',
+            }}
+            onClick={() => handleQuickFilterStatus('all')}
+          >
+            <Statistic
+              title={
+                <Space>
+                  <SafetyCertificateOutlined style={{ color: '#722ed1' }} />
+                  <span>认证档案与单据总量</span>
+                </Space>
+              }
+              value={summaryStats.totalCount}
+              suffix="条"
+              styles={{ content: { color: '#722ed1', fontWeight: 600 } }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
       {/* 搜索过滤表单 */}
       <Card
         variant="borderless"
@@ -477,7 +632,7 @@ export const PersonalVerification: React.FC = () => {
                   options={[
                     { label: '全部状态', value: 'all' },
                     { label: '待审核', value: 'pending' },
-                    { label: '已通过', value: 'approved' },
+                    { label: '已通过 / 已认证', value: 'approved' },
                     { label: '已驳回', value: 'rejected' },
                     { label: '已撤销', value: 'revoked' },
                   ]}
@@ -521,7 +676,7 @@ export const PersonalVerification: React.FC = () => {
         }}
         title={
           <Space>
-            <span style={{ fontSize: 16, fontWeight: 600 }}>个人实名认证申请列表</span>
+            <span style={{ fontSize: 16, fontWeight: 600 }}>个人实名认证管理列表</span>
             <Tag color="cyan">共 {total} 条记录</Tag>
           </Space>
         }
@@ -530,8 +685,15 @@ export const PersonalVerification: React.FC = () => {
             <Button icon={<DownloadOutlined />} onClick={handleExport} loading={exportLoading}>
               导出个人认证数据
             </Button>
-            <Tooltip title="刷新列表">
-              <Button icon={<ReloadOutlined />} onClick={() => fetchData()} loading={loading} />
+            <Tooltip title="刷新列表与统计">
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={() => {
+                  fetchData(currentPage, pageSize);
+                  fetchStats();
+                }}
+                loading={loading}
+              />
             </Tooltip>
           </Space>
         }
@@ -549,7 +711,7 @@ export const PersonalVerification: React.FC = () => {
             showSizeChanger: true,
             showQuickJumper: true,
             pageSizeOptions: ['10', '20', '50', '100', '200', '500', '1000'],
-            showTotal: (allTotal) => `共 ${allTotal} 条申请记录`,
+            showTotal: (allTotal) => `共 ${allTotal} 条申请与认证记录`,
             onChange: (page, size) => {
               setCurrentPage(page);
               setPageSize(size);
@@ -567,7 +729,8 @@ export const PersonalVerification: React.FC = () => {
         targetName={auditTarget ? `${auditTarget.realName} (${auditTarget.nickname})` : ''}
         onSuccess={() => {
           setAuditModalVisible(false);
-          fetchData();
+          fetchData(currentPage, pageSize);
+          fetchStats();
         }}
         onCancel={() => setAuditModalVisible(false)}
       />
@@ -591,18 +754,18 @@ export const PersonalVerification: React.FC = () => {
                   {renderAuditStatus(currentRecord.status)}
                 </div>
                 <div style={{ marginTop: 4 }}>
-                  <Text type="secondary">申请编号: </Text>
+                  <Text type="secondary">档案/申请编号: </Text>
                   <Text code copyable>
                     {currentRecord.id}
                   </Text>
                   <Text type="secondary" style={{ marginLeft: 12 }}>
-                    用户UID: {currentRecord.uid}
+                    用户UID: {currentRecord.userNo || currentRecord.uid}
                   </Text>
                 </div>
               </div>
             </div>
 
-            <Descriptions title="认证申报信息" bordered size="small" column={2}>
+            <Descriptions title="实名主体资质档案" bordered size="small" column={2}>
               <Descriptions.Item label="真实姓名">{currentRecord.realName}</Descriptions.Item>
               <Descriptions.Item label="证件类型">
                 {renderIdCardTypeTag(currentRecord.idCardType)}
@@ -612,32 +775,52 @@ export const PersonalVerification: React.FC = () => {
                   {currentRecord.idCardNo}
                 </Text>
               </Descriptions.Item>
-              <Descriptions.Item label="联系电话">
-                <Text code copyable={currentRecord.phone ? { text: currentRecord.phone } : false}>
-                  {formatMaskedPhone(currentRecord.phone, false)}
+              <Descriptions.Item label="绑定电话">
+                <Text
+                  code
+                  copyable={
+                    currentRecord.phone || currentRecord.contactPhone
+                      ? { text: currentRecord.phone || currentRecord.contactPhone }
+                      : false
+                  }
+                >
+                  {formatMaskedPhone(currentRecord.phone || currentRecord.contactPhone, false)}
                 </Text>
               </Descriptions.Item>
-              <Descriptions.Item label="提交申请时间">{currentRecord.verifyTime}</Descriptions.Item>
-              <Descriptions.Item label="审核人">{currentRecord.auditor || '-'}</Descriptions.Item>
-              <Descriptions.Item label="审核时间">
-                {currentRecord.auditTime || '-'}
+              <Descriptions.Item label="认证渠道与来源">
+                {currentRecord.isManualReview ? (
+                  <Tag color="gold">人工待审异常工单</Tag>
+                ) : (
+                  <Tag color="green">三方自动核验通过</Tag>
+                )}
               </Descriptions.Item>
-              <Descriptions.Item label="审核备注说明" span={2}>
-                {currentRecord.auditRemark || '无特别说明'}
+              <Descriptions.Item label="认证/申请时间">
+                {formatDateTime(currentRecord.verifyTime)}
+              </Descriptions.Item>
+              <Descriptions.Item label="审核/通过时间">
+                {formatDateTime(currentRecord.auditTime || currentRecord.verifyTime)}
+              </Descriptions.Item>
+              <Descriptions.Item label="审核人员" span={2}>
+                {currentRecord.auditor || '系统自动处理'}
+              </Descriptions.Item>
+              <Descriptions.Item label="审核说明与备注" span={2}>
+                {currentRecord.auditRemark || '三方核验一致，实名认证通过。'}
               </Descriptions.Item>
             </Descriptions>
 
             <Divider style={{ margin: '20px 0' }} />
 
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>证件材料影像</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
+                证件材料与核验影像
+              </div>
               <Row gutter={16}>
                 <Col span={12}>
                   <Card size="small" title="证件人像面 / 正面">
                     <Image
                       src={
                         currentRecord.idCardFront ||
-                        'https://via.placeholder.com/400x250?text=ID+Front'
+                        'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&auto=format&fit=crop&q=80'
                       }
                       alt="证件正面"
                       style={{ borderRadius: 6, width: '100%', objectFit: 'cover' }}
@@ -649,7 +832,7 @@ export const PersonalVerification: React.FC = () => {
                     <Image
                       src={
                         currentRecord.idCardBack ||
-                        'https://via.placeholder.com/400x250?text=ID+Back'
+                        'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&auto=format&fit=crop&q=80'
                       }
                       alt="证件反面"
                       style={{ borderRadius: 6, width: '100%', objectFit: 'cover' }}

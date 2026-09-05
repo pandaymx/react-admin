@@ -59,6 +59,10 @@ export const router = createHashRouter([
         element: <VerificationPage />,
       },
       {
+        path: 'verification',
+        element: <Navigate to="/verifications" replace />,
+      },
+      {
         path: 'reports',
         element: <ReportsPage />,
       },

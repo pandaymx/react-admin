@@ -72,7 +72,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({
       confirmLoading={submitting}
       okText={action === 'approved' ? '审核通过' : '确认驳回'}
       okButtonProps={{ danger: action === 'rejected' }}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
         <Form.Item label="审核结果" name="status" rules={[{ required: true }]}>

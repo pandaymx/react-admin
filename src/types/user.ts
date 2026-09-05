@@ -10,7 +10,9 @@ export type UserStatus = 'normal' | 'banned' | 'muted' | 'cancelling' | 'cancell
 export interface PersonalAuthItem {
   realName: string; // 脱敏姓名，如 张*三
   idCard: string; // 脱敏身份证，如 110101********1234
-  authTime: string; // 实名认证通过时间
+  authTime?: string; // 实名认证通过时间
+  createdAt?: string; // 认证创建时间 (后端 PersonalAuthVO.createdAt)
+  isDefault?: boolean;
 }
 
 export type CertificationLabel = '企业认证' | '个人认证' | '审核中' | '未实名';
