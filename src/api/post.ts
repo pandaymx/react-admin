@@ -2,6 +2,7 @@ import type {
   ApiResponse,
   CommentPermission,
   PostAuditActionParams,
+  PostAuditTaskItem,
   PostItem,
   PostQueryParams,
   PostStatisticsSummaryVO,
@@ -901,10 +902,30 @@ export const getPostDetail = async (id: string): Promise<ApiResponse<PostItem>> 
     });
     if ((res.code === 200 || res.code === 0) && res.data) {
       const p = res.data;
+      let auditTasks = p.auditTasks || [];
+
+      // 若详情内仅返回了单条或暂无，尝试探测后端全量审核流水接口 (/feeds/post-audit-task/page)
+      if (auditTasks.length <= 1) {
+        try {
+          const auditRes = await request<{ list: PostAuditTaskItem[] }>({
+            url: '/feeds/post-audit-task/page',
+            method: 'GET',
+            params: { postId: id, pageNo: 1, pageSize: 50 },
+            headers: { 'x-skip-error-message': 'true' },
+          });
+          if (auditRes?.data?.list && auditRes.data.list.length > 0) {
+            auditTasks = auditRes.data.list;
+          }
+        } catch {
+          // 降级使用详情内自带的 auditTasks
+        }
+      }
+
       return {
         code: 200,
         data: {
           ...p,
+          auditTasks,
           type: p.postType || p.type || 'post',
           coverUrl: p.coverUrl || p.mediaList?.[0]?.coverUrl || p.mediaList?.[0]?.url || '',
           videoUrl: p.videoUrl || p.mediaList?.find((m) => m.mediaType === 'video')?.url,
