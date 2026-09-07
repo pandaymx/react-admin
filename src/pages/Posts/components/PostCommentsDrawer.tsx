@@ -2,10 +2,8 @@ import {
   DeleteOutlined,
   MessageOutlined,
   ReloadOutlined,
-  StarFilled,
   StopOutlined,
   UserOutlined,
-  VerticalAlignTopOutlined,
 } from '@ant-design/icons';
 import {
   Avatar,
@@ -228,7 +226,6 @@ export const PostCommentsDrawer: React.FC<PostCommentsDrawerProps> = ({
                   { label: '待审核', value: 'pending' },
                   { label: '违规隐藏', value: 'rejected' },
                   { label: '已软删除', value: 'deleted' },
-                  { label: '作者置顶', value: 'top' },
                 ]}
               />
               <Button type="primary" size="middle" onClick={fetchComments}>
@@ -272,26 +269,6 @@ export const PostCommentsDrawer: React.FC<PostCommentsDrawerProps> = ({
                         </Button>,
                       ]
                     : [
-                        item.status === 'top' ? (
-                          <Button
-                            key="untop"
-                            type="link"
-                            size="small"
-                            onClick={() => handleStatusChange(item, 'published')}
-                          >
-                            取消置顶
-                          </Button>
-                        ) : (
-                          <Button
-                            key="top"
-                            type="link"
-                            size="small"
-                            icon={<VerticalAlignTopOutlined />}
-                            onClick={() => handleStatusChange(item, 'top')}
-                          >
-                            置顶
-                          </Button>
-                        ),
                         item.status === 'hidden' || item.status === 'rejected' ? (
                           <Button
                             key="unhide"
@@ -347,11 +324,6 @@ export const PostCommentsDrawer: React.FC<PostCommentsDrawerProps> = ({
                       {item.ipLocation && (
                         <Tag style={{ fontSize: 10, margin: 0, padding: '0 4px' }}>
                           IP: {item.ipLocation}
-                        </Tag>
-                      )}
-                      {item.status === 'top' && (
-                        <Tag color="green" icon={<StarFilled />} style={{ margin: 0 }}>
-                          置顶
                         </Tag>
                       )}
                       {(item.status === 'hidden' || item.status === 'rejected') && (

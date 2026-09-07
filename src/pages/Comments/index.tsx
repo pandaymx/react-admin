@@ -329,11 +329,14 @@ export const CommentsPage: React.FC = () => {
       render: (_, record) => (
         <Space size={8}>
           <Avatar src={record.author.avatar} size={32} icon={<UserOutlined />} />
-          <div>
-            <Text strong style={{ fontSize: 12, display: 'block' }}>
+          <div style={{ textAlign: 'left' }}>
+            <Text strong style={{ fontSize: 12, display: 'block', textAlign: 'left' }}>
               {record.author.nickname}
             </Text>
-            <Text type="secondary" style={{ fontSize: 11 }}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 11, textAlign: 'left', whiteSpace: 'nowrap' }}
+            >
               UID: {record.author.userNo || record.author.uid}
             </Text>
           </div>
@@ -502,7 +505,6 @@ export const CommentsPage: React.FC = () => {
                     { label: '审核中 (pending)', value: 'pending' },
                     { label: '违规隐藏 (rejected)', value: 'rejected' },
                     { label: '已软删除 (deleted)', value: 'deleted' },
-                    { label: '作者置顶 (top)', value: 'top' },
                   ]}
                 />
               </Form.Item>
