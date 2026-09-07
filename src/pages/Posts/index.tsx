@@ -8,6 +8,7 @@ import {
   DownOutlined,
   EyeOutlined,
   HeartOutlined,
+  LinkOutlined,
   MessageOutlined,
   PictureOutlined,
   PlayCircleOutlined,
@@ -59,6 +60,7 @@ import {
   updatePostVisibility,
 } from '@/api/post';
 import { type ColumnOptionItem, useColumnSettings } from '@/components/ColumnSetting';
+import { UserDetailDrawer } from '@/components/UserDetailDrawer';
 import { useThemeStore } from '@/store/theme';
 import type {
   PostAuditActionParams,
@@ -84,7 +86,7 @@ const postColumnOptions: ColumnOptionItem[] = [
   { key: 'interaction', title: '互动数据 (获赞/评论/收藏/分享)' },
   { key: 'status', title: '合规与发布状态' },
   { key: 'publishTime', title: '发布时间' },
-  { key: 'id', title: '作品编号 (ID)' },
+  // ID column option removed
   { key: 'action', title: '操作列', required: true },
 ];
 
@@ -120,6 +122,17 @@ export const PostsPage: React.FC = () => {
   const [commentTargetPost, setCommentTargetPost] = useState<PostItem | null>(null);
   const [auditModalVisible, setAuditModalVisible] = useState<boolean>(false);
   const [auditTargetPost, setAuditTargetPost] = useState<PostItem | null>(null);
+
+  // 发布作者全景用户档案抽屉状态
+  const [authorDrawerVisible, setAuthorDrawerVisible] = useState<boolean>(false);
+  const [currentAuthorUserNo, setCurrentAuthorUserNo] = useState<string | number | null>(null);
+
+  const handleOpenAuthorDetail = (authorNo: string | number) => {
+    if (authorNo) {
+      setCurrentAuthorUserNo(authorNo);
+      setAuthorDrawerVisible(true);
+    }
+  };
 
   // 防抖定时器引用
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -280,10 +293,17 @@ export const PostsPage: React.FC = () => {
       const res = await getPostList({ pageSize: 1000 });
       if ((res.code === 200 || res.code === 0) && res.data?.list) {
         const exportCols = [
-          { title: '作品ID', key: 'id' },
+          // ID export column removed
           { title: '作品标题', key: 'title' },
           { title: '作品类型', key: 'postType', render: (r: any) => r.postType || r.type },
-          { title: '发布作者', key: 'author', render: (r: any) => r.author?.nickname || '' },
+          {
+            title: '发布作者',
+            key: 'author',
+            render: (r: any) => {
+              const author = r.author;
+              return author?.nickname || '';
+            },
+          },
           {
             title: '作者UID',
             key: 'uid',
@@ -630,41 +650,76 @@ export const PostsPage: React.FC = () => {
       title: '发布作者',
       dataIndex: 'author',
       key: 'author',
-      width: 170,
+      width: 180,
       render: (_, record) => {
         const author = record.author;
+        const authorNo = author.userNo || author.uid || record.userId || '';
         return (
-          <Space size={8} align="center">
-            <Avatar src={author.avatar} size={36} icon={<UserOutlined />} />
-            <div style={{ lineHeight: 1.3 }}>
-              <div
-                style={{
-                  fontWeight: 600,
-                  fontSize: 13,
-                  color: isDark ? token.colorText : '#262626',
-                }}
-              >
-                {author.nickname}
-              </div>
-              <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
-                UID: {author.userNo || author.uid}
-              </div>
-              {author.verifyStatus === 'creator' && (
-                <Tag
-                  color="orange"
+          <Tooltip title="点击查看该作者完整档案详情 (右键支持新标签页打开)" placement="topLeft">
+            <Button
+              type="link"
+              href={`#/users?userNo=${authorNo}`}
+              onClick={(e) => {
+                e.preventDefault();
+                handleOpenAuthorDetail(authorNo);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                textDecoration: 'none',
+                cursor: 'pointer',
+                borderRadius: 6,
+                padding: '4px 6px',
+                margin: '-4px -6px',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = isDark
+                  ? 'rgba(255, 255, 255, 0.08)'
+                  : 'rgba(22, 119, 255, 0.08)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              <Avatar src={author.avatar} size={36} icon={<UserOutlined />} />
+              <div style={{ lineHeight: 1.3 }}>
+                <div
                   style={{
-                    margin: 0,
-                    fontSize: 10,
-                    padding: '0 3px',
-                    lineHeight: '14px',
-                    borderRadius: 6,
+                    fontWeight: 600,
+                    fontSize: 13,
+                    color: token.colorPrimary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
                   }}
                 >
-                  创作者
-                </Tag>
-              )}
-            </div>
-          </Space>
+                  <span style={{ textDecoration: 'underline', textUnderlineOffset: 2 }}>
+                    {author.nickname}
+                  </span>
+                  <LinkOutlined style={{ fontSize: 11, opacity: 0.8 }} />
+                </div>
+                <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                  UID: {author.userNo || author.uid}
+                </div>
+                {author.verifyStatus === 'creator' && (
+                  <Tag
+                    color="orange"
+                    style={{
+                      margin: 0,
+                      fontSize: 10,
+                      padding: '0 3px',
+                      lineHeight: '14px',
+                      borderRadius: 6,
+                    }}
+                  >
+                    创作者
+                  </Tag>
+                )}
+              </div>
+            </Button>
+          </Tooltip>
         );
       },
     },
@@ -704,6 +759,35 @@ export const PostsPage: React.FC = () => {
         );
       },
     },
+    {
+      // 新增可见范围直接编辑列
+      title: '可见范围编辑',
+      key: 'visibilityEdit',
+      width: 180,
+      render: (_, record) => {
+        const currentVis = record.visibility || 'public';
+        const handleChange = async (value: string) => {
+          await updatePostVisibility(record.id, value as any);
+          // 刷新列表和概览
+          fetchData(currentPage, pageSize);
+          fetchSummary();
+        };
+        return (
+          <Select
+            size="small"
+            value={currentVis}
+            style={{ width: 150 }}
+            options={[
+              { label: '公开所有人可见', value: 'public' },
+              { label: '仅好友互关可见', value: 'friend' },
+              { label: '仅作者自己可见', value: 'private' },
+            ]}
+            onChange={handleChange}
+          />
+        );
+      },
+    },
+
     {
       title: '互动数据指标',
       key: 'interaction',
@@ -776,17 +860,7 @@ export const PostsPage: React.FC = () => {
         return <span style={{ fontSize: 12, color: token.colorTextSecondary }}>{time}</span>;
       },
     },
-    {
-      title: '作品ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 170,
-      render: (id) => (
-        <Text copyable style={{ fontSize: 11 }}>
-          {id}
-        </Text>
-      ),
-    },
+    // ID column removed as per request
     {
       title: '操作',
       key: 'action',
@@ -1105,6 +1179,13 @@ export const PostsPage: React.FC = () => {
         post={auditTargetPost}
         onCancel={() => setAuditModalVisible(false)}
         onConfirm={handleAuditConfirm}
+      />
+
+      {/* 发布作者全景用户档案抽屉 */}
+      <UserDetailDrawer
+        open={authorDrawerVisible}
+        onClose={() => setAuthorDrawerVisible(false)}
+        userIdOrNo={currentAuthorUserNo}
       />
     </div>
   );
