@@ -126,6 +126,7 @@ export interface UserStatisticsRespVO {
   disciplinedTotalCount?: number; // 违规受限与封禁管控总数 (disabledCount + restrictedCount)
   personalCertCount?: number; // 个人实名认证用户数
   enterpriseCertCount?: number; // 企业官方认证用户数
+  pendingCertCount?: number; // 实名审核中用户数
   unverifiedCount?: number; // 未实名认证用户数
 }
 
@@ -232,7 +233,7 @@ export interface UserQueryParams {
   status?: number | UserStatus | 'all' | 'penalized' | 'banned' | 'restricted'; // 状态: 1正常/2禁用/3注销 或 all 或 复合违规管控
   qualification?: number | 'all'; // 认证类型: 1个人/2企业 或 all
   certified?: boolean | 'all'; // 实名认证: true/false 或 all
-  authStatus?: 'all' | 'unverified' | 'personal' | 'enterprise'; // 合并后的实名认证筛选
+  authStatus?: 'all' | 'unverified' | 'pending' | 'personal' | 'enterprise'; // 合并后的实名状态筛选
   dateRange?: [string, string]; // 注册时间范围
   pageNo?: number; // 页码 (对齐后端 pageNo)
   page?: number; // 兼容前端 page

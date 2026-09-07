@@ -55,6 +55,7 @@ import {
   batchUpdateUserStatus,
   executeUserBan,
   getAllFilteredUsers,
+  getUserCertificationLabel,
   getUserContentRestrictions,
   getUserList,
   getUserSortWeight,
@@ -415,19 +416,6 @@ export const UsersPage: React.FC = () => {
       try {
         const formValues = form.getFieldsValue();
 
-        // 解构合并后的实名认证筛选状态
-        let qualification: number | undefined;
-        let certified: boolean | undefined;
-        if (formValues.authStatus === 'unverified') {
-          certified = false;
-        } else if (formValues.authStatus === 'personal') {
-          certified = true;
-          qualification = 1;
-        } else if (formValues.authStatus === 'enterprise') {
-          certified = true;
-          qualification = 2;
-        }
-
         // 账号状态解构映射
         let queryStatus: UserQueryParams['status'];
         if (formValues.status && formValues.status !== 'all') {
@@ -445,16 +433,17 @@ export const UsersPage: React.FC = () => {
           }
         }
 
+        const isAuthFiltering = Boolean(formValues.authStatus && formValues.authStatus !== 'all');
+
+        // 构造分页查询参数 (实名状态统一由 authStatus 承载，不再向后端传递已废弃的 qualification 与 certified 布尔值)
         const params: UserQueryParams = {
-          userId: formValues.userId,
-          phoneNumber: formValues.phoneNumber,
-          nickname: formValues.nickname,
+          userId: formValues.userId ? String(formValues.userId).trim() : undefined,
+          phoneNumber: formValues.phoneNumber ? String(formValues.phoneNumber).trim() : undefined,
+          nickname: formValues.nickname ? String(formValues.nickname).trim() : undefined,
           status: queryStatus,
           authStatus: formValues.authStatus,
-          qualification,
-          certified,
-          pageNo: page,
-          pageSize: size,
+          pageNo: isAuthFiltering ? 1 : page,
+          pageSize: isAuthFiltering ? 100 : size,
         };
 
         if (formValues.dateRange && formValues.dateRange.length === 2) {
@@ -529,6 +518,19 @@ export const UsersPage: React.FC = () => {
             });
           }
 
+          // 实名状态精准前端二次保障过滤 (使用统一权威算法 getUserCertificationLabel)
+          if (formValues.authStatus && formValues.authStatus !== 'all') {
+            const targetLabel =
+              formValues.authStatus === 'personal'
+                ? '个人认证'
+                : formValues.authStatus === 'enterprise'
+                  ? '企业认证'
+                  : formValues.authStatus === 'pending'
+                    ? '审核中'
+                    : '未实名';
+            rawList = rawList.filter((u) => getUserCertificationLabel(u) === targetLabel);
+          }
+
           // 核心置顶算法：被全量封号与违规受限的用户置顶优先展示，同等处置权重按注册时间倒序
           rawList.sort((a, b) => {
             const wA = getUserSortWeight(a, grouped);
@@ -539,7 +541,7 @@ export const UsersPage: React.FC = () => {
             return tB - tA;
           });
 
-          // 同步动态校准大盘统计中的认证分布与受限人数
+          // 同步动态校准大盘统计中的认证分布与受限人数 (严格与列表真实实名标签统一)
           setSummary((prev) => {
             const totalCount = prev.totalCount || res.data.total;
             const disabledCount =
@@ -550,18 +552,28 @@ export const UsersPage: React.FC = () => {
             const cancelledCount = prev.cancelledCount || 0;
             const normalCount = Math.max(0, totalCount - disciplinedTotalCount - cancelledCount);
 
-            const personalCertCount =
-              prev.personalCertCount ||
-              rawList.filter((u) => u.qualification === 1 || u.certificationLabel === '个人认证')
-                .length;
-            const enterpriseCertCount =
-              prev.enterpriseCertCount ||
-              rawList.filter((u) => u.qualification === 2 || u.certificationLabel === '企业认证')
-                .length;
-            const unverifiedCount = Math.max(
-              0,
-              totalCount - personalCertCount - enterpriseCertCount,
-            );
+            // 当处于全量未筛选时，根据列表精准核实认证分布；否则保留全局前序统计
+            const isAllAuth = !formValues.authStatus || formValues.authStatus === 'all';
+            const personalCertCount = isAllAuth
+              ? (prev.personalCertCount ??
+                rawList.filter((u) => getUserCertificationLabel(u) === '个人认证').length)
+              : (prev.personalCertCount ?? 0);
+            const enterpriseCertCount = isAllAuth
+              ? (prev.enterpriseCertCount ??
+                rawList.filter((u) => getUserCertificationLabel(u) === '企业认证').length)
+              : (prev.enterpriseCertCount ?? 0);
+            const pendingCertCount = isAllAuth
+              ? (prev.pendingCertCount ??
+                rawList.filter((u) => getUserCertificationLabel(u) === '审核中').length)
+              : (prev.pendingCertCount ?? 0);
+            const unverifiedCount = isAllAuth
+              ? (prev.unverifiedCount ??
+                rawList.filter((u) => getUserCertificationLabel(u) === '未实名').length)
+              : (prev.unverifiedCount ??
+                Math.max(
+                  0,
+                  totalCount - personalCertCount - enterpriseCertCount - pendingCertCount,
+                ));
 
             return {
               ...prev,
@@ -573,18 +585,33 @@ export const UsersPage: React.FC = () => {
               cancelledCount,
               personalCertCount,
               enterpriseCertCount,
+              pendingCertCount,
               unverifiedCount,
             };
           });
 
-          setUserList(rawList);
-          setTotal(
-            rawList.length < res.data.total && formValues.status && formValues.status !== 'all'
-              ? rawList.length
-              : res.data.total,
-          );
-          setCurrentPage(res.data.page || page);
-          setPageSize(res.data.pageSize || size);
+          const isFiltering =
+            (formValues.status && formValues.status !== 'all') ||
+            isAuthFiltering ||
+            formValues.userId ||
+            formValues.phoneNumber ||
+            formValues.nickname ||
+            formValues.dateRange;
+
+          let displayList = rawList;
+          let actualTotal = res.data.total;
+          if (isAuthFiltering) {
+            actualTotal = rawList.length;
+            const start = (page - 1) * size;
+            displayList = rawList.slice(start, start + size);
+          } else if (isFiltering && rawList.length < res.data.total) {
+            actualTotal = rawList.length;
+          }
+
+          setUserList(displayList);
+          setTotal(actualTotal);
+          setCurrentPage(page);
+          setPageSize(size);
         }
       } catch (err: any) {
         message.error(err.message || '获取用户列表失败');
@@ -612,6 +639,10 @@ export const UsersPage: React.FC = () => {
       clearTimeout(debounceTimerRef.current);
     }
     form.resetFields();
+    form.setFieldsValue({
+      authStatus: 'all',
+      status: 'all',
+    });
     fetchData(1, pageSize);
   };
 
@@ -1653,7 +1684,7 @@ export const UsersPage: React.FC = () => {
             </Col>
 
             <Col xs={24} sm={12} md={8} lg={6}>
-              <Form.Item label="实名认证" name="authStatus" style={{ marginBottom: 0 }}>
+              <Form.Item label="实名状态" name="authStatus" style={{ marginBottom: 0 }}>
                 <Select
                   options={[
                     {
@@ -1661,15 +1692,19 @@ export const UsersPage: React.FC = () => {
                       value: 'all',
                     },
                     {
-                      label: `⚪ 未实名认证 (${summary.unverifiedCount ?? Math.max(0, (summary.totalCount || total || 0) - (summary.personalCertCount || 0) - (summary.enterpriseCertCount || 0))})`,
+                      label: `⏳ 审核中 (${summary.pendingCertCount || 0})`,
+                      value: 'pending',
+                    },
+                    {
+                      label: `⚪ 未实名 (${summary.unverifiedCount ?? Math.max(0, (summary.totalCount || total || 0) - (summary.personalCertCount || 0) - (summary.enterpriseCertCount || 0) - (summary.pendingCertCount || 0))})`,
                       value: 'unverified',
                     },
                     {
-                      label: `🟢 个人实名认证 (${summary.personalCertCount || 0})`,
+                      label: `🟢 个人认证 (${summary.personalCertCount || 0})`,
                       value: 'personal',
                     },
                     {
-                      label: `🔵 企业官方认证 (${summary.enterpriseCertCount || 0})`,
+                      label: `🔵 企业认证 (${summary.enterpriseCertCount || 0})`,
                       value: 'enterprise',
                     },
                   ]}

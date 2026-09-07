@@ -3,6 +3,7 @@ import type {
   AdminUserPageReqVO,
   AdminUserRespVO,
   ApiResponse,
+  CertificationLabel,
   ContentRestrictionItem,
   ContentRestrictionPageReqVO,
   ModerationRevokeReqVO,
@@ -14,6 +15,59 @@ import type {
   UserStatus,
 } from '@/types';
 import { formatDateTime } from '@/utils/time';
+
+/**
+ * 统一精准判断用户实名认证状态 (覆盖 企业认证 | 个人认证 | 审核中 | 未实名)
+ * 彻底摒弃历史冗余 qualification 恒为 1 的缺陷，确保前后端与大盘口径 100% 统一
+ */
+export const getUserCertificationLabel = (
+  u: Partial<UserItem> | AdminUserRespVO | any,
+): CertificationLabel => {
+  if (!u) return '未实名';
+
+  // 1. 若已有明确后端单字段 certificationLabel
+  const summaryLabel = u.certificationSummary?.certificationLabel;
+  if (summaryLabel && ['企业认证', '个人认证', '审核中', '未实名'].includes(summaryLabel)) {
+    return summaryLabel as CertificationLabel;
+  }
+  const directLabel = u.certificationLabel;
+  if (directLabel && ['企业认证', '个人认证', '审核中', '未实名'].includes(directLabel)) {
+    return directLabel as CertificationLabel;
+  }
+
+  // 2. 审核中状态 (存在 pending 审核单或 hasPending 为 true)
+  if (
+    u.verifyStatus === 'pending' ||
+    u.certificationSummary?.hasPending === true ||
+    u.certificationSummary?.primary?.status === 'pending' ||
+    u.certificationSummary?.primary?.reviewStatus === 'pending'
+  ) {
+    return '审核中';
+  }
+
+  // 3. 企业认证 (优先判定企业蓝V机构，企业优先级 > 个人)
+  if (
+    u.verifyStatus === 'enterprise' ||
+    u.certificationSummary?.primary?.type === 'enterprise' ||
+    u.qualification === 2
+  ) {
+    return '企业认证';
+  }
+
+  // 4. 个人实名认证 (必须已实名：有真实 personalAuths 记录或 certified 为真且非未认证)
+  const hasPersonalAuth = Array.isArray(u.personalAuths) && u.personalAuths.length > 0;
+  if (
+    u.verifyStatus === 'personal' ||
+    u.certificationSummary?.primary?.type === 'personal' ||
+    (u.certified === true && (hasPersonalAuth || u.qualification === 1)) ||
+    hasPersonalAuth
+  ) {
+    return '个人认证';
+  }
+
+  // 5. 兜底为未实名
+  return '未实名';
+};
 
 // 测试环境模拟数据集 (完全对应后端 AdminUserRespVO 结构)
 const mockUsers: UserItem[] = [
@@ -467,6 +521,37 @@ const mockUsers: UserItem[] = [
     gender: 'unknown',
     bio: '该账号已完成注销流程。',
   },
+  {
+    id: '10',
+    userId: 100010,
+    uid: '100010',
+    username: 'fresh_explorer',
+    nickname: '新手探索家',
+    avatar:
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    avatarUrl:
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    phoneNumber: '13988776655',
+    phone: '13988776655',
+    status: 'normal',
+    rawStatus: 1,
+    certificationLabel: '未实名',
+    certificationSummary: {
+      userId: 100010,
+      hasPending: false,
+      certificationLabel: '未实名',
+    },
+    verifyStatus: 'unverified',
+    certified: false,
+    initStatus: 1,
+    createTime: '2026-09-05T08:30:00',
+    registerTime: '2026-09-05 08:30:00',
+    fanCount: 8,
+    followCount: 26,
+    friendCount: 3,
+    gender: 'male',
+    bio: '刚注册不久，正在体验平台各种功能，暂未提交实名认证。',
+  },
 ];
 
 let currentDataset: UserItem[] = mockUsers.map((item) => ({
@@ -569,10 +654,7 @@ export const getUserList = async (
 
     if ((res.code === 200 || res.code === 0) && res.data) {
       const list: UserItem[] = (res.data.list || []).map((vo) => {
-        const certificationLabel =
-          vo.certificationSummary?.certificationLabel ||
-          (vo.qualification === 2 ? '企业认证' : vo.qualification === 1 ? '个人认证' : '未实名');
-
+        const certificationLabel = getUserCertificationLabel(vo);
         const userNo = vo.userNo || vo.userId;
 
         return {
@@ -632,32 +714,36 @@ export const getUserList = async (
   let filtered = [...currentDataset];
 
   if (params.userNo || params.userId || params.uid) {
-    const uStr = String(params.userNo || params.userId || params.uid).toLowerCase();
+    const uStr = String(params.userNo || params.userId || params.uid)
+      .toLowerCase()
+      .trim();
     filtered = filtered.filter(
       (u) =>
         (u.userNo && String(u.userNo).toLowerCase().includes(uStr)) ||
-        String(u.userId).toLowerCase().includes(uStr) ||
-        (u.uid && String(u.uid).toLowerCase().includes(uStr)),
+        (u.userId && String(u.userId).toLowerCase().includes(uStr)) ||
+        (u.uid && String(u.uid).toLowerCase().includes(uStr)) ||
+        (u.id && String(u.id).toLowerCase().includes(uStr)),
     );
   }
 
   if (params.phoneNumber) {
-    const pStr = params.phoneNumber.trim();
+    const pStr = String(params.phoneNumber).trim();
     filtered = filtered.filter((u) => u.phoneNumber?.includes(pStr) || u.phone?.includes(pStr));
   }
 
   if (params.nickname) {
-    const nStr = params.nickname.toLowerCase();
-    filtered = filtered.filter((u) => u.nickname.toLowerCase().includes(nStr));
+    const nStr = String(params.nickname).toLowerCase().trim();
+    filtered = filtered.filter((u) => u.nickname?.toLowerCase().includes(nStr));
   }
 
   if (params.keyword) {
-    const k = params.keyword.toLowerCase();
+    const k = String(params.keyword).toLowerCase().trim();
     filtered = filtered.filter(
       (u) =>
-        u.nickname.toLowerCase().includes(k) ||
+        u.nickname?.toLowerCase().includes(k) ||
         (u.userNo && String(u.userNo).includes(k)) ||
-        String(u.userId).includes(k) ||
+        (u.userId && String(u.userId).includes(k)) ||
+        (u.id && String(u.id).includes(k)) ||
         u.phoneNumber?.includes(k),
     );
   }
@@ -697,38 +783,38 @@ export const getUserList = async (
     }
   }
 
-  // 兼容合并后的实名认证筛选
+  // 兼容实名状态筛选 (包含审核中、个人认证、企业认证、未实名)
   if (params.authStatus && params.authStatus !== 'all') {
-    if (params.authStatus === 'unverified') {
-      filtered = filtered.filter(
-        (u) =>
-          (!u.certified && u.verifyStatus === 'unverified') || u.certificationLabel === '未实名',
-      );
-    } else if (params.authStatus === 'personal') {
-      filtered = filtered.filter(
-        (u) =>
-          u.qualification === 1 ||
-          u.verifyStatus === 'personal' ||
-          u.certificationLabel === '个人认证',
-      );
-    } else if (params.authStatus === 'enterprise') {
-      filtered = filtered.filter(
-        (u) =>
-          u.qualification === 2 ||
-          u.verifyStatus === 'enterprise' ||
-          u.certificationLabel === '企业认证',
-      );
+    const targetLabel =
+      params.authStatus === 'personal'
+        ? '个人认证'
+        : params.authStatus === 'enterprise'
+          ? '企业认证'
+          : params.authStatus === 'pending'
+            ? '审核中'
+            : '未实名';
+    filtered = filtered.filter((u) => getUserCertificationLabel(u) === targetLabel);
+  } else {
+    // 仅在未传递 authStatus 时降级处理历史 qualification / certified 字段
+    if (params.qualification && params.qualification !== 'all') {
+      const qNum = Number(params.qualification);
+      filtered = filtered.filter((u) => u.qualification === qNum);
+    }
+
+    if (params.certified !== undefined && params.certified !== 'all') {
+      const cBool = Boolean(params.certified);
+      filtered = filtered.filter((u) => u.certified === cBool);
     }
   }
 
-  if (params.qualification && params.qualification !== 'all') {
-    const qNum = Number(params.qualification);
-    filtered = filtered.filter((u) => u.qualification === qNum);
-  }
-
-  if (params.certified !== undefined && params.certified !== 'all') {
-    const cBool = Boolean(params.certified);
-    filtered = filtered.filter((u) => u.certified === cBool);
+  // 注册时间范围过滤
+  if (params.dateRange && params.dateRange.length === 2) {
+    const startTime = new Date(params.dateRange[0]).getTime();
+    const endTime = new Date(params.dateRange[1]).getTime();
+    filtered = filtered.filter((u) => {
+      const uTime = new Date(u.createTime || u.registerTime || 0).getTime();
+      return !Number.isNaN(uTime) && uTime >= startTime && uTime <= endTime;
+    });
   }
 
   // 排序机制：被全量封号与违规受限的用户置顶优先展示，同等处置权重按注册时间倒序
@@ -903,17 +989,46 @@ export const getUserStatisticsSummary = async (): Promise<ApiResponse<UserStatis
     (u) => u.status === 'cancelled' || u.rawStatus === 3,
   ).length;
 
-  const dynamicPersonalCert = currentDataset.filter(
-    (u) => u.qualification === 1 || u.certificationLabel === '个人认证',
-  ).length;
+  // 动态统计各实名状态用户数 (优先拉取真实后端用户列表动态核算，失败时回退至本地数据集)
+  let dynamicPersonalCert = 0;
+  let dynamicEnterpriseCert = 0;
+  let dynamicPendingCert = 0;
+  let dynamicUnverified = 0;
 
-  const dynamicEnterpriseCert = currentDataset.filter(
-    (u) => u.qualification === 2 || u.certificationLabel === '企业认证',
-  ).length;
-
-  const dynamicUnverified = currentDataset.filter(
-    (u) => !u.certified && u.qualification !== 1 && u.qualification !== 2,
-  ).length;
+  try {
+    const listRes = await request<PageResult<AdminUserRespVO>>({
+      url: '/user/users/page',
+      method: 'GET',
+      params: { pageNo: 1, pageSize: 100 },
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if ((listRes.code === 200 || listRes.code === 0) && listRes.data?.list) {
+      const allUsers = listRes.data.list;
+      dynamicPersonalCert = allUsers.filter(
+        (u) => getUserCertificationLabel(u) === '个人认证',
+      ).length;
+      dynamicEnterpriseCert = allUsers.filter(
+        (u) => getUserCertificationLabel(u) === '企业认证',
+      ).length;
+      dynamicPendingCert = allUsers.filter((u) => getUserCertificationLabel(u) === '审核中').length;
+      dynamicUnverified = allUsers.filter((u) => getUserCertificationLabel(u) === '未实名').length;
+    } else {
+      throw new Error('Fallback to dataset');
+    }
+  } catch {
+    dynamicPersonalCert = currentDataset.filter(
+      (u) => getUserCertificationLabel(u) === '个人认证',
+    ).length;
+    dynamicEnterpriseCert = currentDataset.filter(
+      (u) => getUserCertificationLabel(u) === '企业认证',
+    ).length;
+    dynamicPendingCert = currentDataset.filter(
+      (u) => getUserCertificationLabel(u) === '审核中',
+    ).length;
+    dynamicUnverified = currentDataset.filter(
+      (u) => getUserCertificationLabel(u) === '未实名',
+    ).length;
+  }
 
   const total = backendData?.totalCount || currentDataset.length;
   const banned = backendData?.disabledCount ?? dynamicBannedCount;
@@ -936,6 +1051,7 @@ export const getUserStatisticsSummary = async (): Promise<ApiResponse<UserStatis
       monthNewCount: backendData?.monthNewCount ?? total,
       personalCertCount: backendData?.personalCertCount ?? dynamicPersonalCert,
       enterpriseCertCount: backendData?.enterpriseCertCount ?? dynamicEnterpriseCert,
+      pendingCertCount: backendData?.pendingCertCount ?? dynamicPendingCert,
       unverifiedCount: backendData?.unverifiedCount ?? dynamicUnverified,
     },
     message: 'success',
