@@ -55,6 +55,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   batchUpdateUserStatus,
   executeUserBan,
+  fetchUserDetailByNo,
   getAllFilteredUsers,
   getUserCertificationLabel,
   getUserContentRestrictions,
@@ -639,9 +640,28 @@ export const UsersPage: React.FC = () => {
   );
 
   useEffect(() => {
-    fetchData(1, 10);
+    // 解析 Hash URL 中的 query 参数（例如 #/users?userNo=100046）
+    const hash = window.location.hash || '';
+    const qIndex = hash.indexOf('?');
+    const queryParams =
+      qIndex !== -1 ? new URLSearchParams(hash.slice(qIndex)) : new URLSearchParams();
+    const queryUserNo = queryParams.get('userNo') || queryParams.get('userId');
+
+    if (queryUserNo) {
+      form.setFieldsValue({ userId: queryUserNo });
+      fetchData(1, 10).then(() => {
+        fetchUserDetailByNo(queryUserNo).then((user) => {
+          if (user) {
+            setCurrentUser(user);
+            setDrawerVisible(true);
+          }
+        });
+      });
+    } else {
+      fetchData(1, 10);
+    }
     fetchSummary();
-  }, [fetchData, fetchSummary]);
+  }, [fetchData, fetchSummary, form]);
 
   const handleSearch = () => {
     if (debounceTimerRef.current) {

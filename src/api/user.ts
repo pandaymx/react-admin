@@ -950,6 +950,84 @@ export const getUserDetail = async (id: string | number): Promise<ApiResponse<Ad
 };
 
 /**
+ * 根据展示号 userNo 或主键 ID 获取完整用户视图模型 (UserItem)
+ */
+export const fetchUserDetailByNo = async (
+  userNoOrId: string | number,
+): Promise<UserItem | null> => {
+  const queryTarget = String(userNoOrId).trim();
+  if (!queryTarget) return null;
+
+  // 1. 优先按 userNo / userId 查询用户分页
+  try {
+    const pageRes = await getUserList({
+      userNo: queryTarget,
+      userId: queryTarget,
+      pageSize: 5,
+    });
+    if ((pageRes.code === 200 || pageRes.code === 0) && pageRes.data?.list?.length > 0) {
+      const matched =
+        pageRes.data.list.find(
+          (u) =>
+            String(u.userNo) === queryTarget ||
+            String(u.userId) === queryTarget ||
+            String(u.id) === queryTarget ||
+            String(u.uid) === queryTarget,
+        ) || pageRes.data.list[0];
+      return matched;
+    }
+  } catch {
+    // 忽略异常，尝试下一步
+  }
+
+  // 2. 尝试按主键 id 请求详情
+  try {
+    const detailRes = await getUserDetail(queryTarget);
+    if ((detailRes.code === 200 || detailRes.code === 0) && detailRes.data) {
+      const vo = detailRes.data;
+      const certificationLabel = getUserCertificationLabel(vo);
+      const userNo = vo.userNo || vo.userId || queryTarget;
+      return {
+        id: String(vo.id),
+        userNo: String(userNo),
+        userId: vo.userId,
+        uid: String(userNo),
+        username: String(userNo),
+        nickname: vo.nickname || '用户',
+        avatar: vo.avatarUrl || '',
+        avatarUrl: vo.avatarUrl || '',
+        phoneNumber: vo.phoneNumber || '',
+        phone: vo.phoneNumber || '',
+        rawStatus: vo.status,
+        status: vo.status === 2 ? 'banned' : vo.status === 3 ? 'cancelled' : 'normal',
+        certificationSummary: vo.certificationSummary,
+        certificationLabel,
+        verifyStatus:
+          certificationLabel === '企业认证'
+            ? 'enterprise'
+            : certificationLabel === '个人认证'
+              ? 'personal'
+              : certificationLabel === '审核中'
+                ? 'pending'
+                : 'unverified',
+        initStatus: vo.initStatus ?? 1,
+        createTime: formatDateTime(vo.createTime),
+        registerTime: formatDateTime(vo.createTime),
+        fanCount: vo.fanCount || 0,
+        followCount: vo.followCount || 0,
+        friendCount: vo.friendCount || 0,
+        personalAuths: vo.personalAuths || [],
+        restrictions: vo.restrictions || [],
+      };
+    }
+  } catch {
+    // ignore
+  }
+
+  return null;
+};
+
+/**
  * 更新用户状态 (测试分支：带本地 Mock 容灾)
  */
 export const updateUserStatus = async (
