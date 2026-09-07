@@ -148,9 +148,6 @@ export const PostAuditModal: React.FC<PostAuditModalProps> = ({
               </div>
               <div style={{ fontSize: 11, marginTop: 2 }}>
                 <Space size={6}>
-                  <Tag color="blue" style={{ margin: 0, borderRadius: 8 }}>
-                    ID: {post.id}
-                  </Tag>
                   <Tag
                     color={
                       post.status === 'published'

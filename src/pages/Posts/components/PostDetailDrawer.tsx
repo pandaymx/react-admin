@@ -38,6 +38,8 @@ import {
   theme,
 } from 'antd';
 import type React from 'react';
+import { useState } from 'react';
+import { UserDetailDrawer } from '@/components/UserDetailDrawer';
 import { useThemeStore } from '@/store/theme';
 import type { PostItem, PostMediaItem } from '@/types';
 import { formatDateTime } from '@/utils/time';
@@ -59,6 +61,8 @@ export const PostDetailDrawer: React.FC<PostDetailDrawerProps> = ({
 }) => {
   const { token } = theme.useToken();
   const isDark = useThemeStore((state) => state.isDark);
+  const [authorDrawerVisible, setAuthorDrawerVisible] = useState(false);
+  const [authorTargetNo, setAuthorTargetNo] = useState<string | number | null>(null);
 
   if (!post) return null;
 
@@ -366,6 +370,22 @@ export const PostDetailDrawer: React.FC<PostDetailDrawerProps> = ({
         <Card
           size="small"
           title={<span style={{ fontWeight: 600 }}>创作者与发布者档案</span>}
+          extra={
+            <Button
+              type="link"
+              size="small"
+              icon={<UserOutlined />}
+              onClick={() => {
+                const target = post.author.userNo || post.author.uid || post.userId || '';
+                if (target) {
+                  setAuthorTargetNo(target);
+                  setAuthorDrawerVisible(true);
+                }
+              }}
+            >
+              查看用户全景档案
+            </Button>
+          }
           style={{
             marginBottom: 16,
             background: isDark ? token.colorBgElevated : '#ffffff',
@@ -647,6 +667,13 @@ export const PostDetailDrawer: React.FC<PostDetailDrawerProps> = ({
           )}
         </Card>
       </div>
+
+      {/* 发布作者用户档案抽屉 */}
+      <UserDetailDrawer
+        open={authorDrawerVisible}
+        onClose={() => setAuthorDrawerVisible(false)}
+        userIdOrNo={authorTargetNo}
+      />
     </Drawer>
   );
 };

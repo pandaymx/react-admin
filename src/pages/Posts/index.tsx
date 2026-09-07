@@ -57,6 +57,7 @@ import {
   getPostList,
   getPostStatisticsSummary,
   togglePostTop,
+  updatePostType,
   updatePostVisibility,
 } from '@/api/post';
 import { type ColumnOptionItem, useColumnSettings } from '@/components/ColumnSetting';
@@ -310,7 +311,6 @@ export const PostsPage: React.FC = () => {
             render: (r: any) => r.author?.userNo || r.author?.uid || '',
           },
           { title: '状态', key: 'status' },
-          { title: '是否置顶', key: 'isTop', render: (r: any) => (r.isTop ? '是' : '否') },
           {
             title: '点赞数',
             key: 'likeCount',
@@ -666,6 +666,9 @@ export const PostsPage: React.FC = () => {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
+                justifyContent: 'flex-start',
+                textAlign: 'left',
+                height: 'auto',
                 gap: 8,
                 textDecoration: 'none',
                 cursor: 'pointer',
@@ -683,8 +686,22 @@ export const PostsPage: React.FC = () => {
                 e.currentTarget.style.backgroundColor = 'transparent';
               }}
             >
-              <Avatar src={author.avatar} size={36} icon={<UserOutlined />} />
-              <div style={{ lineHeight: 1.3 }}>
+              <Avatar
+                src={author.avatar}
+                size={36}
+                icon={<UserOutlined />}
+                style={{ flexShrink: 0 }}
+              />
+              <div
+                style={{
+                  lineHeight: 1.3,
+                  textAlign: 'left',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  minWidth: 0,
+                }}
+              >
                 <div
                   style={{
                     fontWeight: 600,
@@ -693,6 +710,7 @@ export const PostsPage: React.FC = () => {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 4,
+                    textAlign: 'left',
                   }}
                 >
                   <span style={{ textDecoration: 'underline', textUnderlineOffset: 2 }}>
@@ -700,7 +718,14 @@ export const PostsPage: React.FC = () => {
                   </span>
                   <LinkOutlined style={{ fontSize: 11, opacity: 0.8 }} />
                 </div>
-                <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: token.colorTextSecondary,
+                    whiteSpace: 'nowrap',
+                    textAlign: 'left',
+                  }}
+                >
                   UID: {author.userNo || author.uid}
                 </div>
                 {author.verifyStatus === 'creator' && (
@@ -726,64 +751,94 @@ export const PostsPage: React.FC = () => {
     {
       title: '作品形式与可见性',
       key: 'type',
-      width: 140,
+      width: 175,
       render: (_, record) => {
-        const type = record.postType || record.type;
-        const vis = record.visibility || 'public';
-        return (
-          <Space direction="vertical" size={4}>
-            {type === 'video' && (
-              <Tag color="blue" icon={<VideoCameraOutlined />} style={{ margin: 0 }}>
-                短视频
-              </Tag>
-            )}
-            {(type === 'post' || type === 'image_text') && (
-              <Tag color="green" icon={<PictureOutlined />} style={{ margin: 0 }}>
-                图文相册
-              </Tag>
-            )}
-            {type === 'whimsy' && (
-              <Tag color="purple" icon={<CustomerServiceOutlined />} style={{ margin: 0 }}>
-                奇思妙想
-              </Tag>
-            )}
-
-            <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
-              {vis === 'public'
-                ? '🌐 所有人可见'
-                : vis === 'friend'
-                  ? '👥 仅互关好友'
-                  : '🔒 仅作者可见'}
-            </span>
-          </Space>
-        );
-      },
-    },
-    {
-      // 新增可见范围直接编辑列
-      title: '可见范围编辑',
-      key: 'visibilityEdit',
-      width: 180,
-      render: (_, record) => {
+        const type = (record.postType || record.type || 'post') as
+          | 'video'
+          | 'post'
+          | 'whimsy'
+          | 'image_text';
+        const currentType = type === 'image_text' ? 'post' : type;
         const currentVis = record.visibility || 'public';
-        const handleChange = async (value: string) => {
-          await updatePostVisibility(record.id, value as any);
-          // 刷新列表和概览
-          fetchData(currentPage, pageSize);
-          fetchSummary();
+
+        const handleTypeChange = async (val: string) => {
+          try {
+            await updatePostType(record.id, val as any);
+            message.success('作品形式已变更');
+            setPostList((prev) =>
+              prev.map((p) =>
+                p.id === record.id ? { ...p, postType: val as any, type: val as any } : p,
+              ),
+            );
+          } catch {
+            message.error('作品形式更新失败');
+          }
         };
+
+        const handleVisChange = async (val: string) => {
+          try {
+            await updatePostVisibility(record.id, val as any);
+            message.success('可见范围已更新');
+            setPostList((prev) =>
+              prev.map((p) => (p.id === record.id ? { ...p, visibility: val as any } : p)),
+            );
+            fetchSummary();
+          } catch {
+            message.error('可见范围更新失败');
+          }
+        };
+
         return (
-          <Select
-            size="small"
-            value={currentVis}
-            style={{ width: 150 }}
-            options={[
-              { label: '公开所有人可见', value: 'public' },
-              { label: '仅好友互关可见', value: 'friend' },
-              { label: '仅作者自己可见', value: 'private' },
-            ]}
-            onChange={handleChange}
-          />
+          <Space direction="vertical" size={6} style={{ width: '100%' }}>
+            {/* 作品形式修改 */}
+            <Select
+              size="small"
+              value={currentType}
+              style={{ width: 145 }}
+              onChange={handleTypeChange}
+              options={[
+                {
+                  label: (
+                    <Space size={4}>
+                      <VideoCameraOutlined style={{ color: '#1677ff' }} />
+                      <span>短视频</span>
+                    </Space>
+                  ),
+                  value: 'video',
+                },
+                {
+                  label: (
+                    <Space size={4}>
+                      <PictureOutlined style={{ color: '#52c41a' }} />
+                      <span>图文相册</span>
+                    </Space>
+                  ),
+                  value: 'post',
+                },
+                {
+                  label: (
+                    <Space size={4}>
+                      <CustomerServiceOutlined style={{ color: '#722ed1' }} />
+                      <span>奇思妙想</span>
+                    </Space>
+                  ),
+                  value: 'whimsy',
+                },
+              ]}
+            />
+            {/* 可见范围修改 */}
+            <Select
+              size="small"
+              value={currentVis}
+              style={{ width: 145 }}
+              onChange={handleVisChange}
+              options={[
+                { label: '🌐 所有人可见', value: 'public' },
+                { label: '👥 仅互关好友', value: 'friend' },
+                { label: '🔒 仅作者可见', value: 'private' },
+              ]}
+            />
+          </Space>
         );
       },
     },
