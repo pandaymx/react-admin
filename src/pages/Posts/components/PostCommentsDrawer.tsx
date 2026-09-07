@@ -342,7 +342,7 @@ export const PostCommentsDrawer: React.FC<PostCommentsDrawerProps> = ({
                         {item.author.nickname}
                       </Text>
                       <Text type="secondary" style={{ fontSize: 11 }}>
-                        UID: {item.author.uid || item.author.userNo}
+                        UID: {item.author.userNo || item.author.uid}
                       </Text>
                       {item.ipLocation && (
                         <Tag style={{ fontSize: 10, margin: 0, padding: '0 4px' }}>

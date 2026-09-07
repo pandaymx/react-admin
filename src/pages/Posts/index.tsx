@@ -287,7 +287,7 @@ export const PostsPage: React.FC = () => {
           {
             title: '作者UID',
             key: 'uid',
-            render: (r: any) => r.author?.uid || r.author?.userNo || '',
+            render: (r: any) => r.author?.userNo || r.author?.uid || '',
           },
           { title: '状态', key: 'status' },
           { title: '是否置顶', key: 'isTop', render: (r: any) => (r.isTop ? '是' : '否') },
@@ -647,7 +647,7 @@ export const PostsPage: React.FC = () => {
                 {author.nickname}
               </div>
               <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
-                UID: {author.uid || author.userNo}
+                UID: {author.userNo || author.uid}
               </div>
               {author.verifyStatus === 'creator' && (
                 <Tag

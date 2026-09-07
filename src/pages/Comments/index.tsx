@@ -214,7 +214,7 @@ export const CommentsPage: React.FC = () => {
           {
             title: '评论人UID',
             key: 'author',
-            render: (r) => r.author.uid || r.author.userNo || '',
+            render: (r) => r.author.userNo || r.author.uid || '',
           },
           { title: '评论正文内容', key: 'content' },
           { title: '获赞数', key: 'likeCount' },
@@ -334,7 +334,7 @@ export const CommentsPage: React.FC = () => {
               {record.author.nickname}
             </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              UID: {record.author.uid || record.author.userNo}
+              UID: {record.author.userNo || record.author.uid}
             </Text>
           </div>
         </Space>

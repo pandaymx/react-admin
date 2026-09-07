@@ -1,6 +1,8 @@
 import type {
+  AdminUserRespVO,
   ApiResponse,
   CommentPermission,
+  PageResult,
   PostAuditActionParams,
   PostAuditTaskItem,
   PostItem,
@@ -686,6 +688,133 @@ mockPostsDataset = mockPostsDataset.map((item) => ({
 }));
 
 /**
+ * 全局用户标识映射缓存：雪花算法 ID -> 用户展示号 (userNo/UID，如 100068)
+ */
+export const snowflakeToUserNoCache = new Map<string, string>();
+
+let isUserMappingLoaded = false;
+let userMappingPromise: Promise<void> | null = null;
+
+/**
+ * 注册用户映射关系
+ */
+export const registerUserMapping = (userIdOrId: string | number, userNo: string | number) => {
+  const k = String(userIdOrId);
+  const v = String(userNo);
+  if (k && v && k !== v) {
+    snowflakeToUserNoCache.set(k, v);
+  }
+};
+
+/**
+ * 确保已加载用户短号映射表（拉取全量用户分页，建立雪花算法 ID 与短 UID 的对照）
+ */
+export const ensureUserMappingLoaded = async () => {
+  if (isUserMappingLoaded) return;
+  if (userMappingPromise) return userMappingPromise;
+
+  userMappingPromise = (async () => {
+    try {
+      const res = await request<PageResult<AdminUserRespVO>>({
+        url: '/user/users/page',
+        method: 'GET',
+        params: { pageNo: 1, pageSize: 100 },
+        headers: { 'x-skip-error-message': 'true' },
+      });
+      if ((res.code === 200 || res.code === 0) && res.data?.list) {
+        for (const u of res.data.list) {
+          const uNo = String(u.userNo || u.userId || '');
+          if (u.id && uNo) {
+            snowflakeToUserNoCache.set(String(u.id), uNo);
+          }
+          if (u.userId && uNo && String(u.userId) !== uNo) {
+            snowflakeToUserNoCache.set(String(u.userId), uNo);
+          }
+        }
+        isUserMappingLoaded = true;
+      }
+    } catch {
+      // 忽略网络容灾异常
+    } finally {
+      userMappingPromise = null;
+    }
+  })();
+
+  return userMappingPromise;
+};
+
+/**
+ * 提取用户业务展示号（对齐用户列表 /users 中的 UID/userNo，如 100046、100068，绝不展示 19 位长的雪花算法 ID）
+ */
+export const resolveDisplayUserNo = (authorObj?: any, postObj?: any): string => {
+  // 1. 优先提取显式声明的 userNo（且不是 16 位以上长雪花算法数字）
+  const explicitNo = String(authorObj?.userNo ?? postObj?.userNo ?? '');
+  if (explicitNo && !/^\d{16,}$/.test(explicitNo)) {
+    return explicitNo;
+  }
+
+  // 2. 检查 uid：如果是短标识（非 16 位以上雪花算法数字），可作为展示号
+  const uidCandidate = String(authorObj?.uid || '');
+  if (uidCandidate && !/^\d{16,}$/.test(uidCandidate)) {
+    return uidCandidate.replace(/^dy_/, '');
+  }
+
+  // 3. 从系统默认昵称如 '小趣_100046' 中智能提取用户展示号
+  const nickname = String(authorObj?.nickname || '');
+  const match = nickname.match(/_(\d+)$/);
+  if (match?.[1]) {
+    return match[1];
+  }
+
+  // 4. 从雪花算法映射字典中检索展示号
+  const authorKey = String(authorObj?.id || authorObj?.userId || postObj?.userId || '');
+  if (authorKey && snowflakeToUserNoCache.has(authorKey)) {
+    const cachedUserNo = snowflakeToUserNoCache.get(authorKey);
+    if (cachedUserNo) return cachedUserNo;
+  }
+
+  // 5. 兜底候选
+  if (explicitNo) return explicitNo;
+  if (uidCandidate) return uidCandidate.replace(/^dy_/, '');
+  return authorKey;
+};
+
+/**
+ * 统一规范化帖子实体字段（作者展示号、媒体、统计、发布时间等）
+ */
+export const normalizePostItem = (p: any): PostItem => {
+  const displayUserNo = resolveDisplayUserNo(p.author, p);
+  const authorUserId = String(p.author?.userId || p.author?.id || p.userId || '');
+
+  return {
+    ...p,
+    author: {
+      ...p.author,
+      userNo: displayUserNo,
+      uid: displayUserNo, // 规范化 uid 为业务展示号，与用户列表完全对齐
+      userId: authorUserId,
+    },
+    type: p.postType || p.type || 'post',
+    coverUrl: p.coverUrl || p.mediaList?.[0]?.coverUrl || p.mediaList?.[0]?.url || '',
+    videoUrl: p.videoUrl || p.mediaList?.find((m: any) => m.mediaType === 'video')?.url,
+    likeCount: p.statistics?.likeCount ?? p.likeCount ?? 0,
+    commentCount: p.statistics?.commentCount ?? p.commentCount ?? 0,
+    shareCount: p.statistics?.shareCount ?? p.shareCount ?? 0,
+    collectCount: p.statistics?.favoriteCount ?? p.collectCount ?? 0,
+    favoriteCount: p.statistics?.favoriteCount ?? p.collectCount ?? 0,
+    statistics: p.statistics || {
+      viewCount: (p.likeCount || 0) * 4,
+      likeCount: p.likeCount ?? 0,
+      commentCount: p.commentCount ?? 0,
+      shareCount: p.shareCount ?? 0,
+      favoriteCount: p.collectCount ?? 0,
+    },
+    publishTime: formatDateTime(p.createdAt ?? p.publishTime),
+    topics: p.topics || [],
+  };
+};
+
+/**
  * 分页获取帖子列表（Dual-Mode：后端 AdminFeedsPostController 真实接口优先 + 本地高保真降级）
  */
 export const getPostList = async (
@@ -713,35 +842,22 @@ export const getPostList = async (
       headers: { 'x-skip-error-message': 'true' },
     });
     if ((res.code === 200 || res.code === 0) && res.data?.list) {
-      const list = res.data.list.map((p) => {
-        const authorUserNo = p.author?.userNo || p.author?.uid || '';
-        const authorUid = p.author?.uid || p.author?.userNo || '';
-        return {
-          ...p,
-          author: {
-            ...p.author,
-            userNo: authorUserNo,
-            uid: authorUid,
-          },
-          type: p.postType || p.type || 'post',
-          coverUrl: p.coverUrl || p.mediaList?.[0]?.coverUrl || p.mediaList?.[0]?.url || '',
-          videoUrl: p.videoUrl || p.mediaList?.find((m) => m.mediaType === 'video')?.url,
-          likeCount: p.statistics?.likeCount ?? p.likeCount ?? 0,
-          commentCount: p.statistics?.commentCount ?? p.commentCount ?? 0,
-          shareCount: p.statistics?.shareCount ?? p.shareCount ?? 0,
-          collectCount: p.statistics?.favoriteCount ?? p.collectCount ?? 0,
-          favoriteCount: p.statistics?.favoriteCount ?? p.collectCount ?? 0,
-          statistics: p.statistics || {
-            viewCount: (p.likeCount || 0) * 4,
-            likeCount: p.likeCount ?? 0,
-            commentCount: p.commentCount ?? 0,
-            shareCount: p.shareCount ?? 0,
-            favoriteCount: p.collectCount ?? 0,
-          },
-          publishTime: formatDateTime(p.createdAt ?? p.publishTime),
-          topics: p.topics || [],
-        };
+      // 检查是否存在未识别短号的雪花算法作者，自动触发预加载对照表
+      const hasUnresolvedSnowflake = res.data.list.some((p: any) => {
+        const id = String(p.author?.userId || p.author?.id || p.userId || '');
+        const hasShortNo = Boolean(
+          (p.author?.userNo && !/^\d{16,}$/.test(String(p.author.userNo))) ||
+            (p.userNo && !/^\d{16,}$/.test(String(p.userNo))) ||
+            (p.author?.nickname && /_\d+$/.test(p.author.nickname)),
+        );
+        return /^\d{16,}$/.test(id) && !hasShortNo && !snowflakeToUserNoCache.has(id);
       });
+
+      if (hasUnresolvedSnowflake) {
+        await ensureUserMappingLoaded();
+      }
+
+      const list = res.data.list.map((p) => normalizePostItem(p));
       return {
         code: 200,
         data: { list, total: Number(res.data.total) || list.length },
@@ -921,28 +1037,12 @@ export const getPostDetail = async (id: string): Promise<ApiResponse<PostItem>> 
         }
       }
 
+      const normalized = normalizePostItem(p);
       return {
         code: 200,
         data: {
-          ...p,
+          ...normalized,
           auditTasks,
-          type: p.postType || p.type || 'post',
-          coverUrl: p.coverUrl || p.mediaList?.[0]?.coverUrl || p.mediaList?.[0]?.url || '',
-          videoUrl: p.videoUrl || p.mediaList?.find((m) => m.mediaType === 'video')?.url,
-          likeCount: p.statistics?.likeCount ?? p.likeCount ?? 0,
-          commentCount: p.statistics?.commentCount ?? p.commentCount ?? 0,
-          shareCount: p.statistics?.shareCount ?? p.shareCount ?? 0,
-          collectCount: p.statistics?.favoriteCount ?? p.collectCount ?? 0,
-          favoriteCount: p.statistics?.favoriteCount ?? p.collectCount ?? 0,
-          statistics: p.statistics || {
-            viewCount: (p.likeCount || 0) * 4,
-            likeCount: p.likeCount ?? 0,
-            commentCount: p.commentCount ?? 0,
-            shareCount: p.shareCount ?? 0,
-            favoriteCount: p.collectCount ?? 0,
-          },
-          publishTime: formatDateTime(p.createdAt ?? p.publishTime),
-          topics: p.topics || [],
         },
         message: 'success',
       };

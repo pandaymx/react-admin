@@ -573,14 +573,19 @@ export const getCommentList = async (
     if ((res.code === 200 || res.code === 0) && res.data?.list) {
       const mappedList: CommentItem[] = res.data.list.map((item) => {
         const postMeta = commentsDataset.find((c) => c.postId === String(item.targetId));
-        const authorUserNo =
-          item.author?.userNo ||
-          item.author?.uid?.replace(/^dy_/, '') ||
-          item.author?.userId ||
-          item.userId ||
-          '';
-        const authorUid =
-          item.author?.uid || item.author?.userNo || item.author?.userId || item.userId || '';
+        const rawAuthor = item.author || {};
+        const authorUserNo = String(
+          rawAuthor.userNo ||
+            (rawAuthor.uid && !/^\d{16,}$/.test(String(rawAuthor.uid)) ? rawAuthor.uid : '') ||
+            (rawAuthor.nickname && /_(\d+)$/.test(rawAuthor.nickname)
+              ? rawAuthor.nickname.match(/_(\d+)$/)?.[1]
+              : '') ||
+            rawAuthor.uid ||
+            rawAuthor.userId ||
+            item.userId ||
+            '',
+        ).replace(/^dy_/, '');
+        const authorUid = authorUserNo;
         const authorNickname = item.author?.nickname || item.nickname || '匿名用户';
         const authorAvatar =
           item.author?.avatar ||
