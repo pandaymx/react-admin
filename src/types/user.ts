@@ -71,6 +71,7 @@ export interface ContentRestrictionItem {
   endAt?: string | null; // 限制结束时间，NULL表示永久
   revokedAt?: string | null; // 解除时间
   revokeReason?: string | null; // 解除原因
+  revokedBy?: string | null; // 解除操作人/管理员
   createdAt?: string;
   updatedAt?: string;
 }

@@ -334,6 +334,17 @@ const mockUsers: UserItem[] = [
         startAt: '2026-08-19 18:22:00',
         endAt: null,
       },
+      {
+        id: 505,
+        userId: '5',
+        restrictionType: 'comment',
+        status: 'expired',
+        reason: '初次在评论区发布违规微商引流外链',
+        sourceType: 'rule',
+        startAt: '2026-07-01 12:00:00',
+        endAt: '2026-07-04 12:00:00',
+        revokeReason: '处罚期满，系统自动解除',
+      },
     ],
     createTime: '2026-08-19T18:22:00',
     registerTime: '2026-08-19 18:22:00',
@@ -390,6 +401,31 @@ const mockUsers: UserItem[] = [
         operatorUserId: '1',
         startAt: '2026-09-02 19:40:00',
         endAt: '2026-09-16 19:40:00',
+      },
+      {
+        id: 603,
+        userId: '6',
+        restrictionType: 'post',
+        status: 'revoked',
+        reason: '涉嫌在动态中散布未经核实争议言论',
+        sourceType: 'report',
+        operatorUserId: '1',
+        startAt: '2026-08-01 10:00:00',
+        endAt: '2026-08-08 10:00:00',
+        revokedAt: '2026-08-03 14:20:00',
+        revokeReason: '用户提交澄清申诉材料，经合规团队人工复核属实，提前解除',
+        revokedBy: '安全合规主管 (admin01)',
+      },
+      {
+        id: 604,
+        userId: '6',
+        restrictionType: 'comment',
+        status: 'expired',
+        reason: '深夜多次在作品区恶意顶帖刷屏',
+        sourceType: 'rule',
+        startAt: '2026-07-10 00:30:00',
+        endAt: '2026-07-11 00:30:00',
+        revokeReason: '处罚期满，系统自动解除',
       },
     ],
     createTime: '2025-10-01T12:00:00',
@@ -448,6 +484,22 @@ const mockUsers: UserItem[] = [
     gender: 'female',
     email: 'echo_guitar@music.org',
     bio: '愿音乐能治愈你的每一个不眠之夜 🎵🎸',
+    restrictions: [
+      {
+        id: 701,
+        userId: '7',
+        restrictionType: 'comment',
+        status: 'revoked',
+        reason: '评论区误发第三方乐器商业购买外链引流',
+        sourceType: 'manual',
+        operatorUserId: '1',
+        startAt: '2026-06-15 11:20:00',
+        endAt: '2026-06-22 11:20:00',
+        revokedAt: '2026-06-16 09:00:00',
+        revokeReason: '首次轻微违规且主动清理违规评论，签署自律承诺书后予以解除',
+        revokedBy: '社区审核专员 (auditor02)',
+      },
+    ],
   },
   {
     id: '8',
@@ -1370,7 +1422,12 @@ export const getUserContentRestrictions = async (
 
   // 本地 Mock 数据集过滤
   let list: ContentRestrictionItem[] = [];
-  const targetUser = currentDataset.find((u) => u.id === String(params.userId));
+  const targetUser = currentDataset.find(
+    (u) =>
+      u.id === String(params.userId) ||
+      String(u.userId) === String(params.userId) ||
+      (u.userNo && String(u.userNo) === String(params.userId)),
+  );
   if (targetUser?.restrictions) {
     list = [...targetUser.restrictions];
     if (params.status && params.status !== 'all') {
@@ -1379,7 +1436,26 @@ export const getUserContentRestrictions = async (
     if (params.restrictionType && params.restrictionType !== 'all') {
       list = list.filter((r) => r.restrictionType === params.restrictionType);
     }
+  } else if (!params.userId) {
+    for (const u of currentDataset) {
+      if (u.restrictions) {
+        list.push(...u.restrictions);
+      }
+    }
+    if (params.status && params.status !== 'all') {
+      list = list.filter((r) => r.status === params.status);
+    }
+    if (params.restrictionType && params.restrictionType !== 'all') {
+      list = list.filter((r) => r.restrictionType === params.restrictionType);
+    }
   }
+
+  // 按记录时间倒序
+  list.sort((a, b) => {
+    const tA = new Date(a.startAt || a.createdAt || 0).getTime();
+    const tB = new Date(b.startAt || b.createdAt || 0).getTime();
+    return tB - tA;
+  });
 
   return {
     code: 200,
@@ -1388,6 +1464,25 @@ export const getUserContentRestrictions = async (
       total: list.length,
     },
     message: 'success',
+  };
+};
+
+/**
+ * 获取指定用户的全量违规与处罚历史档案 (包含生效中、已解除、已到期)
+ */
+export const getUserPunishmentHistory = async (
+  userId: string | number,
+  status: 'all' | 'active' | 'revoked' | 'expired' = 'all',
+): Promise<ApiResponse<ContentRestrictionItem[]>> => {
+  const res = await getUserContentRestrictions({
+    userId: String(userId),
+    status: status === 'all' ? undefined : status,
+    pageSize: 100,
+  });
+  return {
+    code: res.code,
+    data: res.data?.list || [],
+    message: res.message,
   };
 };
 

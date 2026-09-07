@@ -9,6 +9,7 @@ import {
   EyeInvisibleOutlined,
   EyeOutlined,
   FileTextOutlined,
+  HistoryOutlined,
   IdcardOutlined,
   LockOutlined,
   MoreOutlined,
@@ -81,6 +82,7 @@ import {
   type SinglePenaltyConfig,
   UserBanModal,
 } from './components/UserBanModal';
+import { UserPunishmentHistoryModal } from './components/UserPunishmentHistoryModal';
 
 const { Text, Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -279,6 +281,20 @@ export const UsersPage: React.FC = () => {
   const [banModalVisible, setBanModalVisible] = useState<boolean>(false);
   const [banTargetUsers, setBanTargetUsers] = useState<UserItem[]>([]);
   const [banDefaultPunishType, setBanDefaultPunishType] = useState<BanPunishType>('account');
+
+  // 违规处罚历史档案弹窗状态
+  const [historyModalVisible, setHistoryModalVisible] = useState<boolean>(false);
+  const [historyUser, setHistoryUser] = useState<UserItem | null>(null);
+
+  const handleOpenHistoryModal = (record: UserItem) => {
+    setHistoryUser(record);
+    setHistoryModalVisible(true);
+  };
+
+  const handleHistoryRevokeSuccess = () => {
+    fetchData(currentPage, pageSize);
+    fetchSummary();
+  };
 
   // 子表格展开行与按需缓存状态 (Dual-Mode 策略：优先复用聚合，缺失则懒加载)
   const [expandedRowKeys, setExpandedRowKeys] = useState<React.Key[]>([]);
@@ -1094,6 +1110,16 @@ export const UsersPage: React.FC = () => {
             </Tag>
           </Space>
         }
+        extra={
+          <Button
+            type="link"
+            size="small"
+            icon={<HistoryOutlined />}
+            onClick={() => handleOpenHistoryModal(record)}
+          >
+            查看该用户完整处罚历史档案
+          </Button>
+        }
         variant="borderless"
         style={{
           margin: '4px 0 8px 38px',
@@ -1346,12 +1372,21 @@ export const UsersPage: React.FC = () => {
       title: '操作',
       key: 'action',
       fixed: 'right',
-      width: 200,
+      width: 240,
       render: (_, record) => {
         const isRestricted =
           record.status !== 'normal' || record.restrictions?.some((r) => r.status === 'active');
 
         const moreMenuItems: MenuProps['items'] = [
+          {
+            key: 'punish-history-item',
+            icon: <HistoryOutlined style={{ color: '#1677ff' }} />,
+            label: '处罚记录历史档案...',
+            onClick: () => handleOpenHistoryModal(record),
+          },
+          {
+            type: 'divider',
+          },
           {
             key: 'moderation-sub',
             icon: <StopOutlined style={{ color: '#ff4d4f' }} />,
@@ -1456,6 +1491,14 @@ export const UsersPage: React.FC = () => {
               }}
             >
               详情
+            </Button>
+            <Button
+              type="link"
+              size="small"
+              icon={<HistoryOutlined />}
+              onClick={() => handleOpenHistoryModal(record)}
+            >
+              处罚历史
             </Button>
             {isRestricted ? (
               <Popconfirm
@@ -1906,8 +1949,8 @@ export const UsersPage: React.FC = () => {
             </div>
 
             {/* 违规处罚与内容安全治理专栏 */}
-            {(currentUser.status !== 'normal' ||
-              (currentUser.restrictions && currentUser.restrictions.length > 0)) && (
+            {currentUser.status !== 'normal' ||
+            (currentUser.restrictions && currentUser.restrictions.length > 0) ? (
               <Card
                 size="small"
                 title={
@@ -1917,6 +1960,16 @@ export const UsersPage: React.FC = () => {
                       内容治理管控与违规限制清单
                     </span>
                   </Space>
+                }
+                extra={
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<HistoryOutlined />}
+                    onClick={() => handleOpenHistoryModal(currentUser)}
+                  >
+                    处罚历史档案
+                  </Button>
                 }
                 style={{
                   background: isDark ? 'rgba(255, 77, 79, 0.08)' : '#fff2f0',
@@ -2006,6 +2059,16 @@ export const UsersPage: React.FC = () => {
                   }}
                 />
               </Card>
+            ) : (
+              <div style={{ marginBottom: 16 }}>
+                <Button
+                  icon={<HistoryOutlined />}
+                  onClick={() => handleOpenHistoryModal(currentUser)}
+                  style={{ width: '100%', borderRadius: 6 }}
+                >
+                  查看该用户违规与处罚历史档案
+                </Button>
+              </div>
             )}
 
             {/* 社交互动指标卡 */}
@@ -2184,6 +2247,17 @@ export const UsersPage: React.FC = () => {
         defaultPunishType={banDefaultPunishType}
         onCancel={() => setBanModalVisible(false)}
         onOk={handleConfirmBan}
+      />
+
+      {/* 违规与处罚历史档案弹窗 */}
+      <UserPunishmentHistoryModal
+        open={historyModalVisible}
+        user={historyUser}
+        onCancel={() => {
+          setHistoryModalVisible(false);
+          setHistoryUser(null);
+        }}
+        onRevokeSuccess={handleHistoryRevokeSuccess}
       />
     </div>
   );
