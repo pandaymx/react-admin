@@ -1,4 +1,5 @@
 import { request } from '@/api/request';
+import { getUserCertificationLabel } from '@/api/user';
 import type {
   AdminUserRespVO,
   ApiResponse,
@@ -267,15 +268,17 @@ function convertUserToEnterpriseVerification(user: AdminUserRespVO): EnterpriseV
   const certSummary = user.certificationSummary?.primary;
   const certTime = certSummary?.certifiedAt || user.createTime;
   const auth = user.personalAuths?.[0];
+  const userNo = String(user.userNo || user.userId || user.id);
 
   return {
     id: `AUTH_ENT_USER_${user.userId || user.id}`,
     userId: user.userId || user.id,
-    userNo: String(user.userId || user.id),
-    uid: String(user.userId || user.id),
-    nickname: user.nickname || `企业用户_${user.userId}`,
+    userNo,
+    uid: userNo,
+    nickname: user.nickname || `企业用户_${user.userId || user.id}`,
     avatar:
       user.avatarUrl ||
+      (user as any).avatar ||
       'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80',
     companyName: certSummary?.displayName || user.nickname || '官方认证企业',
     enterpriseName: certSummary?.displayName || user.nickname || '官方认证企业',
@@ -560,10 +563,13 @@ async function fetchCombinedEnterpriseFromBackend(
     if (hasUserData && userRes?.data?.list) {
       for (const u of userRes.data.list) {
         const uId = String(u.userId || u.id);
+        const certLabel = getUserCertificationLabel(u);
         const isCertified =
-          u.certified === true &&
-          (u.certificationSummary?.certificationLabel === '企业认证' ||
-            u.certificationSummary?.primary?.type === 'enterprise');
+          certLabel === '企业认证' ||
+          u.qualification === 2 ||
+          (u.certified === true &&
+            (u.certificationSummary?.certificationLabel === '企业认证' ||
+              u.certificationSummary?.primary?.type === 'enterprise'));
 
         if (isCertified && !seenUserIds.has(uId)) {
           seenUserIds.add(uId);
@@ -586,7 +592,8 @@ export const getPersonalVerificationList = async (
 ): Promise<ApiResponse<{ list: PersonalVerificationItem[]; total: number }>> => {
   const backendItems = await fetchCombinedPersonalFromBackend(params);
 
-  let sourceData = backendItems !== null ? backendItems : [...currentPersonalDataset];
+  let sourceData =
+    backendItems && backendItems.length > 0 ? backendItems : [...currentPersonalDataset];
 
   // 1. 关键词查询 (真实姓名 / 昵称)
   if (params.keyword?.trim()) {
@@ -665,7 +672,9 @@ export const getEnterpriseVerificationList = async (
 ): Promise<ApiResponse<{ list: EnterpriseVerificationItem[]; total: number }>> => {
   const backendItems = await fetchCombinedEnterpriseFromBackend(params);
 
-  let sourceData = backendItems !== null ? backendItems : [...currentEnterpriseDataset];
+  // 若后端有真实记录则优先展示；若后端当前暂无企业认证数据（0条或null），平滑降级采用当前数据集兜底保活
+  let sourceData =
+    backendItems && backendItems.length > 0 ? backendItems : [...currentEnterpriseDataset];
 
   if (params.keyword?.trim()) {
     const kw = params.keyword.trim().toLowerCase();
@@ -724,7 +733,7 @@ export const getVerificationSummaryStats = async (
         ? await getPersonalVerificationList({ pageSize: 1000 })
         : await getEnterpriseVerificationList({ pageSize: 1000 });
 
-    if (res.code === 200 && res.data?.list) {
+    if (res.code === 200 && res.data?.list && res.data.list.length > 0) {
       const all = res.data.list;
       const pendingCount = all.filter((i) => i.status === 'pending').length;
       const approvedCount = all.filter((i) => i.status === 'approved').length;
