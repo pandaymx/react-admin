@@ -57,7 +57,6 @@ import {
   getPostList,
   getPostStatisticsSummary,
   togglePostTop,
-  updatePostType,
   updatePostVisibility,
 } from '@/api/post';
 import { type ColumnOptionItem, useColumnSettings } from '@/components/ColumnSetting';
@@ -758,22 +757,7 @@ export const PostsPage: React.FC = () => {
           | 'post'
           | 'whimsy'
           | 'image_text';
-        const currentType = type === 'image_text' ? 'post' : type;
         const currentVis = record.visibility || 'public';
-
-        const handleTypeChange = async (val: string) => {
-          try {
-            await updatePostType(record.id, val as any);
-            message.success('作品形式已变更');
-            setPostList((prev) =>
-              prev.map((p) =>
-                p.id === record.id ? { ...p, postType: val as any, type: val as any } : p,
-              ),
-            );
-          } catch {
-            message.error('作品形式更新失败');
-          }
-        };
 
         const handleVisChange = async (val: string) => {
           try {
@@ -790,43 +774,25 @@ export const PostsPage: React.FC = () => {
 
         return (
           <Space direction="vertical" size={6} style={{ width: '100%' }}>
-            {/* 作品形式修改 */}
-            <Select
-              size="small"
-              value={currentType}
-              style={{ width: 145 }}
-              onChange={handleTypeChange}
-              options={[
-                {
-                  label: (
-                    <Space size={4}>
-                      <VideoCameraOutlined style={{ color: '#1677ff' }} />
-                      <span>短视频</span>
-                    </Space>
-                  ),
-                  value: 'video',
-                },
-                {
-                  label: (
-                    <Space size={4}>
-                      <PictureOutlined style={{ color: '#52c41a' }} />
-                      <span>图文相册</span>
-                    </Space>
-                  ),
-                  value: 'post',
-                },
-                {
-                  label: (
-                    <Space size={4}>
-                      <CustomerServiceOutlined style={{ color: '#722ed1' }} />
-                      <span>奇思妙想</span>
-                    </Space>
-                  ),
-                  value: 'whimsy',
-                },
-              ]}
-            />
-            {/* 可见范围修改 */}
+            {/* 作品形式只读展示 */}
+            <div>
+              {type === 'video' && (
+                <Tag color="blue" icon={<VideoCameraOutlined />} style={{ margin: 0 }}>
+                  短视频
+                </Tag>
+              )}
+              {(type === 'post' || type === 'image_text') && (
+                <Tag color="green" icon={<PictureOutlined />} style={{ margin: 0 }}>
+                  图文相册
+                </Tag>
+              )}
+              {type === 'whimsy' && (
+                <Tag color="purple" icon={<CustomerServiceOutlined />} style={{ margin: 0 }}>
+                  奇思妙想
+                </Tag>
+              )}
+            </div>
+            {/* 可见范围就地修改 */}
             <Select
               size="small"
               value={currentVis}
