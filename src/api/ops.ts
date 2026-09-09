@@ -1,5 +1,6 @@
 import type {
   ApiResponse,
+  JvmDetailInfo,
   OpsAlertEventItem,
   OpsAlertRuleItem,
   OpsDependencyItem,
@@ -7,6 +8,11 @@ import type {
   OpsResourcePolicy,
   OpsServiceItem,
   OpsSummaryStats,
+  RedisCommandStat,
+  RedisConfigItem,
+  RedisDbStat,
+  RedisInfoItem,
+  ServerHostDetail,
 } from '@/types';
 
 // ======================= 高拟真运维数据集 =======================
@@ -553,5 +559,373 @@ export const saveOpsResourcePolicy = async (
     code: 200,
     data: true,
     message: '监控阈值策略已更新并即时生效',
+  };
+};
+
+// ======================= Redis 深度监控数据集 =======================
+
+const mockRedisInfo: RedisInfoItem = {
+  version: '7.2.4',
+  redisMode: 'sentinel',
+  port: 6379,
+  runDays: 42,
+  connectedClients: 84,
+  connectedClientsPeak: 216,
+  blockedClients: 0,
+  usedMemoryHuman: '1.42 GB',
+  usedMemoryBytes: 1524695040,
+  usedMemoryRssHuman: '1.68 GB',
+  usedMemoryPeakHuman: '2.10 GB',
+  maxMemoryHuman: '4.00 GB',
+  maxMemoryBytes: 4294967296,
+  maxMemoryPolicy: 'volatile-lru',
+  memFragmentationRatio: 1.18,
+  keyspaceHits: 842190,
+  keyspaceMisses: 21940,
+  hitRate: 97.46,
+  instantaneousOpsPerSec: 1840,
+  totalKeys: 68420,
+  expiredKeys: 12840,
+  evictedKeys: 0,
+  aofEnabled: true,
+  rdbLastSaveStatus: 'ok',
+  rdbLastSaveTime: '2026-09-09 19:00:15',
+};
+
+const mockRedisConfigs: RedisConfigItem[] = [
+  {
+    key: 'maxmemory',
+    value: '4294967296 (4.00 GB)',
+    description: 'Redis 实例允许使用的最大物理内存上限，达到后执行淘汰策略',
+    defaultValue: '0 (无限制)',
+    category: 'memory',
+    dynamicEditable: true,
+  },
+  {
+    key: 'maxmemory-policy',
+    value: 'volatile-lru',
+    description: '内存达到上限后的淘汰算法（从设置了过期的键中根据 LRU 淘汰）',
+    defaultValue: 'noeviction',
+    category: 'memory',
+    dynamicEditable: true,
+  },
+  {
+    key: 'timeout',
+    value: '300',
+    description: '客户端闲置超时时间（秒），超过则主动断开连接，0 表示永不断开',
+    defaultValue: '0',
+    category: 'network',
+    dynamicEditable: true,
+  },
+  {
+    key: 'databases',
+    value: '16',
+    description: '支持的数据库分区总数（从 db0 到 db15）',
+    defaultValue: '16',
+    category: 'general',
+    dynamicEditable: false,
+  },
+  {
+    key: 'save',
+    value: '900 1 300 10 60 10000',
+    description: 'RDB 自动快照触发规则：900秒内有1次写，或300秒10次写，或60秒1万次写',
+    defaultValue: '3600 1 300 100 60 10000',
+    category: 'persistence',
+    dynamicEditable: true,
+  },
+  {
+    key: 'appendonly',
+    value: 'yes',
+    description: '是否开启 AOF (Append Only File) 增量命令追加持久化',
+    defaultValue: 'no',
+    category: 'persistence',
+    dynamicEditable: true,
+  },
+  {
+    key: 'appendfsync',
+    value: 'everysec',
+    description: 'AOF 刷盘同步策略（everysec 每秒异步刷盘，兼顾性能与数据安全）',
+    defaultValue: 'everysec',
+    category: 'persistence',
+    dynamicEditable: true,
+  },
+  {
+    key: 'tcp-backlog',
+    value: '511',
+    description: '高并发场景下的 TCP 已完成握手连接队列深度',
+    defaultValue: '511',
+    category: 'network',
+    dynamicEditable: false,
+  },
+  {
+    key: 'tcp-keepalive',
+    value: '300',
+    description: '发送 TCP 保活心跳探活探测周期（秒）',
+    defaultValue: '300',
+    category: 'network',
+    dynamicEditable: true,
+  },
+  {
+    key: 'slowlog-log-slower-than',
+    value: '10000',
+    description: '慢查询判定阈值（微秒），超过 10ms 的查询记录入慢日志',
+    defaultValue: '10000',
+    category: 'general',
+    dynamicEditable: true,
+  },
+  {
+    key: 'slowlog-max-len',
+    value: '1024',
+    description: '慢查询日志队列最大保留条数',
+    defaultValue: '128',
+    category: 'general',
+    dynamicEditable: true,
+  },
+  {
+    key: 'hash-max-listpack-entries',
+    value: '512',
+    description: 'Hash 结构启用紧凑 listpack 编码的最大字段数，超过转为散列表',
+    defaultValue: '512',
+    category: 'memory',
+    dynamicEditable: true,
+  },
+  {
+    key: 'zset-max-listpack-entries',
+    value: '128',
+    description: '有序集合启用紧凑编码的最大元素数',
+    defaultValue: '128',
+    category: 'memory',
+    dynamicEditable: true,
+  },
+  {
+    key: 'activedefrag',
+    value: 'yes',
+    description: '是否开启主动内存碎片整理机制，避免长时间运行产生的碎片膨胀',
+    defaultValue: 'no',
+    category: 'memory',
+    dynamicEditable: true,
+  },
+  {
+    key: 'hz',
+    value: '10',
+    description: '后台定时任务执行频率（每秒执行检查过期、清理超时的周期次数）',
+    defaultValue: '10',
+    category: 'general',
+    dynamicEditable: true,
+  },
+];
+
+const mockRedisDbStats: RedisDbStat[] = [
+  { dbIndex: 0, dbName: 'db0 (登录鉴权与Token)', keys: 38200, expires: 31400, avgTtlMs: 7200000 },
+  {
+    dbIndex: 1,
+    dbName: 'db1 (动态内容与用户缓存)',
+    keys: 18400,
+    expires: 12100,
+    avgTtlMs: 86400000,
+  },
+  { dbIndex: 2, dbName: 'db2 (分布式限流与锁Lock4j)', keys: 7600, expires: 7600, avgTtlMs: 60000 },
+  { dbIndex: 3, dbName: 'db3 (支付状态与幂等Token)', keys: 4220, expires: 3900, avgTtlMs: 1800000 },
+];
+
+const mockRedisCommandStats: RedisCommandStat[] = [
+  { command: 'GET', calls: 384200, usec: 153680, usecPerCall: 0.4, percentage: 42.5 },
+  { command: 'SET / SETEX', calls: 189400, usec: 94700, usecPerCall: 0.5, percentage: 21.0 },
+  { command: 'HGET / HGETALL', calls: 112000, usec: 67200, usecPerCall: 0.6, percentage: 12.4 },
+  { command: 'LRANGE / LPUSH', calls: 54000, usec: 43200, usecPerCall: 0.8, percentage: 6.0 },
+  { command: 'ZADD / ZREVRANGE', calls: 48000, usec: 40800, usecPerCall: 0.85, percentage: 5.3 },
+  { command: 'DEL', calls: 32000, usec: 19200, usecPerCall: 0.6, percentage: 3.5 },
+  { command: 'EVAL / Lua脚本', calls: 24000, usec: 36000, usecPerCall: 1.5, percentage: 2.7 },
+  { command: 'PING / 探活心跳', calls: 58000, usec: 11600, usecPerCall: 0.2, percentage: 6.6 },
+];
+
+// ======================= 服务器硬件与系统数据集 =======================
+
+const mockServerDetail: ServerHostDetail = {
+  id: 'host-1',
+  sys: {
+    computerName: 'prod-k8s-node-01',
+    computerIp: '172.17.75.184',
+    publicIp: '192.168.1.2',
+    osName: 'Alibaba Cloud Linux 3.2104 LTS',
+    osArch: 'x86_64 (amd64)',
+    kernelVersion: 'Linux 5.10.134-16.1.al8.x86_64',
+    uptime: '48天 16小时 32分',
+    runtimeEnv: '生产集群节点 (K8s Worker Node)',
+  },
+  cpu: {
+    cpuNum: 16,
+    cpuModel: 'Intel(R) Xeon(R) Platinum 8369B CPU @ 2.70GHz',
+    userPercent: 28.4,
+    sysPercent: 9.8,
+    idlePercent: 61.8,
+    waitPercent: 0.0,
+    totalPercent: 38.2,
+    loadAvg1m: 2.14,
+    loadAvg5m: 1.88,
+    loadAvg15m: 1.62,
+  },
+  mem: {
+    totalGb: 64.0,
+    usedGb: 39.8,
+    freeGb: 14.2,
+    bufferCachedGb: 10.0,
+    usagePercent: 62.19,
+    swapTotalGb: 8.0,
+    swapUsedGb: 0.42,
+    swapFreeGb: 7.58,
+    swapUsagePercent: 5.25,
+  },
+  disks: [
+    {
+      dirName: '/',
+      sysTypeName: 'ext4',
+      typeName: '系统根挂载分区',
+      totalGb: 100.0,
+      usedGb: 42.6,
+      freeGb: 57.4,
+      usagePercent: 42.6,
+      status: 'normal',
+    },
+    {
+      dirName: '/data',
+      sysTypeName: 'xfs',
+      typeName: '高速 SSD 数据盘',
+      totalGb: 500.0,
+      usedGb: 284.0,
+      freeGb: 216.0,
+      usagePercent: 56.8,
+      status: 'normal',
+    },
+    {
+      dirName: '/var/log',
+      sysTypeName: 'ext4',
+      typeName: '容器与系统日志分区',
+      totalGb: 200.0,
+      usedGb: 148.2,
+      freeGb: 51.8,
+      usagePercent: 74.1,
+      status: 'warning',
+    },
+  ],
+  network: [
+    {
+      interfaceName: 'eth0',
+      ip: '172.17.75.184',
+      rxSpeedKb: 1420.5,
+      txSpeedKb: 2890.2,
+      rxTotalMb: 124800,
+      txTotalMb: 358400,
+      tcpEstablished: 486,
+      tcpTimeWait: 92,
+      tcpCloseWait: 6,
+    },
+  ],
+};
+
+// ======================= JVM 详细分代数据集 =======================
+
+const mockJvmDetail: JvmDetailInfo = {
+  serviceCode: 'user-server',
+  chineseName: '用户中心服务 (User Service)',
+  jvmName: 'OpenJDK 64-Bit Server VM',
+  jvmVersion: '17.0.12+7-LTS',
+  javaHome: '/opt/java/openjdk-17',
+  startTime: '2026-08-20 10:15:00',
+  uptime: '20天 8小时 45分',
+  initHeapMb: 2048,
+  maxHeapMb: 8192,
+  usedHeapMb: 4620,
+  committedHeapMb: 6144,
+  heapUsagePercent: 56.4,
+  edenUsedMb: 1280,
+  edenMaxMb: 2048,
+  oldGenUsedMb: 3040,
+  oldGenMaxMb: 5120,
+  metaspaceUsedMb: 184,
+  metaspaceMaxMb: 512,
+  youngGcCount: 1482,
+  youngGcTimeMs: 18420,
+  fullGcCount: 3,
+  fullGcTimeMs: 420,
+  threadCount: 142,
+  peakThreadCount: 280,
+  daemonThreadCount: 96,
+  deadlockedThreadCount: 0,
+};
+
+// ======================= 扩展 API 接口实现 =======================
+
+/**
+ * 获取 Redis 运行状态与键空间信息
+ */
+export const getRedisInfo = async (_env?: string): Promise<ApiResponse<RedisInfoItem>> => {
+  return {
+    code: 200,
+    data: { ...mockRedisInfo },
+    message: 'success',
+  };
+};
+
+/**
+ * 获取 Redis 核心配置参数列表
+ */
+export const getRedisConfigs = async (_env?: string): Promise<ApiResponse<RedisConfigItem[]>> => {
+  return {
+    code: 200,
+    data: [...mockRedisConfigs],
+    message: 'success',
+  };
+};
+
+/**
+ * 获取 Redis 分库统计
+ */
+export const getRedisDbStats = async (_env?: string): Promise<ApiResponse<RedisDbStat[]>> => {
+  return {
+    code: 200,
+    data: [...mockRedisDbStats],
+    message: 'success',
+  };
+};
+
+/**
+ * 获取 Redis 常用命令耗时与频率统计
+ */
+export const getRedisCommandStats = async (
+  _env?: string,
+): Promise<ApiResponse<RedisCommandStat[]>> => {
+  return {
+    code: 200,
+    data: [...mockRedisCommandStats],
+    message: 'success',
+  };
+};
+
+/**
+ * 获取服务器完整硬件与系统快照
+ */
+export const getServerDetail = async (
+  _hostId?: string,
+  _env?: string,
+): Promise<ApiResponse<ServerHostDetail>> => {
+  return {
+    code: 200,
+    data: { ...mockServerDetail },
+    message: 'success',
+  };
+};
+
+/**
+ * 获取 JVM 深度分代指标与垃圾回收快照
+ */
+export const getJvmDetail = async (
+  _serviceCode?: string,
+  _env?: string,
+): Promise<ApiResponse<JvmDetailInfo>> => {
+  return {
+    code: 200,
+    data: { ...mockJvmDetail },
+    message: 'success',
   };
 };

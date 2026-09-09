@@ -135,3 +135,186 @@ export interface OpsResourcePolicy {
   probeTimeoutMillis: number;
   autoRefreshInterval: number;
 }
+
+/**
+ * Redis 基础运行指标与键空间
+ */
+export interface RedisInfoItem {
+  version: string;
+  redisMode: 'standalone' | 'sentinel' | 'cluster';
+  port: number;
+  runDays: number;
+  connectedClients: number;
+  connectedClientsPeak: number;
+  blockedClients: number;
+  usedMemoryHuman: string;
+  usedMemoryBytes: number;
+  usedMemoryRssHuman: string;
+  usedMemoryPeakHuman: string;
+  maxMemoryHuman: string;
+  maxMemoryBytes: number;
+  maxMemoryPolicy: string;
+  memFragmentationRatio: number; // 碎片率
+  keyspaceHits: number;
+  keyspaceMisses: number;
+  hitRate: number; // 命中率 %
+  instantaneousOpsPerSec: number; // QPS
+  totalKeys: number;
+  expiredKeys: number;
+  evictedKeys: number;
+  aofEnabled: boolean;
+  rdbLastSaveStatus: string;
+  rdbLastSaveTime: string;
+}
+
+/**
+ * Redis 核心配置项
+ */
+export interface RedisConfigItem {
+  key: string;
+  value: string;
+  description: string;
+  defaultValue: string;
+  category: 'memory' | 'persistence' | 'network' | 'client' | 'general';
+  dynamicEditable: boolean;
+}
+
+/**
+ * Redis DB 数据库键统计
+ */
+export interface RedisDbStat {
+  dbIndex: number;
+  dbName: string;
+  keys: number;
+  expires: number;
+  avgTtlMs: number;
+}
+
+/**
+ * Redis 命令耗时与调用统计
+ */
+export interface RedisCommandStat {
+  command: string;
+  calls: number;
+  usec: number;
+  usecPerCall: number;
+  percentage: number;
+}
+
+/**
+ * 服务器 CPU 详细指标
+ */
+export interface ServerCpuDetail {
+  cpuNum: number;
+  cpuModel: string;
+  userPercent: number;
+  sysPercent: number;
+  idlePercent: number;
+  waitPercent: number;
+  totalPercent: number;
+  loadAvg1m: number;
+  loadAvg5m: number;
+  loadAvg15m: number;
+}
+
+/**
+ * 服务器内存与交换分区
+ */
+export interface ServerMemDetail {
+  totalGb: number;
+  usedGb: number;
+  freeGb: number;
+  usagePercent: number;
+  bufferCachedGb: number;
+  swapTotalGb: number;
+  swapUsedGb: number;
+  swapFreeGb: number;
+  swapUsagePercent: number;
+}
+
+/**
+ * 服务器磁盘挂载点
+ */
+export interface ServerDiskItem {
+  dirName: string;
+  sysTypeName: string;
+  typeName: string;
+  totalGb: number;
+  usedGb: number;
+  freeGb: number;
+  usagePercent: number;
+  status: 'normal' | 'warning' | 'danger';
+}
+
+/**
+ * 服务器网络与 TCP 连接
+ */
+export interface ServerNetworkItem {
+  interfaceName: string;
+  ip: string;
+  rxSpeedKb: number;
+  txSpeedKb: number;
+  rxTotalMb: number;
+  txTotalMb: number;
+  tcpEstablished: number;
+  tcpTimeWait: number;
+  tcpCloseWait: number;
+}
+
+/**
+ * 服务器系统档案
+ */
+export interface ServerSysInfo {
+  computerName: string;
+  computerIp: string;
+  publicIp: string;
+  osName: string;
+  osArch: string;
+  kernelVersion: string;
+  uptime: string;
+  runtimeEnv: string;
+}
+
+/**
+ * 服务器完整详细快照
+ */
+export interface ServerHostDetail {
+  id: string;
+  sys: ServerSysInfo;
+  cpu: ServerCpuDetail;
+  mem: ServerMemDetail;
+  disks: ServerDiskItem[];
+  network: ServerNetworkItem[];
+}
+
+/**
+ * JVM 深度分代与垃圾回收指标
+ */
+export interface JvmDetailInfo {
+  serviceCode: string;
+  chineseName: string;
+  jvmName: string;
+  jvmVersion: string;
+  javaHome: string;
+  startTime: string;
+  uptime: string;
+  initHeapMb: number;
+  maxHeapMb: number;
+  usedHeapMb: number;
+  committedHeapMb: number;
+  heapUsagePercent: number;
+  edenUsedMb: number;
+  edenMaxMb: number;
+  oldGenUsedMb: number;
+  oldGenMaxMb: number;
+  metaspaceUsedMb: number;
+  metaspaceMaxMb: number;
+  youngGcCount: number;
+  youngGcTimeMs: number;
+  fullGcCount: number;
+  fullGcTimeMs: number;
+  threadCount: number;
+  peakThreadCount: number;
+  daemonThreadCount: number;
+  deadlockedThreadCount: number;
+}
