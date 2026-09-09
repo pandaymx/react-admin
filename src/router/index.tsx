@@ -6,7 +6,14 @@ import CommentsPage from '@/pages/Comments';
 import DashboardPage from '@/pages/Dashboard';
 import LoginPage from '@/pages/Login';
 import NotFoundPage from '@/pages/NotFound';
-import { OpsDashboardPage } from '@/pages/Ops';
+import {
+  OpsAlertsPage,
+  OpsJvmPage,
+  OpsOverviewPage,
+  OpsRedisPage,
+  OpsServerPage,
+  OpsServicesPage,
+} from '@/pages/Ops';
 import PostsPage from '@/pages/Posts';
 import ReportsPage from '@/pages/Reports';
 import SensitiveWordsPage from '@/pages/SensitiveWords';
@@ -78,7 +85,31 @@ export const router = createHashRouter([
       },
       {
         path: 'ops',
-        element: <OpsDashboardPage />,
+        element: <OpsOverviewPage />,
+      },
+      {
+        path: 'ops/overview',
+        element: <OpsOverviewPage />,
+      },
+      {
+        path: 'ops/server',
+        element: <OpsServerPage />,
+      },
+      {
+        path: 'ops/redis',
+        element: <OpsRedisPage />,
+      },
+      {
+        path: 'ops/services',
+        element: <OpsServicesPage />,
+      },
+      {
+        path: 'ops/jvm',
+        element: <OpsJvmPage />,
+      },
+      {
+        path: 'ops/alerts',
+        element: <OpsAlertsPage />,
       },
     ],
   },

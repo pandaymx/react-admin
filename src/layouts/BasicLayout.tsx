@@ -90,6 +90,32 @@ const menuItems = [
     key: '/ops',
     icon: <CloudServerOutlined />,
     label: '系统运维',
+    children: [
+      {
+        key: '/ops/overview',
+        label: '全景大盘',
+      },
+      {
+        key: '/ops/server',
+        label: '服务器监控',
+      },
+      {
+        key: '/ops/redis',
+        label: 'Redis 监控',
+      },
+      {
+        key: '/ops/services',
+        label: '微服务探针',
+      },
+      {
+        key: '/ops/jvm',
+        label: 'JVM 监控',
+      },
+      {
+        key: '/ops/alerts',
+        label: '告警中心',
+      },
+    ],
   },
 ];
 
@@ -183,7 +209,18 @@ export const BasicLayout: React.FC = () => {
       case '/sensitive-words':
         return ['敏感词管理'];
       case '/ops':
-        return ['系统运维'];
+      case '/ops/overview':
+        return ['系统运维', '全景大盘'];
+      case '/ops/server':
+        return ['系统运维', '服务器监控'];
+      case '/ops/redis':
+        return ['系统运维', 'Redis 监控'];
+      case '/ops/services':
+        return ['系统运维', '微服务探针'];
+      case '/ops/jvm':
+        return ['系统运维', 'JVM 监控'];
+      case '/ops/alerts':
+        return ['系统运维', '告警中心'];
       default:
         return ['仪表盘'];
     }
@@ -213,19 +250,17 @@ export const BasicLayout: React.FC = () => {
     return preference === 'dark' ? '当前暗黑模式' : '当前浅色模式';
   };
 
+  const currentSelectedKey = location.pathname === '/ops' ? '/ops/overview' : location.pathname;
+
   return (
     <Layout style={{ height: '100vh', overflow: 'hidden' }}>
       <Sider
         trigger={null}
         collapsible
         collapsed={collapsed}
+        width={220}
         theme={isDark ? 'dark' : 'light'}
         style={{
-          height: '100vh',
-          position: 'sticky',
-          top: 0,
-          left: 0,
-          zIndex: 100,
           borderRight: `1px solid ${colorBorderSecondary}`,
           display: 'flex',
           flexDirection: 'column',
@@ -236,7 +271,7 @@ export const BasicLayout: React.FC = () => {
             height: 64,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            justifyContent: collapsed ? 'center' : 'flex-start',
             padding: '0 16px',
             borderBottom: `1px solid ${colorBorderSecondary}`,
             flexShrink: 0,
@@ -253,8 +288,8 @@ export const BasicLayout: React.FC = () => {
           <Menu
             mode="inline"
             theme={isDark ? 'dark' : 'light'}
-            selectedKeys={[location.pathname]}
-            defaultOpenKeys={['user-management']}
+            selectedKeys={[currentSelectedKey]}
+            defaultOpenKeys={['user-management', '/ops']}
             items={menuItems}
             onClick={handleMenuClick}
             style={{ borderRight: 0 }}

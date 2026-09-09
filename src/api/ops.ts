@@ -447,7 +447,7 @@ export const getOpsSummaryStats = async (): Promise<ApiResponse<OpsSummaryStats>
 /**
  * 获取微服务资产及探针状态列表
  */
-export const getOpsServices = async (): Promise<ApiResponse<OpsServiceItem[]>> => {
+export const getOpsServices = async (_env?: string): Promise<ApiResponse<OpsServiceItem[]>> => {
   return {
     code: 200,
     data: [...mockServices],
@@ -481,7 +481,9 @@ export const triggerServiceProbe = async (
 /**
  * 获取中间件与基础设施资产列表
  */
-export const getOpsDependencies = async (): Promise<ApiResponse<OpsDependencyItem[]>> => {
+export const getOpsDependencies = async (
+  _env?: string,
+): Promise<ApiResponse<OpsDependencyItem[]>> => {
   return {
     code: 200,
     data: [...mockDependencies],
