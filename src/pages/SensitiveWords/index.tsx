@@ -206,7 +206,7 @@ export const SensitiveWordsPage: React.FC = () => {
   const handleStatusChange = async (record: SensitiveWordItem, checked: boolean) => {
     const newStatus = checked ? 0 : 1;
     try {
-      const res = await updateSensitiveWordStatus(record.id, newStatus);
+      const res = await updateSensitiveWordStatus(record, newStatus);
       if (res.code === 200 || res.code === 0) {
         message.success(`敏感词「${record.name}」已${newStatus === 0 ? '启用' : '停用'}`);
         setDataList((prev) =>
@@ -214,8 +214,8 @@ export const SensitiveWordsPage: React.FC = () => {
         );
         fetchStats();
       }
-    } catch {
-      message.error('状态更新失败');
+    } catch (err: any) {
+      message.error(err?.message || '状态更新失败');
     }
   };
 

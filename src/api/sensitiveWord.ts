@@ -297,27 +297,27 @@ export const createSensitiveWord = async (
       url: '/system/sensitive-word/create',
       method: 'POST',
       data,
-      headers: { 'x-skip-error-message': 'true' },
     });
     if (res.code === 200 || res.code === 0) {
       return { code: 200, data: res.data || Date.now(), message: '创建成功' };
     }
-  } catch {
-    // ignore
+    throw new Error(res.message || '创建失败');
+  } catch (err: any) {
+    if (err.message === 'Network Error' || !err.response) {
+      const newId = Date.now();
+      const newItem: SensitiveWordItem = {
+        id: newId,
+        name: data.name,
+        tags: data.tags,
+        status: data.status,
+        description: data.description,
+        createTime: formatDateTime(new Date().toISOString()),
+      };
+      currentDataset.unshift(newItem);
+      return { code: 200, data: newId, message: '创建成功' };
+    }
+    throw err;
   }
-
-  const newId = Date.now();
-  const newItem: SensitiveWordItem = {
-    id: newId,
-    name: data.name,
-    tags: data.tags,
-    status: data.status,
-    description: data.description,
-    createTime: formatDateTime(new Date().toISOString()),
-  };
-  currentDataset.unshift(newItem);
-
-  return { code: 200, data: newId, message: '创建成功' };
 };
 
 /**
@@ -331,27 +331,37 @@ export const updateSensitiveWord = async (
       url: '/system/sensitive-word/update',
       method: 'PUT',
       data,
-      headers: { 'x-skip-error-message': 'true' },
     });
     if (res.code === 200 || res.code === 0) {
+      const idx = currentDataset.findIndex((item) => item.id === data.id);
+      if (idx !== -1) {
+        currentDataset[idx] = {
+          ...currentDataset[idx],
+          name: data.name,
+          tags: data.tags,
+          status: data.status,
+          description: data.description,
+        };
+      }
       return { code: 200, data: true, message: '更新成功' };
     }
-  } catch {
-    // ignore
+    throw new Error(res.message || '更新失败');
+  } catch (err: any) {
+    if (err.message === 'Network Error' || !err.response) {
+      const idx = currentDataset.findIndex((item) => item.id === data.id);
+      if (idx !== -1) {
+        currentDataset[idx] = {
+          ...currentDataset[idx],
+          name: data.name,
+          tags: data.tags,
+          status: data.status,
+          description: data.description,
+        };
+      }
+      return { code: 200, data: true, message: '更新成功' };
+    }
+    throw err;
   }
-
-  const idx = currentDataset.findIndex((item) => item.id === data.id);
-  if (idx !== -1) {
-    currentDataset[idx] = {
-      ...currentDataset[idx],
-      name: data.name,
-      tags: data.tags,
-      status: data.status,
-      description: data.description,
-    };
-  }
-
-  return { code: 200, data: true, message: '更新成功' };
 };
 
 /**
@@ -363,17 +373,19 @@ export const deleteSensitiveWord = async (id: number): Promise<ApiResponse<boole
       url: '/system/sensitive-word/delete',
       method: 'DELETE',
       params: { id },
-      headers: { 'x-skip-error-message': 'true' },
     });
     if (res.code === 200 || res.code === 0) {
+      currentDataset = currentDataset.filter((item) => item.id !== id);
       return { code: 200, data: true, message: '删除成功' };
     }
-  } catch {
-    // ignore
+    throw new Error(res.message || '删除失败');
+  } catch (err: any) {
+    if (err.message === 'Network Error' || !err.response) {
+      currentDataset = currentDataset.filter((item) => item.id !== id);
+      return { code: 200, data: true, message: '删除成功' };
+    }
+    throw err;
   }
-
-  currentDataset = currentDataset.filter((item) => item.id !== id);
-  return { code: 200, data: true, message: '删除成功' };
 };
 
 /**
@@ -381,18 +393,22 @@ export const deleteSensitiveWord = async (id: number): Promise<ApiResponse<boole
  */
 export const batchDeleteSensitiveWords = async (ids: number[]): Promise<ApiResponse<boolean>> => {
   try {
-    await Promise.allSettled(
+    await Promise.all(
       ids.map((id) =>
         request({
           url: '/system/sensitive-word/delete',
           method: 'DELETE',
           params: { id },
-          headers: { 'x-skip-error-message': 'true' },
         }),
       ),
     );
-  } catch {
-    // ignore
+  } catch (err: any) {
+    if (err.message === 'Network Error' || !err.response) {
+      const set = new Set(ids);
+      currentDataset = currentDataset.filter((item) => !set.has(item.id));
+      return { code: 200, data: true, message: '批量删除成功' };
+    }
+    throw err;
   }
 
   const set = new Set(ids);
@@ -404,20 +420,50 @@ export const batchDeleteSensitiveWords = async (ids: number[]): Promise<ApiRespo
  * 快速修改敏感词启用状态
  */
 export const updateSensitiveWordStatus = async (
-  id: number,
+  recordOrId: SensitiveWordItem | number,
   status: number,
+  extraRecord?: Partial<SensitiveWordItem>,
 ): Promise<ApiResponse<boolean>> => {
-  const target = currentDataset.find((item) => item.id === id);
-  if (target) {
-    return await updateSensitiveWord({
-      id: target.id,
-      name: target.name,
-      tags: target.tags,
-      description: target.description,
-      status,
-    });
+  const record =
+    typeof recordOrId === 'object'
+      ? recordOrId
+      : {
+          id: recordOrId,
+          name: extraRecord?.name || '',
+          tags: extraRecord?.tags || [],
+          description: extraRecord?.description || '',
+          status,
+          createTime: extraRecord?.createTime || '',
+        };
+
+  const payload: SensitiveWordSaveReqVO = {
+    id: record.id,
+    name: record.name,
+    tags: record.tags || [],
+    status,
+    description: record.description || '',
+  };
+
+  // 1. 优先调用标准更新接口 PUT /system/sensitive-word/update
+  try {
+    return await updateSensitiveWord(payload);
+  } catch (err: any) {
+    // 2. 若 update 接口失败（例如部分定制版本提供独立状态接口），尝试 PUT /system/sensitive-word/update-status
+    try {
+      const statusRes = await request<boolean>({
+        url: '/system/sensitive-word/update-status',
+        method: 'PUT',
+        data: { id: record.id, status },
+        params: { id: record.id, status },
+      });
+      if (statusRes.code === 200 || statusRes.code === 0) {
+        return { code: 200, data: true, message: '状态更新成功' };
+      }
+    } catch {
+      throw err;
+    }
+    throw err;
   }
-  return { code: 200, data: true, message: '状态更新成功' };
 };
 
 /**
