@@ -143,9 +143,10 @@ export const SensitiveWordsPage: React.FC = () => {
         }
 
         const params: SensitiveWordQueryParams = {
-          name: values.name?.trim(),
-          tag: values.tag,
-          status: values.status,
+          name: values.name?.trim() || undefined,
+          tag: values.tag && values.tag !== 'all' ? values.tag : undefined,
+          status:
+            values.status !== undefined && values.status !== 'all' ? values.status : undefined,
           createTime: dateParams,
           pageNo: page,
           pageSize: size,

@@ -116,8 +116,8 @@ export const getSensitiveWordPage = async (
       params: {
         pageNo,
         pageSize,
-        name: params.name,
-        tag: params.tag,
+        name: params.name?.trim() || undefined,
+        tag: params.tag && params.tag !== 'all' ? params.tag : undefined,
         status: params.status !== undefined && params.status !== 'all' ? params.status : undefined,
         createTime: params.createTime,
       },
