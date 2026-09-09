@@ -26,6 +26,7 @@ export * from './appeal';
 export * from './auth';
 export * from './comment';
 export * from './dashboard';
+export * from './ops';
 export * from './post';
 export * from './report';
 export * from './sensitiveWord';
