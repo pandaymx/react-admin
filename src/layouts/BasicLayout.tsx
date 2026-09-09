@@ -5,6 +5,7 @@ import {
   DashboardOutlined,
   DesktopOutlined,
   ExclamationCircleOutlined,
+  FileProtectOutlined,
   FileTextOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
@@ -78,6 +79,11 @@ const menuItems = [
     key: '/appeals',
     icon: <AuditOutlined />,
     label: '申诉管理',
+  },
+  {
+    key: '/sensitive-words',
+    icon: <FileProtectOutlined />,
+    label: '敏感词管理',
   },
 ];
 
@@ -168,6 +174,8 @@ export const BasicLayout: React.FC = () => {
         return ['举报管理'];
       case '/appeals':
         return ['申诉管理'];
+      case '/sensitive-words':
+        return ['敏感词管理'];
       default:
         return ['仪表盘'];
     }

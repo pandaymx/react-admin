@@ -8,6 +8,7 @@ import LoginPage from '@/pages/Login';
 import NotFoundPage from '@/pages/NotFound';
 import PostsPage from '@/pages/Posts';
 import ReportsPage from '@/pages/Reports';
+import SensitiveWordsPage from '@/pages/SensitiveWords';
 import UsersPage from '@/pages/Users';
 import VerificationPage from '@/pages/Verification';
 import { useUserStore } from '@/store/user';
@@ -69,6 +70,10 @@ export const router = createHashRouter([
       {
         path: 'appeals',
         element: <AppealsPage />,
+      },
+      {
+        path: 'sensitive-words',
+        element: <SensitiveWordsPage />,
       },
     ],
   },

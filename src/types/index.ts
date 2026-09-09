@@ -28,5 +28,6 @@ export * from './comment';
 export * from './dashboard';
 export * from './post';
 export * from './report';
+export * from './sensitiveWord';
 export * from './user';
 export * from './verification';
