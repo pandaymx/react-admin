@@ -107,7 +107,8 @@ export const getSensitiveWordPage = async (
 ): Promise<ApiResponse<PageResult<SensitiveWordItem>>> => {
   try {
     const pageNo = params.pageNo || 1;
-    const pageSize = params.pageSize || 10;
+    // 严格限制 pageSize 在 1 ~ 100 之间，防止后端抛出 "查询页数不能超过 100" / "条数不能超过 100"
+    const pageSize = Math.min(Math.max(params.pageSize || 10, 1), 100);
 
     const res = await request<PageResult<any>>({
       url: '/system/sensitive-word/page',
@@ -123,7 +124,8 @@ export const getSensitiveWordPage = async (
       headers: { 'x-skip-error-message': 'true' },
     });
 
-    if ((res.code === 200 || res.code === 0) && res.data?.list && res.data.list.length > 0) {
+    // 只要后端返回成功且 list 是数组（即便 list: [] 空数组也为正常响应，不应 fallback Mock）
+    if ((res.code === 200 || res.code === 0) && res.data && Array.isArray(res.data.list)) {
       const list: SensitiveWordItem[] = res.data.list.map((item: any) => ({
         id: Number(item.id),
         name: String(item.name || ''),
@@ -137,13 +139,13 @@ export const getSensitiveWordPage = async (
         code: 200,
         data: {
           list,
-          total: res.data.total || list.length,
+          total: typeof res.data.total === 'number' ? res.data.total : list.length,
         },
         message: 'success',
       };
     }
   } catch {
-    // 捕获异常，回退本地 Mock 逻辑
+    // 捕获异常，仅在网络请求失败（如网络中断或服务器 5xx）时回退本地 Mock 逻辑
   }
 
   // 本地 Mock 过滤兜底
@@ -178,7 +180,7 @@ export const getSensitiveWordPage = async (
   filtered.sort((a, b) => new Date(b.createTime).getTime() - new Date(a.createTime).getTime());
 
   const page = params.pageNo || 1;
-  const size = params.pageSize || 10;
+  const size = Math.min(Math.max(params.pageSize || 10, 1), 100);
   const list = filtered.slice((page - 1) * size, page * size);
 
   return {
@@ -201,7 +203,7 @@ export const getSensitiveWordTags = async (): Promise<ApiResponse<string[]>> => 
       method: 'GET',
       headers: { 'x-skip-error-message': 'true' },
     });
-    if ((res.code === 200 || res.code === 0) && Array.isArray(res.data) && res.data.length > 0) {
+    if ((res.code === 200 || res.code === 0) && Array.isArray(res.data)) {
       return { code: 200, data: res.data, message: 'success' };
     }
   } catch {
@@ -232,25 +234,41 @@ export const getSensitiveWordTags = async (): Promise<ApiResponse<string[]>> => 
  */
 export const getSensitiveWordStats = async (): Promise<ApiResponse<SensitiveWordStats>> => {
   try {
-    const pageRes = await getSensitiveWordPage({ pageSize: 1000 });
-    const all = pageRes.data?.list || currentDataset;
-    const tagSet = new Set<string>();
-    for (const item of all) {
-      for (const t of item.tags) {
-        tagSet.add(t);
-      }
+    // 严格限制 pageSize 为 100（后端 Ruoyi/Yudao PageParam 最大允许 100，避免抛出超限错误）
+    const pageRes = await getSensitiveWordPage({ pageNo: 1, pageSize: 100 });
+    const totalCount = pageRes.data?.total ?? 0;
+
+    let enabledCount = 0;
+    let disabledCount = 0;
+
+    if (totalCount === 0) {
+      enabledCount = 0;
+      disabledCount = 0;
+    } else if (totalCount <= 100 && pageRes.data?.list) {
+      // 100条以内第一页已包含全部数据，前端直接归纳计算，无需再次发起多余网络请求
+      enabledCount = pageRes.data.list.filter((item) => item.status === 0).length;
+      disabledCount = pageRes.data.list.filter((item) => item.status === 1).length;
+    } else {
+      // 超过100条时，分别按状态并发极低开销探测 total（每次仅取 pageSize: 1）
+      const [enabledRes, disabledRes] = await Promise.allSettled([
+        getSensitiveWordPage({ pageNo: 1, pageSize: 1, status: 0 }),
+        getSensitiveWordPage({ pageNo: 1, pageSize: 1, status: 1 }),
+      ]);
+      enabledCount = enabledRes.status === 'fulfilled' ? (enabledRes.value.data?.total ?? 0) : 0;
+      disabledCount = disabledRes.status === 'fulfilled' ? (disabledRes.value.data?.total ?? 0) : 0;
     }
 
-    const enabledCount = all.filter((item) => item.status === 0).length;
-    const disabledCount = all.filter((item) => item.status === 1).length;
+    // 标签统计
+    const tagsRes = await getSensitiveWordTags();
+    const tagCount = tagsRes.data?.length ?? 0;
 
     return {
       code: 200,
       data: {
-        totalCount: all.length,
+        totalCount,
         enabledCount,
         disabledCount,
-        tagCount: tagSet.size,
+        tagCount,
       },
       message: 'success',
     };
@@ -418,15 +436,16 @@ export const validateSensitiveText = async (
   }
 
   try {
+    // 优先尝试 GET（Ruoyi/Yudao 默认 @GetMapping("/validate-text")）
     const res = await request<string[]>({
       url: '/system/sensitive-word/validate-text',
-      method: 'POST',
-      data: { text: params.text, tags: params.tags },
+      method: 'GET',
+      params: { text: params.text, tags: params.tags ? params.tags.join(',') : undefined },
       headers: { 'x-skip-error-message': 'true' },
     });
 
-    if (res.code === 200 || res.code === 0) {
-      const hitWords = Array.isArray(res.data) ? res.data : [];
+    if ((res.code === 200 || res.code === 0) && Array.isArray(res.data)) {
+      const hitWords = res.data;
       let replaced = text;
       hitWords.forEach((word) => {
         if (word) {
@@ -446,7 +465,37 @@ export const validateSensitiveText = async (
       };
     }
   } catch {
-    // 降级使用本地词库分词匹配
+    try {
+      // 兼容 POST 场景
+      const postRes = await request<string[]>({
+        url: '/system/sensitive-word/validate-text',
+        method: 'POST',
+        data: { text: params.text, tags: params.tags },
+        headers: { 'x-skip-error-message': 'true' },
+      });
+      if ((postRes.code === 200 || postRes.code === 0) && Array.isArray(postRes.data)) {
+        const hitWords = postRes.data;
+        let replaced = text;
+        hitWords.forEach((word) => {
+          if (word) {
+            const reg = new RegExp(word, 'gi');
+            replaced = replaced.replace(reg, '*'.repeat(word.length));
+          }
+        });
+
+        return {
+          code: 200,
+          data: {
+            sensitiveWords: hitWords,
+            replacedText: replaced,
+            hasSensitive: hitWords.length > 0,
+          },
+          message: 'success',
+        };
+      }
+    } catch {
+      // 降级使用本地词库分词匹配
+    }
   }
 
   // 本地匹配算法
