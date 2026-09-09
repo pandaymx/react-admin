@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const targetHost = env.VITE_PROXY_TARGET || env.VITE_API_HOST || 'https://qxj.jiancan.fun';
+  const targetHost = env.VITE_PROXY_TARGET || env.VITE_API_HOST || 'http://192.168.1.2:48080';
 
   return {
     base: './',

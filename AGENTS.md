@@ -289,7 +289,7 @@ const users = usersRes.status === 'fulfilled' ? usersRes.value.data?.list ?? [] 
 |------|------|---------------|
 | `VITE_API_HOST` | 后端 Host（留空启用 Vite 代理） | 留空 |
 | `VITE_API_BASE_URL` | 接口基础路径 | `/admin-api` |
-| `VITE_PROXY_TARGET` | Vite 代理转发目标 | `https://qxj.jiancan.fun` 或本地 `http://127.0.0.1:48080` |
+| `VITE_PROXY_TARGET` | Vite 代理转发目标 | `http://192.168.1.2:48080` 或公网 `https://qxj.jiancan.fun` |
 
 - 本地开发：复制 `.env.example` → `.env.development`，`VITE_API_HOST` 留空，Vite 自动代理。
 - 生产构建：在 `.env.production` 中配置真实公网地址，**不要提交 `.env.production` 到 git**。
