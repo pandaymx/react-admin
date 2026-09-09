@@ -1,6 +1,7 @@
 import {
   AuditOutlined,
   CheckOutlined,
+  CloudServerOutlined,
   CommentOutlined,
   DashboardOutlined,
   DesktopOutlined,
@@ -84,6 +85,11 @@ const menuItems = [
     key: '/sensitive-words',
     icon: <FileProtectOutlined />,
     label: '敏感词管理',
+  },
+  {
+    key: '/ops',
+    icon: <CloudServerOutlined />,
+    label: '系统运维',
   },
 ];
 
@@ -176,6 +182,8 @@ export const BasicLayout: React.FC = () => {
         return ['申诉管理'];
       case '/sensitive-words':
         return ['敏感词管理'];
+      case '/ops':
+        return ['系统运维'];
       default:
         return ['仪表盘'];
     }

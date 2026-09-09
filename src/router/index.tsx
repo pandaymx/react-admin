@@ -6,6 +6,7 @@ import CommentsPage from '@/pages/Comments';
 import DashboardPage from '@/pages/Dashboard';
 import LoginPage from '@/pages/Login';
 import NotFoundPage from '@/pages/NotFound';
+import { OpsDashboardPage } from '@/pages/Ops';
 import PostsPage from '@/pages/Posts';
 import ReportsPage from '@/pages/Reports';
 import SensitiveWordsPage from '@/pages/SensitiveWords';
@@ -74,6 +75,10 @@ export const router = createHashRouter([
       {
         path: 'sensitive-words',
         element: <SensitiveWordsPage />,
+      },
+      {
+        path: 'ops',
+        element: <OpsDashboardPage />,
       },
     ],
   },
