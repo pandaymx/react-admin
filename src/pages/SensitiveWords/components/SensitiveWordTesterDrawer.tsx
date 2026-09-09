@@ -17,10 +17,12 @@ import {
   Space,
   Tag,
   Typography,
+  theme,
 } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { validateSensitiveText } from '@/api/sensitiveWord';
+import { useThemeStore } from '@/store/theme';
 import type { SensitiveWordTestRespVO } from '@/types';
 
 const { Text, Paragraph } = Typography;
@@ -45,6 +47,9 @@ export const SensitiveWordTesterDrawer: React.FC<SensitiveWordTesterDrawerProps>
   availableTags,
   onClose,
 }) => {
+  const isDark = useThemeStore((state) => state.isDark);
+  const { token } = theme.useToken();
+
   const [inputText, setInputText] = useState<string>('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -88,7 +93,7 @@ export const SensitiveWordTesterDrawer: React.FC<SensitiveWordTesterDrawerProps>
   const renderHighlightedText = () => {
     if (!inputText) return null;
     if (!result?.sensitiveWords || result.sensitiveWords.length === 0) {
-      return <span>{inputText}</span>;
+      return <span style={{ color: token.colorText }}>{inputText}</span>;
     }
 
     // 按长度从长到短排序避免子串覆盖
@@ -108,17 +113,20 @@ export const SensitiveWordTesterDrawer: React.FC<SensitiveWordTesterDrawerProps>
             <mark
               key={`hit-${currentOffset}-${part}`}
               style={{
-                backgroundColor: '#ffccc7',
-                color: '#cf1322',
-                padding: '2px 4px',
+                backgroundColor: isDark ? 'rgba(255, 77, 79, 0.28)' : '#ffccc7',
+                color: isDark ? '#ff7875' : '#cf1322',
+                padding: '2px 6px',
                 borderRadius: 4,
                 fontWeight: 600,
+                border: `1px solid ${isDark ? 'rgba(255, 77, 79, 0.45)' : '#ffa39e'}`,
               }}
             >
               {part}
             </mark>
           ) : (
-            <span key={`text-${currentOffset}-${part}`}>{part}</span>
+            <span key={`text-${currentOffset}-${part}`} style={{ color: token.colorText }}>
+              {part}
+            </span>
           );
         })}
       </Paragraph>
@@ -157,7 +165,7 @@ export const SensitiveWordTesterDrawer: React.FC<SensitiveWordTesterDrawerProps>
             {PRESET_EXAMPLES.map((sample, idx) => (
               <Tag
                 key={sample}
-                color="blue"
+                color={isDark ? 'processing' : 'blue'}
                 style={{ cursor: 'pointer' }}
                 onClick={() => handleApplyPreset(sample)}
               >
@@ -230,10 +238,30 @@ export const SensitiveWordTesterDrawer: React.FC<SensitiveWordTesterDrawerProps>
 
             {/* 命中敏感词汇总 */}
             {result.hasSensitive && (
-              <Card size="small" title="命中敏感词清单" style={{ background: '#fff1f0' }}>
+              <Card
+                size="small"
+                title={
+                  <span style={{ color: isDark ? '#ff7875' : '#cf1322', fontWeight: 600 }}>
+                    命中敏感词清单 ({result.sensitiveWords.length})
+                  </span>
+                }
+                style={{
+                  background: isDark ? 'rgba(255, 77, 79, 0.12)' : '#fff1f0',
+                  border: `1px solid ${isDark ? 'rgba(255, 77, 79, 0.3)' : '#ffccc7'}`,
+                }}
+                styles={{
+                  header: {
+                    borderBottom: `1px solid ${isDark ? 'rgba(255, 77, 79, 0.2)' : '#ffe8e6'}`,
+                  },
+                }}
+              >
                 <Space wrap size={[6, 6]}>
                   {result.sensitiveWords.map((word) => (
-                    <Tag key={word} color="red" style={{ fontWeight: 600, fontSize: 12 }}>
+                    <Tag
+                      key={word}
+                      color={isDark ? 'error' : 'red'}
+                      style={{ fontWeight: 600, fontSize: 12, margin: 0 }}
+                    >
                       {word}
                     </Tag>
                   ))}
@@ -242,8 +270,24 @@ export const SensitiveWordTesterDrawer: React.FC<SensitiveWordTesterDrawerProps>
             )}
 
             {/* 原文高亮 */}
-            <Card size="small" title="原文敏感词高亮标注">
-              {renderHighlightedText()}
+            <Card
+              size="small"
+              title="原文敏感词高亮标注"
+              style={{
+                background: token.colorBgContainer,
+                borderColor: token.colorBorderSecondary,
+              }}
+            >
+              <div
+                style={{
+                  background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#fafafa',
+                  border: `1px solid ${token.colorBorderSecondary}`,
+                  padding: '10px 14px',
+                  borderRadius: 6,
+                }}
+              >
+                {renderHighlightedText()}
+              </div>
             </Card>
 
             {/* 脱敏替换 */}
@@ -251,6 +295,10 @@ export const SensitiveWordTesterDrawer: React.FC<SensitiveWordTesterDrawerProps>
               <Card
                 size="small"
                 title="自动脱敏建议替换效果"
+                style={{
+                  background: token.colorBgContainer,
+                  borderColor: token.colorBorderSecondary,
+                }}
                 extra={
                   <Button
                     type="link"
@@ -262,9 +310,35 @@ export const SensitiveWordTesterDrawer: React.FC<SensitiveWordTesterDrawerProps>
                   </Button>
                 }
               >
-                <Paragraph style={{ margin: 0, fontFamily: 'monospace' }}>
+                <div
+                  style={{
+                    background: isDark ? 'rgba(82, 196, 26, 0.12)' : '#f6ffed',
+                    border: `1px solid ${isDark ? 'rgba(82, 196, 26, 0.28)' : '#b7eb8f'}`,
+                    padding: '10px 14px',
+                    borderRadius: 6,
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                    color: isDark ? '#95de64' : '#389e0d',
+                    wordBreak: 'break-all',
+                    lineHeight: 1.6,
+                  }}
+                >
                   {result.replacedText}
-                </Paragraph>
+                </div>
+              </Card>
+            )}
+
+            {!result.hasSensitive && (
+              <Card
+                size="small"
+                style={{
+                  background: isDark ? 'rgba(82, 196, 26, 0.1)' : '#f6ffed',
+                  border: `1px solid ${isDark ? 'rgba(82, 196, 26, 0.25)' : '#b7eb8f'}`,
+                }}
+              >
+                <Text style={{ color: isDark ? '#95de64' : '#389e0d', fontSize: 13 }}>
+                  ✅ 经系统风控检测，该文本内容未触发生效中的任何敏感词规则，可正常放行。
+                </Text>
               </Card>
             )}
           </div>
