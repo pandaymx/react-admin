@@ -1,3 +1,4 @@
+import { request } from '@/api/request';
 import type {
   ApiResponse,
   JvmDetailInfo,
@@ -11,6 +12,7 @@ import type {
   OpsResourcePolicy,
   OpsServiceItem,
   OpsSummaryStats,
+  PageResult,
   RedisCommandStat,
   RedisConfigItem,
   RedisDbStat,
@@ -18,7 +20,43 @@ import type {
   ServerHostDetail,
 } from '@/types';
 
-// ======================= 高拟真运维数据集 =======================
+// ======================= 后端真实接口映射模型 =======================
+
+interface BackendRedisMonitorRespVO {
+  dbSize?: number;
+  info?: Record<string, string>;
+  commandStats?: Array<{
+    command: string;
+    calls: number;
+    usec: number;
+  }>;
+}
+
+// 缓存最近一次 Redis 监控快照，避免多图表并发发起重复网络请求
+let cachedRedisMonitorData: BackendRedisMonitorRespVO | null = null;
+let lastRedisFetchTime = 0;
+
+const fetchBackendRedisMonitor = async (): Promise<BackendRedisMonitorRespVO | null> => {
+  const now = Date.now();
+  if (cachedRedisMonitorData && now - lastRedisFetchTime < 3000) {
+    return cachedRedisMonitorData;
+  }
+  try {
+    const res = await request<BackendRedisMonitorRespVO>({
+      url: '/infra/redis/get-monitor-info',
+      method: 'GET',
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if ((res.code === 200 || res.code === 0) && res.data) {
+      cachedRedisMonitorData = res.data;
+      lastRedisFetchTime = now;
+      return res.data;
+    }
+  } catch (_e) {
+    // 静默失败，平滑进入降级逻辑
+  }
+  return null;
+};
 
 const mockServices: OpsServiceItem[] = [
   {
@@ -862,9 +900,57 @@ const mockJvmDetail: JvmDetailInfo = {
 // ======================= 扩展 API 接口实现 =======================
 
 /**
- * 获取 Redis 运行状态与键空间信息
+ * 获取 Redis 运行状态与键空间信息（优先直连后端 /infra/redis/get-monitor-info，失败平滑降级）
  */
 export const getRedisInfo = async (_env?: string): Promise<ApiResponse<RedisInfoItem>> => {
+  const raw = await fetchBackendRedisMonitor();
+  if (raw?.info) {
+    const info = raw.info;
+    const hits = Number.parseInt(info.keyspace_hits || '0', 10);
+    const misses = Number.parseInt(info.keyspace_misses || '0', 10);
+    const hitRate = hits + misses > 0 ? Number(((hits / (hits + misses)) * 100).toFixed(2)) : 98.5;
+
+    const realRedisInfo: RedisInfoItem = {
+      version: info.redis_version || mockRedisInfo.version,
+      redisMode:
+        (info.redis_mode as 'sentinel' | 'standalone' | 'cluster') || mockRedisInfo.redisMode,
+      port: Number.parseInt(info.tcp_port || '6379', 10),
+      runDays: Number.parseInt(info.uptime_in_days || '3', 10),
+      connectedClients: Number.parseInt(info.connected_clients || '84', 10),
+      connectedClientsPeak: Number.parseInt(info.connected_clients_peak || '216', 10),
+      blockedClients: Number.parseInt(info.blocked_clients || '0', 10),
+      usedMemoryHuman: info.used_memory_human || mockRedisInfo.usedMemoryHuman,
+      usedMemoryBytes: Number.parseInt(info.used_memory || '2467408', 10),
+      usedMemoryRssHuman: info.used_memory_rss_human || mockRedisInfo.usedMemoryRssHuman,
+      usedMemoryPeakHuman: info.used_memory_peak_human || mockRedisInfo.usedMemoryPeakHuman,
+      maxMemoryHuman: info.maxmemory_human === '0B' ? '4.00 GB' : info.maxmemory_human || '4.00 GB',
+      maxMemoryBytes: Number.parseInt(info.maxmemory || '4294967296', 10) || 4294967296,
+      maxMemoryPolicy: info.maxmemory_policy || mockRedisInfo.maxMemoryPolicy,
+      memFragmentationRatio: Number.parseFloat(info.mem_fragmentation_ratio || '1.18'),
+      keyspaceHits: hits,
+      keyspaceMisses: misses,
+      hitRate,
+      instantaneousOpsPerSec: Number.parseInt(info.instantaneous_ops_per_sec || '10', 10),
+      totalKeys: typeof raw.dbSize === 'number' ? raw.dbSize : mockRedisInfo.totalKeys,
+      expiredKeys: Number.parseInt(info.expired_keys || '165', 10),
+      evictedKeys: Number.parseInt(info.evicted_keys || '0', 10),
+      aofEnabled: info.aof_enabled === '1' || info.aof_enabled === 'yes',
+      rdbLastSaveStatus: info.rdb_last_bgsave_status || 'ok',
+      rdbLastSaveTime: info.rdb_last_save_time
+        ? new Date(Number.parseInt(info.rdb_last_save_time, 10) * 1000)
+            .toISOString()
+            .replace('T', ' ')
+            .slice(0, 19)
+        : mockRedisInfo.rdbLastSaveTime,
+    };
+
+    return {
+      code: 200,
+      data: realRedisInfo,
+      message: 'success',
+    };
+  }
+
   return {
     code: 200,
     data: { ...mockRedisInfo },
@@ -884,9 +970,37 @@ export const getRedisConfigs = async (_env?: string): Promise<ApiResponse<RedisC
 };
 
 /**
- * 获取 Redis 分库统计
+ * 获取 Redis 分库统计（优先从真实后端 info 解析，失败降级）
  */
 export const getRedisDbStats = async (_env?: string): Promise<ApiResponse<RedisDbStat[]>> => {
+  const raw = await fetchBackendRedisMonitor();
+  if (raw?.info) {
+    const list: RedisDbStat[] = [];
+    // 匹配如 db0: keys=184,expires=13,avg_ttl=30554571
+    for (let i = 0; i < 16; i++) {
+      const dbStr = raw.info[`db${i}`];
+      if (dbStr) {
+        const keysMatch = dbStr.match(/keys=(\d+)/);
+        const expiresMatch = dbStr.match(/expires=(\d+)/);
+        const ttlMatch = dbStr.match(/avg_ttl=(\d+)/);
+        list.push({
+          dbIndex: i,
+          dbName: `db${i} (${i === 0 ? '用户会话与Token' : i === 1 ? '内容与活动缓存' : i === 2 ? '分布式锁Lock4j' : '业务数据'})`,
+          keys: keysMatch ? Number.parseInt(keysMatch[1], 10) : 0,
+          expires: expiresMatch ? Number.parseInt(expiresMatch[1], 10) : 0,
+          avgTtlMs: ttlMatch ? Number.parseInt(ttlMatch[1], 10) : 0,
+        });
+      }
+    }
+    if (list.length > 0) {
+      return {
+        code: 200,
+        data: list,
+        message: 'success',
+      };
+    }
+  }
+
   return {
     code: 200,
     data: [...mockRedisDbStats],
@@ -895,11 +1009,32 @@ export const getRedisDbStats = async (_env?: string): Promise<ApiResponse<RedisD
 };
 
 /**
- * 获取 Redis 常用命令耗时与频率统计
+ * 获取 Redis 常用命令耗时与频率统计（优先从真实后端 commandStats 提取并计算百分比）
  */
 export const getRedisCommandStats = async (
   _env?: string,
 ): Promise<ApiResponse<RedisCommandStat[]>> => {
+  const raw = await fetchBackendRedisMonitor();
+  if (raw && Array.isArray(raw.commandStats) && raw.commandStats.length > 0) {
+    const totalUsec = raw.commandStats.reduce((acc, c) => acc + (c.usec || 0), 0);
+    const sorted = [...raw.commandStats]
+      .sort((a, b) => b.usec - a.usec)
+      .slice(0, 10)
+      .map((c) => ({
+        command: c.command.toUpperCase(),
+        calls: c.calls,
+        usec: c.usec,
+        usecPerCall: c.calls > 0 ? Number((c.usec / c.calls).toFixed(2)) : 0,
+        percentage: totalUsec > 0 ? Number(((c.usec / totalUsec) * 100).toFixed(1)) : 0,
+      }));
+
+    return {
+      code: 200,
+      data: sorted,
+      message: 'success',
+    };
+  }
+
   return {
     code: 200,
     data: [...mockRedisCommandStats],
@@ -1353,4 +1488,29 @@ export const downloadOpsLogFile = (file: OpsLogFileItem): void => {
   link.click();
   document.body.removeChild(link);
   window.URL.revokeObjectURL(url);
+};
+
+/**
+ * 分页拉取后端真实的 API 异常错误日志流水 (GET /admin-api/infra/api-error-log/page)
+ */
+export const getBackendApiErrorLogs = async (params?: {
+  pageNo?: number;
+  pageSize?: number;
+  userId?: number;
+  userType?: number;
+  applicationName?: string;
+  requestUrl?: string;
+  processStatus?: number;
+  exceptionTime?: string[];
+}): Promise<ApiResponse<PageResult<any>>> => {
+  return request<PageResult<any>>({
+    url: '/infra/api-error-log/page',
+    method: 'GET',
+    params: {
+      pageNo: params?.pageNo || 1,
+      pageSize: params?.pageSize || 20,
+      ...params,
+    },
+    headers: { 'x-skip-error-message': 'true' },
+  });
 };
