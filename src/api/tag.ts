@@ -503,7 +503,7 @@ export async function getTagTypePage(
 ): Promise<ApiResponse<{ list: TagTypeItem[]; total: number }>> {
   const queryParams: Record<string, any> = {
     pageNo: params?.pageNo || 1,
-    pageSize: params?.pageSize || 20,
+    pageSize: Math.min(Math.max(params?.pageSize || 20, 1), 100),
   };
   if (params?.status && (params.status as any) !== 'all') {
     queryParams.status =
@@ -635,7 +635,7 @@ export async function getTagPage(
 ): Promise<ApiResponse<{ list: TagItem[]; total: number }>> {
   const queryParams: Record<string, any> = {
     pageNo: params?.pageNo || 1,
-    pageSize: params?.pageSize || 20,
+    pageSize: Math.min(Math.max(params?.pageSize || 20, 1), 100),
   };
   if (params?.tagTypeId && (params.tagTypeId as any) !== 'all') {
     queryParams.tagTypeId = Number(params.tagTypeId);
@@ -762,9 +762,14 @@ export async function deleteTag(id: number): Promise<ApiResponse<boolean>> {
 // ==================== 初始标签配置 API ====================
 
 export async function getInitialTagConfigPage(params?: {
+  pageNo?: number;
+  pageSize?: number;
   scene?: string;
 }): Promise<ApiResponse<{ list: InitialTagConfigItem[]; total: number }>> {
-  const queryParams: Record<string, any> = {};
+  const queryParams: Record<string, any> = {
+    pageNo: params?.pageNo || 1,
+    pageSize: Math.min(Math.max(params?.pageSize || 20, 1), 100),
+  };
   if (params?.scene && params.scene !== 'all') {
     queryParams.scene = params.scene;
   }

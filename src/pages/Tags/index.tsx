@@ -106,9 +106,24 @@ export const TagsPage: React.FC = () => {
   // 拉取所有标签 (供统计与初始配置抽屉)
   const fetchAllTags = useCallback(async () => {
     try {
-      const res = await getTagPage({ pageNo: 1, pageSize: 500 });
+      const res = await getTagPage({ pageNo: 1, pageSize: 100 });
       if (res.code === 0 && res.data) {
-        setAllTags(res.data.list);
+        let all = [...res.data.list];
+        const total = res.data.total;
+        if (total > 100) {
+          const totalPages = Math.ceil(total / 100);
+          const promises = [];
+          for (let p = 2; p <= totalPages; p++) {
+            promises.push(getTagPage({ pageNo: p, pageSize: 100 }));
+          }
+          const restRes = await Promise.all(promises);
+          for (const r of restRes) {
+            if (r.code === 0 && r.data?.list) {
+              all = all.concat(r.data.list);
+            }
+          }
+        }
+        setAllTags(all);
       }
     } catch {
       // ignore

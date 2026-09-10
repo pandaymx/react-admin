@@ -567,7 +567,7 @@ export async function getActivityPage(
   // 清洗 query 参数：后端 status 为 java.lang.Integer，禁止传递 "all"，全部查询时必须剔除 status 字段
   const queryParams: Record<string, any> = {
     pageNo: params?.pageNo || 1,
-    pageSize: params?.pageSize || 20,
+    pageSize: Math.min(Math.max(params?.pageSize || 20, 1), 100),
   };
   if (params?.status !== undefined && (params.status as any) !== 'all') {
     queryParams.status = Number(params.status);
