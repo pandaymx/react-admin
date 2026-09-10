@@ -1,0 +1,71 @@
+name: QXJ Admin Web CI
+
+on:
+  push:
+    branches:
+      - main
+      - production
+      - 'feat/**'
+      - 'fix/**'
+  pull_request:
+    branches:
+      - main
+      - production
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-build:
+    name: 质量门禁与内网构建
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v4
+
+      - name: 配置 Bun 运行环境
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 安装依赖 (frozen lockfile)
+        run: bun install --frozen-lockfile
+
+      - name: Biome 代码规范检查
+        run: bun run lint
+
+      - name: TypeScript 编译与 Vite 生产打包
+        run: bun run build
+        env:
+          # 优先读取 Gitea Repository / Org 配置的变量，未配置时回退使用内网后端地址
+          VITE_API_HOST: ${{ vars.VITE_API_HOST || 'http://192.168.3.100:48080' }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || '/admin-api' }}
+
+      - name: 归档构建产物 (dist)
+        uses: actions/upload-artifact@v4
+        with:
+          name: qxj-admin-web-dist
+          path: dist/
+          retention-days: 7
+
+      # -------------------------------------------------------------
+      # 内部私有化部署插槽（按需开启）：
+      # 方式 1：SCP / SSH 部署到公司内网 Nginx 静态目录
+      # - name: 发布至内网 Nginx 静态目录
+      #   uses: appleboy/scp-action@master
+      #   with:
+      #     host: ${{ secrets.INTERNAL_DEPLOY_HOST }}
+      #     username: ${{ secrets.INTERNAL_DEPLOY_USER }}
+      #     key: ${{ secrets.INTERNAL_DEPLOY_SSH_KEY }}
+      #     source: 'dist/*'
+      #     target: '/var/www/qxj-admin-web'
+      #     strip_components: 1
+      #
+      # 方式 2：构建内网 Docker 镜像推送到私有 Harbor / Gitea Packages
+      # - name: 构建并推送 Docker 镜像
+      #   run: |
+      #     docker build -t harbor.internal.company.com/qxj/qxj-admin-web:${{ github.sha }} .
+      #     docker push harbor.internal.company.com/qxj/qxj-admin-web:${{ github.sha }}
+      # -------------------------------------------------------------

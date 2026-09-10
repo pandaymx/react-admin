@@ -1,7 +1,8 @@
 {
-  "name": "react-admin",
+  "name": "qxj-admin-web",
+  "description": "去享聚 (QXJ) 运营与内容安全治理后台管理系统",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

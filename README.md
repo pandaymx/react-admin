@@ -126,7 +126,7 @@
 | **状态管理** | [Zustand](https://zustand-demo.pmnd.rs/) | 轻量、灵活、高效的全局响应式状态库 |
 | **代码规范** | [Biome](https://biomejs.dev/) | 统一极速代码检查 (Linter) 与格式化 (Formatter) |
 | **Git 钩子** | Husky + Commitlint + Lint-staged | 规范化 Commit 提交与提交前自动校验 |
-| **持续集成部署** | GitHub Actions + GitHub Pages | 自动化代码检测、打包与静态页面部署 |
+| **持续集成部署** | GitHub Actions + Gitea Actions | GitHub Pages 公网演示 + 公司内部 Gitea CI 质量门禁与内网交付 |
 
 ---
 
@@ -134,6 +134,9 @@
 
 ```text
 react-admin/
+├── .gitea/
+│   └── workflows/
+│       └── ci.yml              # Gitea Actions 公司内部质量门禁与内网打包部署
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml          # GitHub Actions 自动构建部署至 GitHub Pages

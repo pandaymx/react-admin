@@ -129,8 +129,9 @@ feat:
 
 ### 4.5 远程仓库
 
-- **Remote**：`origin` → `git@github.com:pandaymx/react-admin.git`
-- 推送时指定分支：`git push origin <branch>`，避免意外推送其他分支。
+- **公网 Remote**：`origin` → `git@github.com:pandaymx/react-admin.git`
+- **内网 Remote (方案 A)**：`internal` → `git@<gitea-host>:<group>/qxj-admin-web.git`
+- 推送时指定分支：`git push origin <branch>` 或 `git push internal <branch>`，避免意外推送其他分支。
 - 不要推送 `dist/`、`.env.local` 等构建产物或本地配置（已在 `.gitignore` 中声明）。
 
 ---
