@@ -145,10 +145,15 @@ react-admin/
 ├── AGENT.md                    # AI Agent 协作规范与工程指南
 ├── biome.json                  # Biome 代码规范与格式化规则
 ├── commitlint.config.cjs       # Commitlint 提交信息规范
+├── docs/                       # 架构设计、接口契约与规划文档中心
+│   ├── feedback-and-audit-specification.md # 用户反馈中心与操作审计日志系统设计与对接规范
+│   ├── ops/                    # 运维模块与后端契约全景文档 (现有接口、缺失接口与PG监控)
+│   ├── user-module-evolution-comparison.md # 用户模块演进与全方位对比分析报告
+│   └── user-api.md             # 用户中心真实接口对接与联调手册
 ├── index.html                  # HTML 入口模板
 ├── package.json                # 项目元数据与依赖定义
 ├── src/
-│   ├── api/                    # API 接口层 (用户、认证、举报、帖子、评论、运维)
+│   ├── api/                    # API 接口层 (用户、认证、举报、申诉、帖子、评论、运维)
 │   ├── layouts/                # 基础后台布局 (BasicLayout: 固定侧边栏与Header)
 │   ├── pages/                  # 业务页面
 │   │   ├── Activities/         # 活动全生命周期运营中心
