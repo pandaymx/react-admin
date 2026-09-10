@@ -22,6 +22,7 @@ export interface MenuItem {
   path?: string;
 }
 
+export * from './activity';
 export * from './appeal';
 export * from './auth';
 export * from './comment';
@@ -30,5 +31,6 @@ export * from './ops';
 export * from './post';
 export * from './report';
 export * from './sensitiveWord';
+export * from './tag';
 export * from './user';
 export * from './verification';
