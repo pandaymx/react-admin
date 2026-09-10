@@ -64,6 +64,7 @@ import {
   getAllFilteredUsers,
   getUserCertificationLabel,
   getUserContentRestrictions,
+  getUserDetail,
   getUserList,
   getUserSortWeight,
   getUserStatisticsSummary,
@@ -1299,6 +1300,26 @@ export const UsersPage: React.FC = () => {
     );
   };
 
+  // 统一打开用户详情抽屉，并异步拉取完整个人认证与社交统计数据
+  const handleOpenUserDrawer = useCallback((record: UserItem) => {
+    setCurrentUser(record);
+    setDrawerVisible(true);
+    getUserDetail(record.id || record.userId).then((res) => {
+      if ((res.code === 200 || res.code === 0) && res.data) {
+        setCurrentUser((prev) => {
+          if (!prev || String(prev.id) !== String(record.id)) return prev;
+          return {
+            ...prev,
+            personalAuths: res.data.personalAuths || prev.personalAuths,
+            fanCount: res.data.fanCount ?? prev.fanCount,
+            followCount: res.data.followCount ?? prev.followCount,
+            friendCount: res.data.friendCount ?? prev.friendCount,
+          };
+        });
+      }
+    });
+  }, []);
+
   // 表格列定义 (对齐 AdminUserRespVO)
   const columns: TableProps<UserItem>['columns'] = [
     {
@@ -1308,8 +1329,7 @@ export const UsersPage: React.FC = () => {
       width: 250,
       render: (_, record) => {
         const handleOpenDetail = () => {
-          setCurrentUser(record);
-          setDrawerVisible(true);
+          handleOpenUserDrawer(record);
         };
 
         return (
@@ -1648,10 +1668,7 @@ export const UsersPage: React.FC = () => {
               type="link"
               size="small"
               icon={<EyeOutlined />}
-              onClick={() => {
-                setCurrentUser(record);
-                setDrawerVisible(true);
-              }}
+              onClick={() => handleOpenUserDrawer(record)}
             >
               详情
             </Button>
@@ -2334,7 +2351,16 @@ export const UsersPage: React.FC = () => {
                         </Col>
                         <Col span={8}>
                           <Text type="secondary">身份证号: </Text>
-                          <Text code>{auth.idCard}</Text>
+                          <Text
+                            code
+                            copyable={
+                              auth.idCard
+                                ? { text: auth.idCard, tooltips: ['复制身份证号', '已复制'] }
+                                : false
+                            }
+                          >
+                            {auth.idCard || '-'}
+                          </Text>
                         </Col>
                         <Col span={8}>
                           <Text type="secondary">认证时间: </Text>
