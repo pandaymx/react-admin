@@ -1,10 +1,12 @@
 import {
+  AppstoreOutlined,
   CheckCircleOutlined,
   CompassOutlined,
   DeleteOutlined,
   EditOutlined,
   EnvironmentOutlined,
   EyeOutlined,
+  FolderOpenOutlined,
   PlusOutlined,
   ReloadOutlined,
   SearchOutlined,
@@ -39,17 +41,22 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   cancelActivity,
   deleteActivity,
+  getActivityCategoryList,
   getActivityPage,
+  getActivitySubcategoryList,
   getActivitySummaryKPI,
 } from '@/api/activity';
 import type {
+  ActivityCategoryItem,
   ActivityDetailRespVO,
   ActivityItem,
   ActivityPageReqVO,
   ActivityStatus,
+  ActivitySubcategoryItem,
   ActivitySummaryKPI,
 } from '@/types';
 import { ActivityCancelModal } from './components/ActivityCancelModal';
+import { ActivityCategoryDrawer } from './components/ActivityCategoryDrawer';
 import { ActivityDetailDrawer } from './components/ActivityDetailDrawer';
 import { ActivityWizardModal } from './components/ActivityWizardModal';
 
@@ -89,10 +96,16 @@ export const ActivitiesPage: React.FC = () => {
   const [total, setTotal] = useState<number>(0);
   const [kpi, setKpi] = useState<ActivitySummaryKPI | null>(null);
 
+  // 主题与分类数据
+  const [categories, setCategories] = useState<ActivityCategoryItem[]>([]);
+  const [subcategories, setSubcategories] = useState<ActivitySubcategoryItem[]>([]);
+
   // 筛选状态
   const [activeTabStatus, setActiveTabStatus] = useState<string>('all');
   const [searchTitle, setSearchTitle] = useState<string>('');
   const [cityFilter, setCityFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string>('all');
 
   // 弹窗与抽屉控制
   const [wizardOpen, setWizardOpen] = useState<boolean>(false);
@@ -104,7 +117,31 @@ export const ActivitiesPage: React.FC = () => {
   const [cancelModalOpen, setCancelModalOpen] = useState<boolean>(false);
   const [targetCancelActivity, setTargetCancelActivity] = useState<ActivityItem | null>(null);
 
-  // 拉取数据
+  const [categoryDrawerOpen, setCategoryDrawerOpen] = useState<boolean>(false);
+
+  // 从后端拉取主题与分类配置
+  const fetchCategories = useCallback(async () => {
+    try {
+      const [catRes, subRes] = await Promise.all([
+        getActivityCategoryList(),
+        getActivitySubcategoryList(),
+      ]);
+      if (catRes.code === 0 && catRes.data) {
+        setCategories(catRes.data);
+      }
+      if (subRes.code === 0 && subRes.data) {
+        setSubcategories(subRes.data);
+      }
+    } catch (err) {
+      console.error('拉取活动分类失败', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
+  // 拉取活动数据
   const fetchActivities = useCallback(async () => {
     try {
       setLoading(true);
@@ -114,6 +151,8 @@ export const ActivitiesPage: React.FC = () => {
         status: activeTabStatus === 'all' ? undefined : (Number(activeTabStatus) as ActivityStatus),
         city: cityFilter === 'all' ? undefined : cityFilter,
         title: searchTitle.trim() || undefined,
+        categoryId: categoryFilter === 'all' ? undefined : categoryFilter,
+        subcategoryId: subcategoryFilter === 'all' ? undefined : subcategoryFilter,
       };
       const [listRes, kpiRes] = await Promise.all([
         getActivityPage(params),
@@ -132,7 +171,7 @@ export const ActivitiesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeTabStatus, cityFilter, searchTitle]);
+  }, [activeTabStatus, cityFilter, searchTitle, categoryFilter, subcategoryFilter]);
 
   useEffect(() => {
     fetchActivities();
@@ -202,6 +241,9 @@ export const ActivitiesPage: React.FC = () => {
           </Space>
 
           <Space>
+            <Button icon={<AppstoreOutlined />} onClick={() => setCategoryDrawerOpen(true)}>
+              主题与分类字典
+            </Button>
             <Button
               type="primary"
               icon={<PlusOutlined />}
@@ -333,13 +375,47 @@ export const ActivitiesPage: React.FC = () => {
               value={searchTitle}
               onChange={(e) => setSearchTitle(e.target.value)}
               allowClear
-              style={{ width: 260 }}
+              style={{ width: 220 }}
+            />
+
+            <Select
+              value={categoryFilter}
+              onChange={(val) => {
+                setCategoryFilter(val);
+                setSubcategoryFilter('all');
+              }}
+              style={{ width: 160 }}
+              options={[
+                { label: '全部主题大类', value: 'all' },
+                ...categories.map((c) => ({
+                  label: (
+                    <Space size={6}>
+                      <FolderOpenOutlined style={{ color: colorPrimary }} />
+                      <span>{c.name}</span>
+                    </Space>
+                  ),
+                  value: c.id,
+                })),
+              ]}
+            />
+
+            <Select
+              value={subcategoryFilter}
+              onChange={(val) => setSubcategoryFilter(val)}
+              style={{ width: 160 }}
+              options={[
+                { label: '全部细分子类', value: 'all' },
+                ...(categoryFilter === 'all'
+                  ? subcategories
+                  : subcategories.filter((s) => s.categoryId === categoryFilter)
+                ).map((s) => ({ label: s.name, value: s.id })),
+              ]}
             />
 
             <Select
               value={cityFilter}
               onChange={(val) => setCityFilter(val)}
-              style={{ width: 140 }}
+              style={{ width: 130 }}
               options={[
                 { label: '全部城市', value: 'all' },
                 { label: '北京', value: '北京' },
@@ -386,8 +462,13 @@ export const ActivitiesPage: React.FC = () => {
                       <Tag color="geekblue" style={{ fontSize: 11, margin: 0 }}>
                         <EnvironmentOutlined /> {record.city}
                       </Tag>
+                      {record.categoryName && (
+                        <Tag color="purple" style={{ fontSize: 11, margin: 0 }}>
+                          {record.categoryName}
+                        </Tag>
+                      )}
                       <Tag color="cyan" style={{ fontSize: 11, margin: 0 }}>
-                        {record.subcategoryName || '户外活动'}
+                        {record.subcategoryName || '活动类目'}
                       </Tag>
                     </Space>
                   </div>
@@ -583,6 +664,16 @@ export const ActivitiesPage: React.FC = () => {
         activity={targetCancelActivity}
         onClose={() => setCancelModalOpen(false)}
         onConfirm={handleConfirmCancel}
+      />
+
+      {/* 活动主题与分类字典管理抽屉 */}
+      <ActivityCategoryDrawer
+        open={categoryDrawerOpen}
+        onClose={() => setCategoryDrawerOpen(false)}
+        onCategoriesChange={() => {
+          fetchCategories();
+          fetchActivities();
+        }}
       />
     </div>
   );

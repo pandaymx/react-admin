@@ -146,7 +146,11 @@
     - **Step 2 地点行程**：多集合地点动态表单、多日行程规划 (Itinerary) 时间轴路线配置；
     - **Step 3 费用装备**：费用包含与自理明细清单、推荐装备建议多选；
     - **Step 4 物料领队**：活动多图画廊管理（且仅 1 张标记为封面 `isCover=1`）、随队领队角色分配；
-    - **Step 5 须知预览**：活动介绍、报名须知、安全注意事项、温馨提示与全真卡片预览；
+- **活动主题与分类字典全联动 (`ActivityCategoryDrawer`)**：
+  - 直调后端接口 `GET /activity2/config/category/list` 与 `GET /activity2/config/subcategory/list`，动态对接 7 大核心主题大类（自驾与旅行、亲子与家庭、户外运动、生活体验、摄影创作、球类运动、文化休闲）及全量细分子类；
+  - **主题与分类字典管理抽屉**：支持主题大类卡片浏览、所属细分子类查看、启用/禁用状态与特性配置，支持快速 CRUD 维护；
+  - **列表多维度级联筛选**：支持按「主题大类」与「细分子类」双向联动筛选，活动主档卡片直观呈现专属紫色主题徽标与细分类目标签；
+  - **向导选择全面动态化**：5 步向导式发布/编辑弹窗中类目选项彻底告别静态硬编码，基于后端实时分类树动态构建并同步维护 `categoryId` 与 `subcategoryId`；
 - **活动全景详情抽屉 (`ActivityDetailDrawer`)**：
   - 涵盖活动横幅与状态、基本参数、时间轴行程规划、多集合点打点、已报名人员与签到状态清单、费用明细与装备清单；
 - **活动取消与退款兜底 (`ActivityCancelModal`)**：
@@ -189,9 +193,10 @@ react-admin/
 │   ├── pages/                  # 业务页面
 │   │   ├── Activities/         # 活动全生命周期运营中心
 │   │   │   └── components/
-│   │   │       ├── ActivityCancelModal.tsx  # 活动取消原因确认弹窗
-│   │   │       ├── ActivityDetailDrawer.tsx # 活动全景详情抽屉 (行程/地点/报名名单)
-│   │   │       └── ActivityWizardModal.tsx  # 5步向导式活动发布/编辑工作台
+│   │   │       ├── ActivityCancelModal.tsx    # 活动取消原因确认弹窗
+│   │   │       ├── ActivityCategoryDrawer.tsx  # 活动主题与分类字典管理抽屉
+│   │   │       ├── ActivityDetailDrawer.tsx   # 活动全景详情抽屉 (行程/地点/报名名单)
+│   │   │       └── ActivityWizardModal.tsx    # 5步向导式活动发布/编辑工作台
 │   │   ├── Appeals/            # 违规申诉与复核治理模块
 │   │   │   └── components/
 │   │   │       └── AppealDetailDrawer.tsx # 申诉工单核查与裁定抽屉

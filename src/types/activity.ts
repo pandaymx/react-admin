@@ -119,6 +119,7 @@ export interface ActivityDetailRespVO extends ActivityItem {
 
 export interface ActivitySaveReqVO {
   id?: string;
+  categoryId?: string;
   subcategoryId: string;
   publisherUserId?: string;
   title: string;
@@ -169,4 +170,51 @@ export interface ActivitySummaryKPI {
   cancelledCount: number;
   totalParticipants: number;
   totalRevenue: number;
+}
+
+/**
+ * 活动大类 (主题/类目) Response 模型
+ */
+export interface ActivityCategoryItem {
+  id: string;
+  code: string;
+  name: string;
+  icon?: string | null;
+  sort: number;
+  status: number; // 0-禁用，1-启用
+  createTime?: string;
+}
+
+/**
+ * 活动子类 (细分类目) Response 模型
+ */
+export interface ActivitySubcategoryItem {
+  id: string;
+  categoryId: string;
+  code: string;
+  pageCode?: string;
+  name: string;
+  icon?: string | null;
+  featureRouteMetric?: boolean;
+  featureEndLocation?: boolean;
+  featureEquipment?: boolean;
+  featureModel?: boolean;
+  requireRealName?: boolean;
+  sort: number;
+  status: number; // 0-禁用，1-启用
+}
+
+/**
+ * 前端树级联选项模型
+ */
+export interface ActivityCategoryTreeOption {
+  label: string;
+  value: string;
+  icon?: string | null;
+  children?: {
+    label: string;
+    value: string;
+    categoryId: string;
+    pageCode?: string;
+  }[];
 }

@@ -1,12 +1,352 @@
 import { request } from '@/api/request';
 import type {
+  ActivityCategoryItem,
   ActivityDetailRespVO,
   ActivityItem,
   ActivityPageReqVO,
   ActivitySaveReqVO,
+  ActivitySubcategoryItem,
   ActivitySummaryKPI,
   ApiResponse,
 } from '@/types';
+
+// ==================== 真实活动主题大类与子类 Mock 数据字典 ====================
+
+export const mockActivityCategories: ActivityCategoryItem[] = [
+  { id: 'driving', code: 'driving', name: '自驾与旅行', icon: 'CarOutlined', sort: 10, status: 1 },
+  { id: 'family', code: 'family', name: '亲子与家庭', icon: 'SmileOutlined', sort: 20, status: 1 },
+  {
+    id: 'outdoor',
+    code: 'outdoor',
+    name: '户外运动',
+    icon: 'CompassOutlined',
+    sort: 30,
+    status: 1,
+  },
+  { id: 'life', code: 'life', name: '生活体验', icon: 'CoffeeOutlined', sort: 40, status: 1 },
+  { id: 'photo', code: 'photo', name: '摄影创作', icon: 'CameraOutlined', sort: 50, status: 1 },
+  { id: 'ball', code: 'ball', name: '球类运动', icon: 'TrophyOutlined', sort: 60, status: 1 },
+  { id: 'culture', code: 'culture', name: '文化休闲', icon: 'BookOutlined', sort: 70, status: 1 },
+];
+
+export const mockActivitySubcategories: ActivitySubcategoryItem[] = [
+  // 自驾与旅行
+  {
+    id: 'nearby_trip',
+    categoryId: 'driving',
+    code: 'nearby_trip',
+    name: '周边游',
+    pageCode: 'category_2',
+    sort: 10,
+    status: 1,
+  },
+  {
+    id: 'long_distance_travel',
+    categoryId: 'driving',
+    code: 'long_distance_travel',
+    name: '长途旅行',
+    pageCode: 'category_2',
+    sort: 20,
+    status: 1,
+  },
+  {
+    id: 'rv_travel',
+    categoryId: 'driving',
+    code: 'rv_travel',
+    name: '房车旅行',
+    pageCode: 'category_2',
+    sort: 30,
+    status: 1,
+  },
+  {
+    id: 'carpool',
+    categoryId: 'driving',
+    code: 'carpool',
+    name: '拼车',
+    pageCode: 'category_2',
+    sort: 40,
+    status: 1,
+  },
+  // 亲子与家庭
+  {
+    id: 'theme_park_group',
+    categoryId: 'family',
+    code: 'theme_park_group',
+    name: '主题乐园组团',
+    pageCode: 'category_1',
+    sort: 10,
+    status: 1,
+  },
+  {
+    id: 'children_handicraft',
+    categoryId: 'family',
+    code: 'children_handicraft',
+    name: '儿童手工',
+    pageCode: 'category_1',
+    sort: 20,
+    status: 1,
+  },
+  {
+    id: 'popular_science',
+    categoryId: 'family',
+    code: 'popular_science',
+    name: '科普探索',
+    pageCode: 'category_1',
+    sort: 30,
+    status: 1,
+  },
+  // 户外运动
+  {
+    id: 'hiking',
+    categoryId: 'outdoor',
+    code: 'hiking',
+    name: '户外徒步',
+    pageCode: 'category_2',
+    sort: 10,
+    status: 1,
+  },
+  {
+    id: 'mountaineering',
+    categoryId: 'outdoor',
+    code: 'mountaineering',
+    name: '登山',
+    pageCode: 'category_2',
+    sort: 20,
+    status: 1,
+  },
+  {
+    id: 'cycling',
+    categoryId: 'outdoor',
+    code: 'cycling',
+    name: '骑行',
+    pageCode: 'category_2',
+    sort: 40,
+    status: 1,
+  },
+  {
+    id: 'camping',
+    categoryId: 'outdoor',
+    code: 'camping',
+    name: '露营',
+    pageCode: 'category_1',
+    sort: 50,
+    status: 1,
+  },
+  {
+    id: 'rafting',
+    categoryId: 'outdoor',
+    code: 'rafting',
+    name: '漂流',
+    pageCode: 'category_1',
+    sort: 60,
+    status: 1,
+  },
+  {
+    id: 'climbing',
+    categoryId: 'outdoor',
+    code: 'climbing',
+    name: '攀岩抱石',
+    pageCode: 'category_1',
+    sort: 70,
+    status: 1,
+  },
+  {
+    id: 'skiing',
+    categoryId: 'outdoor',
+    code: 'skiing',
+    name: '滑雪',
+    pageCode: 'category_1',
+    sort: 90,
+    status: 1,
+  },
+  {
+    id: 'marathon',
+    categoryId: 'outdoor',
+    code: 'marathon',
+    name: '马拉松/跑步',
+    pageCode: 'category_1',
+    sort: 100,
+    status: 1,
+  },
+  // 生活体验
+  {
+    id: 'cooking',
+    categoryId: 'life',
+    code: 'cooking',
+    name: '烹饪与烘焙',
+    pageCode: 'category_1',
+    sort: 10,
+    status: 1,
+  },
+  {
+    id: 'food_exploration',
+    categoryId: 'life',
+    code: 'food_exploration',
+    name: '美食探店',
+    pageCode: 'category_1',
+    sort: 20,
+    status: 1,
+  },
+  {
+    id: 'coffee_tea',
+    categoryId: 'life',
+    code: 'coffee_tea',
+    name: '精品咖啡/茶艺',
+    pageCode: 'category_1',
+    sort: 30,
+    status: 1,
+  },
+  {
+    id: 'handicraft',
+    categoryId: 'life',
+    code: 'handicraft',
+    name: '手作皮具/木工',
+    pageCode: 'category_1',
+    sort: 40,
+    status: 1,
+  },
+  // 摄影创作
+  {
+    id: 'portrait_photo',
+    categoryId: 'photo',
+    code: 'portrait_photo',
+    name: '人像写真',
+    pageCode: 'category_3',
+    sort: 10,
+    status: 1,
+  },
+  {
+    id: 'landscape_photo',
+    categoryId: 'photo',
+    code: 'landscape_photo',
+    name: '风光摄影',
+    pageCode: 'category_3',
+    sort: 20,
+    status: 1,
+  },
+  {
+    id: 'drone_aerial',
+    categoryId: 'photo',
+    code: 'drone_aerial',
+    name: '无人机航拍',
+    pageCode: 'category_3',
+    sort: 30,
+    status: 1,
+  },
+  {
+    id: 'street_snap',
+    categoryId: 'photo',
+    code: 'street_snap',
+    name: '街头扫街',
+    pageCode: 'category_3',
+    sort: 40,
+    status: 1,
+  },
+  // 球类运动
+  {
+    id: 'badminton',
+    categoryId: 'ball',
+    code: 'badminton',
+    name: '羽毛球',
+    pageCode: 'category_1',
+    sort: 10,
+    status: 1,
+  },
+  {
+    id: 'tennis',
+    categoryId: 'ball',
+    code: 'tennis',
+    name: '网球',
+    pageCode: 'category_1',
+    sort: 20,
+    status: 1,
+  },
+  {
+    id: 'table_tennis',
+    categoryId: 'ball',
+    code: 'table_tennis',
+    name: '乒乓球',
+    pageCode: 'category_1',
+    sort: 30,
+    status: 1,
+  },
+  {
+    id: 'basketball',
+    categoryId: 'ball',
+    code: 'basketball',
+    name: '篮球',
+    pageCode: 'category_1',
+    sort: 40,
+    status: 1,
+  },
+  {
+    id: 'football',
+    categoryId: 'ball',
+    code: 'football',
+    name: '足球',
+    pageCode: 'category_1',
+    sort: 50,
+    status: 1,
+  },
+  // 文化休闲
+  {
+    id: 'murder_mystery',
+    categoryId: 'culture',
+    code: 'murder_mystery',
+    name: '剧本杀',
+    pageCode: 'category_1',
+    sort: 10,
+    status: 1,
+  },
+  {
+    id: 'board_games',
+    categoryId: 'culture',
+    code: 'board_games',
+    name: '桌游聚会',
+    pageCode: 'category_1',
+    sort: 20,
+    status: 1,
+  },
+  {
+    id: 'exhibition',
+    categoryId: 'culture',
+    code: 'exhibition',
+    name: '美术看展',
+    pageCode: 'category_1',
+    sort: 30,
+    status: 1,
+  },
+  {
+    id: 'movie_club',
+    categoryId: 'culture',
+    code: 'movie_club',
+    name: '观影交流会',
+    pageCode: 'category_1',
+    sort: 40,
+    status: 1,
+  },
+  {
+    id: 'citywalk',
+    categoryId: 'culture',
+    code: 'citywalk',
+    name: '城市漫步(Citywalk)',
+    pageCode: 'category_1',
+    sort: 50,
+    status: 1,
+  },
+  {
+    id: 'book_club',
+    categoryId: 'culture',
+    code: 'book_club',
+    name: '读书沙龙',
+    pageCode: 'category_1',
+    sort: 60,
+    status: 1,
+  },
+];
+
+export let dynamicCategories = [...mockActivityCategories];
+export let dynamicSubcategories = [...mockActivitySubcategories];
 
 // ==================== 高拟真活动主档与子表 Mock 数据集 ====================
 
@@ -14,10 +354,10 @@ export const mockActivities: ActivityDetailRespVO[] = [
   {
     id: 'ACT_20260901001',
     title: '【秋季登高】鳌太穿越线轻装体验 3日精华徒步',
-    categoryId: 'cat_outdoor',
-    categoryName: '户外探险',
-    subcategoryId: 'sub_hiking',
-    subcategoryName: '高山徒步',
+    categoryId: 'outdoor',
+    categoryName: '户外运动',
+    subcategoryId: 'hiking',
+    subcategoryName: '户外徒步',
     publisherUserId: '100088',
     publisherNickname: '秦岭老向导·大山',
     publisherAvatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dashan',
@@ -175,10 +515,10 @@ export const mockActivities: ActivityDetailRespVO[] = [
   {
     id: 'ACT_20260901002',
     title: '【周末微醺】江畔星空露营音乐会 & 精酿BBQ派对',
-    categoryId: 'cat_leisure',
-    categoryName: '生活休闲',
-    subcategoryId: 'sub_camping',
-    subcategoryName: '重装露营',
+    categoryId: 'outdoor',
+    categoryName: '户外运动',
+    subcategoryId: 'camping',
+    subcategoryName: '露营',
     publisherUserId: '100105',
     publisherNickname: '露营实验室·安安',
     publisherAvatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=anan',
@@ -275,10 +615,10 @@ export const mockActivities: ActivityDetailRespVO[] = [
   {
     id: 'ACT_20260901003',
     title: '【新手畅打】周四晚奥体中心羽毛球趣味对抗赛 (3片连开)',
-    categoryId: 'cat_sports',
-    categoryName: '球类竞技',
-    subcategoryId: 'sub_badminton',
-    subcategoryName: '羽毛球双打',
+    categoryId: 'ball',
+    categoryName: '球类运动',
+    subcategoryId: 'badminton',
+    subcategoryName: '羽毛球',
     publisherUserId: '100033',
     publisherNickname: '球场飞毛腿',
     publisherAvatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=badminton',
@@ -352,9 +692,9 @@ export const mockActivities: ActivityDetailRespVO[] = [
   {
     id: 'ACT_20260901004',
     title: '【待审核草稿】可可西里无人机生态航拍创作之旅 7日团',
-    categoryId: 'cat_outdoor',
-    categoryName: '户外探险',
-    subcategoryId: 'sub_drone',
+    categoryId: 'photo',
+    categoryName: '摄影创作',
+    subcategoryId: 'drone_aerial',
     subcategoryName: '无人机航拍',
     publisherUserId: '100008',
     publisherNickname: '飞手阿峰',
@@ -428,10 +768,10 @@ export const mockActivities: ActivityDetailRespVO[] = [
   {
     id: 'ACT_20260901005',
     title: '【草稿待完善】万龙滑雪场开板首滑 早鸟周末营',
-    categoryId: 'cat_outdoor',
-    categoryName: '户外探险',
-    subcategoryId: 'sub_skiing',
-    subcategoryName: '单板/双板滑雪',
+    categoryId: 'outdoor',
+    categoryName: '户外运动',
+    subcategoryId: 'skiing',
+    subcategoryName: '滑雪',
     publisherUserId: '100088',
     publisherNickname: '秦岭老向导·大山',
     publisherAvatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dashan',
@@ -480,10 +820,10 @@ export const mockActivities: ActivityDetailRespVO[] = [
   {
     id: 'ACT_20260901006',
     title: '【已结束】八达岭古长城暮色夕阳摄影沙龙 (已归档)',
-    categoryId: 'cat_leisure',
-    categoryName: '生活休闲',
-    subcategoryId: 'sub_photography',
-    subcategoryName: '人像/风光摄影',
+    categoryId: 'photo',
+    categoryName: '摄影创作',
+    subcategoryId: 'landscape_photo',
+    subcategoryName: '风光摄影',
     publisherUserId: '100066',
     publisherNickname: '光影魔术手',
     publisherAvatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=guangying',
@@ -521,11 +861,11 @@ export const mockActivities: ActivityDetailRespVO[] = [
   },
   {
     id: 'ACT_20260901007',
-    title: '【已取消】千岛湖帆船驾驶体验营 (因暴雨恶劣天气)',
-    categoryId: 'cat_outdoor',
-    categoryName: '户外探险',
-    subcategoryId: 'sub_sailing',
-    subcategoryName: '水上帆船',
+    title: '【已取消】千岛湖急流皮划艇与漂流探险营 (因暴雨恶劣天气)',
+    categoryId: 'outdoor',
+    categoryName: '户外运动',
+    subcategoryId: 'rafting',
+    subcategoryName: '漂流',
     publisherUserId: '100105',
     publisherNickname: '露营实验室·安安',
     publisherAvatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=anan',
@@ -610,6 +950,9 @@ export async function getActivityPage(
     const kw = params.title.trim().toLowerCase();
     filtered = filtered.filter((act) => act.title.toLowerCase().includes(kw));
   }
+  if (params?.categoryId) {
+    filtered = filtered.filter((act) => act.categoryId === params.categoryId);
+  }
   if (params?.subcategoryId) {
     filtered = filtered.filter((act) => act.subcategoryId === params.subcategoryId);
   }
@@ -622,6 +965,224 @@ export async function getActivityPage(
       total: filtered.length,
     },
   };
+}
+
+// ==================== 活动主题大类与细分子类 API ====================
+
+/**
+ * 获取活动大类(主题)列表（含禁用）
+ * GET /admin-api/activity2/config/category/list
+ */
+export async function getActivityCategoryList(): Promise<ApiResponse<ActivityCategoryItem[]>> {
+  try {
+    const res = await request<ActivityCategoryItem[]>({
+      url: '/activity2/config/category/list',
+      method: 'GET',
+    });
+    if (res && res.code === 0 && Array.isArray(res.data) && res.data.length > 0) {
+      return res;
+    }
+  } catch (error) {
+    console.warn('获取活动大类列表失败，降级使用真实 Mock 大类字典', error);
+  }
+
+  return {
+    code: 0,
+    msg: 'success',
+    data: dynamicCategories,
+  };
+}
+
+/**
+ * 获取活动子类列表
+ * GET /admin-api/activity2/config/subcategory/list
+ */
+export async function getActivitySubcategoryList(
+  categoryId?: string,
+): Promise<ApiResponse<ActivitySubcategoryItem[]>> {
+  try {
+    const res = await request<ActivitySubcategoryItem[]>({
+      url: '/activity2/config/subcategory/list',
+      method: 'GET',
+      params: categoryId ? { categoryId } : undefined,
+    });
+    if (res && res.code === 0 && Array.isArray(res.data) && res.data.length > 0) {
+      return res;
+    }
+  } catch (error) {
+    console.warn('获取活动子类列表失败，降级使用真实 Mock 子类字典', error);
+  }
+
+  const result = categoryId
+    ? dynamicSubcategories.filter((sub) => sub.categoryId === categoryId)
+    : dynamicSubcategories;
+
+  return {
+    code: 0,
+    msg: 'success',
+    data: result,
+  };
+}
+
+/**
+ * 创建活动大类
+ * POST /admin-api/activity2/config/category/create
+ */
+export async function createActivityCategory(
+  data: Partial<ActivityCategoryItem>,
+): Promise<ApiResponse<string>> {
+  try {
+    const res = await request<string>({
+      url: '/activity2/config/category/create',
+      method: 'POST',
+      data,
+    });
+    if (res && res.code === 0) return res;
+  } catch (error) {
+    console.warn('创建活动大类失败，进行本地 Mock 处理', error);
+  }
+
+  const id = `cat_${Date.now()}`;
+  const newCat: ActivityCategoryItem = {
+    id,
+    code: data.code || `cat_${data.sort || 99}`,
+    name: data.name || '新建大类',
+    icon: data.icon || null,
+    sort: data.sort || dynamicCategories.length * 10 + 10,
+    status: data.status !== undefined ? data.status : 1,
+    createTime: new Date().toISOString().replace('T', ' ').substring(0, 19),
+  };
+  dynamicCategories.push(newCat);
+  return { code: 0, msg: '创建成功', data: id };
+}
+
+/**
+ * 更新活动大类
+ * PUT /admin-api/activity2/config/category/update
+ */
+export async function updateActivityCategory(
+  data: Partial<ActivityCategoryItem>,
+): Promise<ApiResponse<boolean>> {
+  try {
+    const res = await request<boolean>({
+      url: '/activity2/config/category/update',
+      method: 'PUT',
+      data,
+    });
+    if (res && res.code === 0) return res;
+  } catch (error) {
+    console.warn('更新活动大类失败，进行本地 Mock 处理', error);
+  }
+
+  const index = dynamicCategories.findIndex((c) => c.id === data.id);
+  if (index >= 0) {
+    dynamicCategories[index] = { ...dynamicCategories[index], ...data };
+  }
+  return { code: 0, msg: '更新成功', data: true };
+}
+
+/**
+ * 删除活动大类
+ * DELETE /admin-api/activity2/config/category/delete
+ */
+export async function deleteActivityCategory(id: string): Promise<ApiResponse<boolean>> {
+  try {
+    const res = await request<boolean>({
+      url: '/activity2/config/category/delete',
+      method: 'DELETE',
+      params: { id },
+    });
+    if (res && res.code === 0) return res;
+  } catch (error) {
+    console.warn('删除活动大类失败，进行本地 Mock 处理', error);
+  }
+
+  dynamicCategories = dynamicCategories.filter((c) => c.id !== id);
+  dynamicSubcategories = dynamicSubcategories.filter((s) => s.categoryId !== id);
+  return { code: 0, msg: '删除成功', data: true };
+}
+
+/**
+ * 创建活动子类
+ * POST /admin-api/activity2/config/subcategory/create
+ */
+export async function createActivitySubcategory(
+  data: Partial<ActivitySubcategoryItem>,
+): Promise<ApiResponse<string>> {
+  try {
+    const res = await request<string>({
+      url: '/activity2/config/subcategory/create',
+      method: 'POST',
+      data,
+    });
+    if (res && res.code === 0) return res;
+  } catch (error) {
+    console.warn('创建活动子类失败，进行本地 Mock 处理', error);
+  }
+
+  const id = `sub_${Date.now()}`;
+  const newSub: ActivitySubcategoryItem = {
+    id,
+    categoryId: data.categoryId || '',
+    code: data.code || `sub_${data.sort || 99}`,
+    pageCode: data.pageCode || 'category_1',
+    name: data.name || '新建子类',
+    icon: data.icon || null,
+    sort: data.sort || dynamicSubcategories.length * 10 + 10,
+    status: data.status !== undefined ? data.status : 1,
+    featureRouteMetric: !!data.featureRouteMetric,
+    featureEndLocation: !!data.featureEndLocation,
+    featureEquipment: !!data.featureEquipment,
+    featureModel: !!data.featureModel,
+    requireRealName: !!data.requireRealName,
+  };
+  dynamicSubcategories.push(newSub);
+  return { code: 0, msg: '创建成功', data: id };
+}
+
+/**
+ * 更新活动子类
+ * PUT /admin-api/activity2/config/subcategory/update
+ */
+export async function updateActivitySubcategory(
+  data: Partial<ActivitySubcategoryItem>,
+): Promise<ApiResponse<boolean>> {
+  try {
+    const res = await request<boolean>({
+      url: '/activity2/config/subcategory/update',
+      method: 'PUT',
+      data,
+    });
+    if (res && res.code === 0) return res;
+  } catch (error) {
+    console.warn('更新活动子类失败，进行本地 Mock 处理', error);
+  }
+
+  const index = dynamicSubcategories.findIndex((s) => s.id === data.id);
+  if (index >= 0) {
+    dynamicSubcategories[index] = { ...dynamicSubcategories[index], ...data };
+  }
+  return { code: 0, msg: '更新成功', data: true };
+}
+
+/**
+ * 删除活动子类
+ * DELETE /admin-api/activity2/config/subcategory/delete
+ */
+export async function deleteActivitySubcategory(id: string): Promise<ApiResponse<boolean>> {
+  try {
+    const res = await request<boolean>({
+      url: '/activity2/config/subcategory/delete',
+      method: 'DELETE',
+      params: { id },
+    });
+    if (res && res.code === 0) return res;
+  } catch (error) {
+    console.warn('删除活动子类失败，进行本地 Mock 处理', error);
+  }
+
+  dynamicSubcategories = dynamicSubcategories.filter((s) => s.id !== id);
+  return { code: 0, msg: '删除成功', data: true };
 }
 
 export async function getActivityDetail(id: string): Promise<ApiResponse<ActivityDetailRespVO>> {
@@ -654,10 +1215,16 @@ export async function createActivity(data: ActivitySaveReqVO): Promise<ApiRespon
 
   const newId = `ACT_${Date.now()}`;
   const cover = data.images?.find((img) => img.isCover === 1)?.url || data.images?.[0]?.url || '';
+  const sub = dynamicSubcategories.find((s) => s.id === data.subcategoryId);
+  const cat = dynamicCategories.find((c) => c.id === (data.categoryId || sub?.categoryId));
 
   const newActivity: ActivityDetailRespVO = {
     ...data,
     id: newId,
+    categoryId: cat?.id || data.categoryId || '',
+    categoryName: cat?.name || '活动主题',
+    subcategoryId: data.subcategoryId,
+    subcategoryName: sub?.name || '综合活动',
     publisherUserId: data.publisherUserId || '100088',
     publisherNickname: '官方后台代发',
     publisherAvatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
@@ -696,9 +1263,16 @@ export async function updateActivity(data: ActivitySaveReqVO): Promise<ApiRespon
   if (index >= 0) {
     const old = dynamicActivities[index];
     const cover = data.images?.find((img) => img.isCover === 1)?.url || old.coverUrl;
+    const sub = dynamicSubcategories.find((s) => s.id === data.subcategoryId);
+    const cat = dynamicCategories.find((c) => c.id === (data.categoryId || sub?.categoryId));
+
     dynamicActivities[index] = {
       ...old,
       ...data,
+      categoryId: cat?.id || data.categoryId || old.categoryId,
+      categoryName: cat?.name || old.categoryName,
+      subcategoryId: data.subcategoryId || old.subcategoryId,
+      subcategoryName: sub?.name || old.subcategoryName,
       coverUrl: cover,
       meetingPoints: data.meetingPoints || [],
       images: data.images || [],

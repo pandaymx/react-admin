@@ -21,9 +21,14 @@ import {
 import dayjs from 'dayjs';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { createActivity, updateActivity } from '@/api/activity';
+import {
+  createActivity,
+  getActivityCategoryList,
+  getActivitySubcategoryList,
+  updateActivity,
+} from '@/api/activity';
 import { useThemeStore } from '@/store/theme';
-import type { ActivityDetailRespVO, ActivitySaveReqVO } from '@/types';
+import type { ActivityCategoryTreeOption, ActivityDetailRespVO, ActivitySaveReqVO } from '@/types';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -33,41 +38,6 @@ interface ActivityWizardModalProps {
   onClose: () => void;
   onSuccess: () => void;
 }
-
-const CATEGORY_OPTIONS = [
-  {
-    label: '户外探险',
-    value: 'cat_outdoor',
-    children: [
-      { label: '高山徒步', value: 'sub_hiking' },
-      { label: '重装露营', value: 'sub_camping' },
-      { label: '单板/双板滑雪', value: 'sub_skiing' },
-      { label: '攀岩与抱石', value: 'sub_climbing' },
-      { label: '水上帆船', value: 'sub_sailing' },
-    ],
-  },
-  {
-    label: '球类竞技',
-    value: 'cat_sports',
-    children: [
-      { label: '羽毛球双打', value: 'sub_badminton' },
-      { label: '半场/全场篮球', value: 'sub_basketball' },
-      { label: '网球对抗', value: 'sub_tennis' },
-      { label: '七人制足球', value: 'sub_soccer' },
-    ],
-  },
-  {
-    label: '生活休闲与摄影',
-    value: 'cat_leisure',
-    children: [
-      { label: '人像/风光摄影', value: 'sub_photography' },
-      { label: '无人机航拍', value: 'sub_drone' },
-      { label: '城市公路骑行', value: 'sub_cycling' },
-      { label: '极限飞盘', value: 'sub_frisbee' },
-      { label: '精品手冲咖啡', value: 'sub_coffee' },
-    ],
-  },
-];
 
 const PRESET_EQUIPMENTS = [
   '登山杖(双杖)',
@@ -98,8 +68,42 @@ export const ActivityWizardModal: React.FC<ActivityWizardModalProps> = ({
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [coverIndex, setCoverIndex] = useState<number>(0);
+  const [categoryTree, setCategoryTree] = useState<ActivityCategoryTreeOption[]>([]);
 
   const [form] = Form.useForm();
+
+  // 从后端拉取真实大类与子类配置
+  useEffect(() => {
+    if (open) {
+      const fetchCategories = async () => {
+        try {
+          const [catRes, subRes] = await Promise.all([
+            getActivityCategoryList(),
+            getActivitySubcategoryList(),
+          ]);
+          const cats = catRes.data || [];
+          const subs = subRes.data || [];
+          const tree: ActivityCategoryTreeOption[] = cats.map((c) => ({
+            label: c.name,
+            value: c.id,
+            icon: c.icon,
+            children: subs
+              .filter((s) => s.categoryId === c.id)
+              .map((s) => ({
+                label: s.name,
+                value: s.id,
+                categoryId: c.id,
+                pageCode: s.pageCode,
+              })),
+          }));
+          setCategoryTree(tree);
+        } catch (err) {
+          console.error('拉取活动主题与分类失败', err);
+        }
+      };
+      fetchCategories();
+    }
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -134,7 +138,7 @@ export const ActivityWizardModal: React.FC<ActivityWizardModalProps> = ({
         form.resetFields();
         setCoverIndex(0);
         form.setFieldsValue({
-          subcategoryId: 'sub_hiking',
+          subcategoryId: 'hiking',
           city: '西安',
           publisherUserId: '100088',
           minParticipants: 6,
@@ -214,9 +218,14 @@ export const ActivityWizardModal: React.FC<ActivityWizardModalProps> = ({
         imagesWithCover[0].isCover = 1;
       }
 
+      const matchedCat = categoryTree.find((c) =>
+        c.children?.some((sub) => sub.value === values.subcategoryId),
+      );
+
       const payload: ActivitySaveReqVO = {
         id: editingActivity?.id,
         title: values.title,
+        categoryId: matchedCat?.value,
         subcategoryId: values.subcategoryId,
         publisherUserId: values.publisherUserId,
         city: values.city,
@@ -333,10 +342,14 @@ export const ActivityWizardModal: React.FC<ActivityWizardModalProps> = ({
                 label="活动所属类目"
                 rules={[{ required: true, message: '请选择所属类目' }]}
               >
-                <Select placeholder="请选择类目">
-                  {CATEGORY_OPTIONS.map((cat) => (
+                <Select
+                  placeholder="请选择所属主题与细分类目"
+                  showSearch
+                  optionFilterProp="children"
+                >
+                  {categoryTree.map((cat) => (
                     <Select.OptGroup label={cat.label} key={cat.value}>
-                      {cat.children.map((sub) => (
+                      {cat.children?.map((sub) => (
                         <Select.Option value={sub.value} key={sub.value}>
                           {sub.label}
                         </Select.Option>
