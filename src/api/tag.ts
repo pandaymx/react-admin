@@ -506,8 +506,7 @@ export async function getTagTypePage(
     pageSize: Math.min(Math.max(params?.pageSize || 20, 1), 100),
   };
   if (params?.status && (params.status as any) !== 'all') {
-    queryParams.status =
-      params.status === 'active' ? 0 : params.status === 'disabled' ? 1 : params.status;
+    queryParams.status = params.status;
   }
   if (params?.name?.trim()) {
     queryParams.name = params.name.trim();
@@ -547,25 +546,27 @@ export async function getTagTypePage(
   };
 }
 
-export async function getTagTypeDetail(id: number): Promise<ApiResponse<TagTypeItem>> {
+export async function getTagTypeDetail(id: string | number): Promise<ApiResponse<TagTypeItem>> {
   try {
     const res = await request<TagTypeItem>({
       url: '/user/tag-type/get',
       method: 'GET',
-      params: { id },
+      params: { id: String(id) },
     });
     if (res && res.code === 0 && res.data) return res;
   } catch (error) {
     console.warn('获取标签类型详情失败，使用 Mock 降级', error);
   }
 
-  const found = dynamicTagTypes.find((t) => t.id === id) || dynamicTagTypes[0];
+  const found = dynamicTagTypes.find((t) => String(t.id) === String(id)) || dynamicTagTypes[0];
   return { code: 0, msg: 'success', data: found };
 }
 
-export async function createTagType(data: AdminTagTypeCreateReqVO): Promise<ApiResponse<number>> {
+export async function createTagType(
+  data: AdminTagTypeCreateReqVO,
+): Promise<ApiResponse<string | number>> {
   try {
-    const res = await request<number>({
+    const res = await request<string | number>({
       url: '/user/tag-type/create',
       method: 'POST',
       data,
@@ -600,7 +601,7 @@ export async function updateTagType(data: AdminTagTypeUpdateReqVO): Promise<ApiR
     console.warn('更新标签类型后端异常，采用本地 Mock 响应', error);
   }
 
-  const index = dynamicTagTypes.findIndex((t) => t.id === data.id);
+  const index = dynamicTagTypes.findIndex((t) => String(t.id) === String(data.id));
   if (index >= 0) {
     dynamicTagTypes[index] = {
       ...dynamicTagTypes[index],
@@ -611,20 +612,20 @@ export async function updateTagType(data: AdminTagTypeUpdateReqVO): Promise<ApiR
   return { code: 0, msg: '更新成功', data: true };
 }
 
-export async function deleteTagType(id: number): Promise<ApiResponse<boolean>> {
+export async function deleteTagType(id: string | number): Promise<ApiResponse<boolean>> {
   try {
     const res = await request<boolean>({
       url: '/user/tag-type/delete',
       method: 'DELETE',
-      params: { id },
+      params: { id: String(id) },
     });
     if (res && res.code === 0) return res;
   } catch (error) {
     console.warn('删除标签类型后端异常，采用本地 Mock 响应', error);
   }
 
-  dynamicTagTypes = dynamicTagTypes.filter((t) => t.id !== id);
-  dynamicTags = dynamicTags.filter((t) => t.tagTypeId !== id);
+  dynamicTagTypes = dynamicTagTypes.filter((t) => String(t.id) !== String(id));
+  dynamicTags = dynamicTags.filter((t) => String(t.tagTypeId) !== String(id));
   return { code: 0, msg: '删除成功', data: true };
 }
 
@@ -638,11 +639,10 @@ export async function getTagPage(
     pageSize: Math.min(Math.max(params?.pageSize || 20, 1), 100),
   };
   if (params?.tagTypeId && (params.tagTypeId as any) !== 'all') {
-    queryParams.tagTypeId = Number(params.tagTypeId);
+    queryParams.tagTypeId = String(params.tagTypeId).trim();
   }
   if (params?.status && (params.status as any) !== 'all') {
-    queryParams.status =
-      params.status === 'active' ? 0 : params.status === 'disabled' ? 1 : params.status;
+    queryParams.status = params.status;
   }
   if (params?.name?.trim()) {
     queryParams.name = params.name.trim();
@@ -683,7 +683,7 @@ export async function getTagPage(
 
   let filtered = [...dynamicTags];
   if (params?.tagTypeId && params.tagTypeId !== 'all') {
-    filtered = filtered.filter((item) => item.tagTypeId === Number(params.tagTypeId));
+    filtered = filtered.filter((item) => String(item.tagTypeId) === String(params.tagTypeId));
   }
   if (params?.status && params.status !== 'all') {
     filtered = filtered.filter((item) => item.status === params.status);
@@ -704,9 +704,9 @@ export async function getTagPage(
   };
 }
 
-export async function createTag(data: AdminTagCreateReqVO): Promise<ApiResponse<number>> {
+export async function createTag(data: AdminTagCreateReqVO): Promise<ApiResponse<string | number>> {
   try {
-    const res = await request<number>({
+    const res = await request<string | number>({
       url: '/user/tag/create',
       method: 'POST',
       data,
@@ -717,7 +717,7 @@ export async function createTag(data: AdminTagCreateReqVO): Promise<ApiResponse<
   }
 
   const newId = Date.now();
-  const parentType = dynamicTagTypes.find((t) => t.id === data.tagTypeId);
+  const parentType = dynamicTagTypes.find((t) => String(t.id) === String(data.tagTypeId));
   const newItem: TagItem = {
     ...data,
     id: newId,
@@ -745,9 +745,9 @@ export async function updateTag(data: AdminTagUpdateReqVO): Promise<ApiResponse<
     console.warn('更新标签后端异常，采用本地 Mock 响应', error);
   }
 
-  const index = dynamicTags.findIndex((t) => t.id === data.id);
+  const index = dynamicTags.findIndex((t) => String(t.id) === String(data.id));
   if (index >= 0) {
-    const parentType = dynamicTagTypes.find((t) => t.id === data.tagTypeId);
+    const parentType = dynamicTagTypes.find((t) => String(t.id) === String(data.tagTypeId));
     dynamicTags[index] = {
       ...dynamicTags[index],
       ...data,
@@ -758,26 +758,26 @@ export async function updateTag(data: AdminTagUpdateReqVO): Promise<ApiResponse<
   return { code: 0, msg: '更新标签成功', data: true };
 }
 
-export async function deleteTag(id: number): Promise<ApiResponse<boolean>> {
+export async function deleteTag(id: string | number): Promise<ApiResponse<boolean>> {
   try {
     const res = await request<boolean>({
       url: '/user/tag/delete',
       method: 'DELETE',
-      params: { id },
+      params: { id: String(id) },
     });
     if (res && res.code === 0) return res;
   } catch (error) {
     console.warn('删除标签后端异常，采用本地 Mock 响应', error);
   }
 
-  const target = dynamicTags.find((t) => t.id === id);
+  const target = dynamicTags.find((t) => String(t.id) === String(id));
   if (target) {
-    const parentType = dynamicTagTypes.find((t) => t.id === target.tagTypeId);
+    const parentType = dynamicTagTypes.find((t) => String(t.id) === String(target.tagTypeId));
     if (parentType?.tagCount && parentType.tagCount > 0) {
       parentType.tagCount -= 1;
     }
   }
-  dynamicTags = dynamicTags.filter((t) => t.id !== id);
+  dynamicTags = dynamicTags.filter((t) => String(t.id) !== String(id));
   return { code: 0, msg: '删除标签成功', data: true };
 }
 
@@ -825,9 +825,9 @@ export async function getInitialTagConfigPage(params?: {
 
 export async function createInitialTagConfig(
   data: AdminInitialTagConfigCreateReqVO,
-): Promise<ApiResponse<number>> {
+): Promise<ApiResponse<string | number>> {
   try {
-    const res = await request<number>({
+    const res = await request<string | number>({
       url: '/user/tag-initial-config/create',
       method: 'POST',
       data,
@@ -838,8 +838,10 @@ export async function createInitialTagConfig(
   }
 
   const newId = Date.now();
-  const parentType = dynamicTagTypes.find((t) => t.id === data.tagTypeId);
-  const targetTag = data.tagId ? dynamicTags.find((t) => t.id === data.tagId) : null;
+  const parentType = dynamicTagTypes.find((t) => String(t.id) === String(data.tagTypeId));
+  const targetTag = data.tagId
+    ? dynamicTags.find((t) => String(t.id) === String(data.tagId))
+    : null;
 
   const newItem: InitialTagConfigItem = {
     ...data,
@@ -866,10 +868,12 @@ export async function updateInitialTagConfig(
     console.warn('更新初始标签配置异常，采用本地 Mock', error);
   }
 
-  const index = dynamicConfigs.findIndex((c) => c.id === data.id);
+  const index = dynamicConfigs.findIndex((c) => String(c.id) === String(data.id));
   if (index >= 0) {
-    const parentType = dynamicTagTypes.find((t) => t.id === data.tagTypeId);
-    const targetTag = data.tagId ? dynamicTags.find((t) => t.id === data.tagId) : null;
+    const parentType = dynamicTagTypes.find((t) => String(t.id) === String(data.tagTypeId));
+    const targetTag = data.tagId
+      ? dynamicTags.find((t) => String(t.id) === String(data.tagId))
+      : null;
     dynamicConfigs[index] = {
       ...dynamicConfigs[index],
       ...data,
@@ -880,18 +884,18 @@ export async function updateInitialTagConfig(
   return { code: 0, msg: '更新配置成功', data: true };
 }
 
-export async function deleteInitialTagConfig(id: number): Promise<ApiResponse<boolean>> {
+export async function deleteInitialTagConfig(id: string | number): Promise<ApiResponse<boolean>> {
   try {
     const res = await request<boolean>({
       url: '/user/tag-initial-config/delete',
       method: 'DELETE',
-      params: { id },
+      params: { id: String(id) },
     });
     if (res && res.code === 0) return res;
   } catch (error) {
     console.warn('删除初始配置异常，采用本地 Mock', error);
   }
 
-  dynamicConfigs = dynamicConfigs.filter((c) => c.id !== id);
+  dynamicConfigs = dynamicConfigs.filter((c) => String(c.id) !== String(id));
   return { code: 0, msg: '移除成功', data: true };
 }

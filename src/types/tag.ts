@@ -6,7 +6,7 @@
 export type TagStatus = 'active' | 'disabled';
 
 export interface TagTypeItem {
-  id: number;
+  id: string | number;
   name: string;
   status: TagStatus;
   maxSelectQuantity: number; // 最大可选数量，0=不限
@@ -37,12 +37,12 @@ export interface AdminTagTypeCreateReqVO {
 }
 
 export interface AdminTagTypeUpdateReqVO extends AdminTagTypeCreateReqVO {
-  id: number;
+  id: string | number;
 }
 
 export interface TagItem {
-  id: number;
-  tagTypeId: number;
+  id: string | number;
+  tagTypeId: string | number;
   tagTypeName?: string;
   name: string;
   iconUrl?: string;
@@ -58,13 +58,13 @@ export interface TagItem {
 export interface AdminTagPageReqVO {
   pageNo?: number;
   pageSize?: number;
-  tagTypeId?: number | 'all';
+  tagTypeId?: string | number | 'all';
   name?: string;
   status?: TagStatus | 'all';
 }
 
 export interface AdminTagCreateReqVO {
-  tagTypeId: number;
+  tagTypeId: string | number;
   name: string;
   status: TagStatus;
   sort: number;
@@ -73,15 +73,15 @@ export interface AdminTagCreateReqVO {
 }
 
 export interface AdminTagUpdateReqVO extends AdminTagCreateReqVO {
-  id: number;
+  id: string | number;
 }
 
 export interface InitialTagConfigItem {
-  id: number;
+  id: string | number;
   scene: string; // 场景代码，如 REGISTER_FIRST_LOGIN, ONBOARDING_PROFILE, ACTIVITY_PREF
-  tagTypeId: number;
+  tagTypeId: string | number;
   tagTypeName?: string;
-  tagId?: number | null; // 为空表示该类型下所有 active 标签全部展示
+  tagId?: string | number | null; // 为空表示该类型下所有 active 标签全部展示
   tagName?: string;
   status: TagStatus;
   sort: number;
@@ -90,12 +90,12 @@ export interface InitialTagConfigItem {
 
 export interface AdminInitialTagConfigCreateReqVO {
   scene: string;
-  tagTypeId: number;
-  tagId?: number | null;
+  tagTypeId: string | number;
+  tagId?: string | number | null;
   status: TagStatus;
   sort: number;
 }
 
 export interface AdminInitialTagConfigUpdateReqVO extends AdminInitialTagConfigCreateReqVO {
-  id: number;
+  id: string | number;
 }

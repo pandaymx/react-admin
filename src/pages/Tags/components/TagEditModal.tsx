@@ -7,7 +7,7 @@ interface TagEditModalProps {
   open: boolean;
   editingItem: TagItem | null;
   tagTypes: TagTypeItem[];
-  defaultTagTypeId?: number;
+  defaultTagTypeId?: string | number;
   onClose: () => void;
   onSubmit: (values: AdminTagCreateReqVO | AdminTagUpdateReqVO) => Promise<void>;
 }

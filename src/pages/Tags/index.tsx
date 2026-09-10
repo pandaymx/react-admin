@@ -67,7 +67,7 @@ export const TagsPage: React.FC = () => {
 
   const [loading, setLoading] = useState<boolean>(false);
   const [tagTypes, setTagTypes] = useState<TagTypeItem[]>([]);
-  const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null);
+  const [selectedTypeId, setSelectedTypeId] = useState<string | number | null>(null);
   const [tags, setTags] = useState<TagItem[]>([]);
   const [allTags, setAllTags] = useState<TagItem[]>([]);
 
@@ -102,6 +102,13 @@ export const TagsPage: React.FC = () => {
           }
         }
         setAllTags(combined);
+        // 动态丰富各分类的真实标签数
+        setTagTypes((prev) =>
+          prev.map((item) => ({
+            ...item,
+            tagCount: combined.filter((t) => String(t.tagTypeId) === String(item.id)).length,
+          })),
+        );
       } catch {
         // ignore
       }

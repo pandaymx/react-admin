@@ -76,7 +76,9 @@ export const TagInitialConfigDrawer: React.FC<TagInitialConfigDrawerProps> = ({
   const [addModalOpen, setAddModalOpen] = useState<boolean>(false);
 
   // 移动端模拟器交互状态
-  const [mockSelectedTags, setMockSelectedTags] = useState<number[]>([1001, 1009, 1020]);
+  const [mockSelectedTags, setMockSelectedTags] = useState<Array<string | number>>([
+    1001, 1009, 1020,
+  ]);
 
   const [form] = Form.useForm();
 
@@ -114,10 +116,14 @@ export const TagInitialConfigDrawer: React.FC<TagInitialConfigDrawerProps> = ({
     fetchConfigs();
   };
 
-  const handleDelete = async (id: number) => {
-    await deleteInitialTagConfig(id);
-    message.success('已移除该场景推荐配置');
-    fetchConfigs();
+  const handleDelete = async (id: string | number) => {
+    try {
+      await deleteInitialTagConfig(id);
+      message.success('已移除该场景推荐配置');
+      fetchConfigs();
+    } catch {
+      message.error('删除配置失败');
+    }
   };
 
   const handleCreateSubmit = async () => {
@@ -143,10 +149,12 @@ export const TagInitialConfigDrawer: React.FC<TagInitialConfigDrawerProps> = ({
   // 计算移动端预览中所展示的分类与标签集合
   const activeConfigs = configs.filter((c) => c.status === 'active');
   const previewCategories = activeConfigs.map((cfg) => {
-    const category = tagTypes.find((t) => t.id === cfg.tagTypeId);
+    const category = tagTypes.find((t) => String(t.id) === String(cfg.tagTypeId));
     const matchedTags = cfg.tagId
-      ? allTags.filter((t) => t.id === cfg.tagId && t.status === 'active')
-      : allTags.filter((t) => t.tagTypeId === cfg.tagTypeId && t.status === 'active');
+      ? allTags.filter((t) => String(t.id) === String(cfg.tagId) && t.status === 'active')
+      : allTags.filter(
+          (t) => String(t.tagTypeId) === String(cfg.tagTypeId) && t.status === 'active',
+        );
 
     return {
       cfgId: cfg.id,
@@ -157,17 +165,18 @@ export const TagInitialConfigDrawer: React.FC<TagInitialConfigDrawerProps> = ({
     };
   });
 
-  const handleMockTagClick = (tagId: number, maxQuantity: number) => {
-    if (mockSelectedTags.includes(tagId)) {
-      setMockSelectedTags(mockSelectedTags.filter((id) => id !== tagId));
+  const handleMockTagClick = (tagId: string | number, maxQuantity: number) => {
+    const isSelected = mockSelectedTags.some((id) => String(id) === String(tagId));
+    if (isSelected) {
+      setMockSelectedTags(mockSelectedTags.filter((id) => String(id) !== String(tagId)));
     } else {
       if (maxQuantity > 0) {
         // 简单模拟选标上限
-        const currentCategoryTagIds = allTags.filter((t) => t.id === tagId);
+        const currentCategoryTagIds = allTags.filter((t) => String(t.id) === String(tagId));
         const currentType = currentCategoryTagIds[0]?.tagTypeId;
         const selectedInThisType = mockSelectedTags.filter((id) => {
-          const t = allTags.find((item) => item.id === id);
-          return t?.tagTypeId === currentType;
+          const t = allTags.find((item) => String(item.id) === String(id));
+          return String(t?.tagTypeId) === String(currentType);
         });
         if (selectedInThisType.length >= maxQuantity) {
           message.warning(`该分类在 App 端上限最多选 ${maxQuantity} 项`);
@@ -408,7 +417,9 @@ export const TagInitialConfigDrawer: React.FC<TagInitialConfigDrawerProps> = ({
 
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 8px' }}>
                         {cat.tags.map((t) => {
-                          const isSelected = mockSelectedTags.includes(t.id);
+                          const isSelected = mockSelectedTags.some(
+                            (id) => String(id) === String(t.id),
+                          );
                           return (
                             <button
                               type="button"
