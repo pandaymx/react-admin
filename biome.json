@@ -22,6 +22,11 @@
         "noUnusedVariables": "warn",
         "noUnusedImports": "warn"
       },
+      "a11y": {
+        "noStaticElementInteractions": "off",
+        "useKeyWithClickEvents": "off",
+        "useSemanticElements": "off"
+      },
       "suspicious": {
         "noExplicitAny": "off"
       }

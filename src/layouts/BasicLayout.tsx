@@ -3,6 +3,7 @@ import {
   CheckOutlined,
   CloudServerOutlined,
   CommentOutlined,
+  CompassOutlined,
   DashboardOutlined,
   DesktopOutlined,
   ExclamationCircleOutlined,
@@ -14,6 +15,7 @@ import {
   MoonOutlined,
   SafetyCertificateOutlined,
   SunOutlined,
+  TagOutlined,
   TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
@@ -64,7 +66,17 @@ const menuItems = [
         icon: <CommentOutlined />,
         label: '评论管理',
       },
+      {
+        key: '/tags',
+        icon: <TagOutlined />,
+        label: '标签管理',
+      },
     ],
+  },
+  {
+    key: '/activities',
+    icon: <CompassOutlined />,
+    label: '活动运营',
   },
   {
     key: '/verifications',
@@ -204,6 +216,10 @@ export const BasicLayout: React.FC = () => {
         return ['用户管理', '帖子管理'];
       case '/comments':
         return ['用户管理', '评论管理'];
+      case '/tags':
+        return ['用户管理', '标签管理'];
+      case '/activities':
+        return ['活动运营', '活动全生命周期'];
       case '/verifications':
         return ['认证管理'];
       case '/reports':

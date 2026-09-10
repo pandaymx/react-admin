@@ -18,6 +18,7 @@ import {
 import PostsPage from '@/pages/Posts';
 import ReportsPage from '@/pages/Reports';
 import SensitiveWordsPage from '@/pages/SensitiveWords';
+import { TagsPage } from '@/pages/Tags';
 import UsersPage from '@/pages/Users';
 import VerificationPage from '@/pages/Verification';
 import { useUserStore } from '@/store/user';
@@ -63,6 +64,10 @@ export const router = createHashRouter([
       {
         path: 'comments',
         element: <CommentsPage />,
+      },
+      {
+        path: 'tags',
+        element: <TagsPage />,
       },
       {
         path: 'verifications',
