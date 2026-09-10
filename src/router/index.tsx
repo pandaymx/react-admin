@@ -9,6 +9,7 @@ import NotFoundPage from '@/pages/NotFound';
 import {
   OpsAlertsPage,
   OpsJvmPage,
+  OpsLogsPage,
   OpsOverviewPage,
   OpsRedisPage,
   OpsServerPage,
@@ -110,6 +111,10 @@ export const router = createHashRouter([
       {
         path: 'ops/alerts',
         element: <OpsAlertsPage />,
+      },
+      {
+        path: 'ops/logs',
+        element: <OpsLogsPage />,
       },
     ],
   },

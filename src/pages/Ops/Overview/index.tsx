@@ -5,6 +5,7 @@ import {
   CloudServerOutlined,
   DashboardOutlined,
   DatabaseOutlined,
+  FolderOpenOutlined,
   HddOutlined,
   ReloadOutlined,
   ThunderboltOutlined,
@@ -333,10 +334,24 @@ export const OpsOverviewPage: React.FC = () => {
             <Card
               hoverable
               size="small"
+              onClick={() => navigate('/ops/logs')}
+              style={{ textAlign: 'center', borderColor: colorBorderSecondary }}
+            >
+              <FolderOpenOutlined style={{ fontSize: 28, color: '#13c2c2', marginBottom: 8 }} />
+              <div style={{ fontWeight: 600 }}>日志管理</div>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                终端查看/文件下载
+              </Text>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={8} lg={4}>
+            <Card
+              hoverable
+              size="small"
               onClick={loadData}
               style={{ textAlign: 'center', borderColor: colorBorderSecondary }}
             >
-              <ReloadOutlined style={{ fontSize: 28, color: '#13c2c2', marginBottom: 8 }} />
+              <ReloadOutlined style={{ fontSize: 28, color: '#52c41a', marginBottom: 8 }} />
               <div style={{ fontWeight: 600 }}>一键巡检</div>
               <Text type="secondary" style={{ fontSize: 12 }}>
                 全链路健康度探测

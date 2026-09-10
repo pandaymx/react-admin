@@ -115,6 +115,10 @@ const menuItems = [
         key: '/ops/alerts',
         label: '告警中心',
       },
+      {
+        key: '/ops/logs',
+        label: '日志管理',
+      },
     ],
   },
 ];
@@ -221,6 +225,8 @@ export const BasicLayout: React.FC = () => {
         return ['系统运维', 'JVM 监控'];
       case '/ops/alerts':
         return ['系统运维', '告警中心'];
+      case '/ops/logs':
+        return ['系统运维', '日志管理'];
       default:
         return ['仪表盘'];
     }

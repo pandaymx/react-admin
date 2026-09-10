@@ -1,5 +1,6 @@
 export * from './Alerts';
 export * from './Jvm';
+export * from './Logs';
 export * from './Overview';
 export * from './Redis';
 export * from './Server';
