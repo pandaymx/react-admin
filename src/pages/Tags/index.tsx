@@ -70,6 +70,7 @@ export const TagsPage: React.FC = () => {
   const [selectedTypeId, setSelectedTypeId] = useState<string | number | null>(null);
   const [tags, setTags] = useState<TagItem[]>([]);
   const [allTags, setAllTags] = useState<TagItem[]>([]);
+  const [tagCountsMap, setTagCountsMap] = useState<Record<string, number>>({});
 
   // 视图与检索
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
@@ -85,57 +86,46 @@ export const TagsPage: React.FC = () => {
 
   const [configDrawerOpen, setConfigDrawerOpen] = useState<boolean>(false);
 
-  // 拉取所有标签 (按各分类并行拉取汇总，供统计与初始配置抽屉)
-  const fetchAllTags = useCallback(
-    async (types?: TagTypeItem[]) => {
-      const targetTypes = types || tagTypes;
-      if (!targetTypes || targetTypes.length === 0) return;
-      try {
-        const promises = targetTypes.map((t) =>
-          getTagPage({ tagTypeId: t.id, pageNo: 1, pageSize: 100 }),
-        );
-        const results = await Promise.allSettled(promises);
-        const combined: TagItem[] = [];
-        for (const r of results) {
-          if (r.status === 'fulfilled' && r.value.code === 0 && r.value.data?.list) {
-            combined.push(...r.value.data.list);
-          }
-        }
-        setAllTags(combined);
-        // 动态丰富各分类的真实标签数
-        setTagTypes((prev) =>
-          prev.map((item) => ({
-            ...item,
-            tagCount: combined.filter((t) => String(t.tagTypeId) === String(item.id)).length,
-          })),
-        );
-      } catch {
-        // ignore
-      }
-    },
-    [tagTypes],
-  );
-
-  // 拉取标签类型列表
+  // 拉取标签类型列表与各分类计数索引
   const fetchTagTypes = useCallback(async () => {
     try {
       setLoading(true);
       const res = await getTagTypePage();
       if (res.code === 0 && res.data) {
-        setTagTypes(res.data.list);
-        if (!selectedTypeId && res.data.list.length > 0) {
-          setSelectedTypeId(res.data.list[0].id);
+        const types = res.data.list;
+        setTagTypes(types);
+        setSelectedTypeId((prev) => (prev ? prev : types.length > 0 ? types[0].id : null));
+
+        // 并发加载各分类的标签以统计实际标签数并建立全量标签索引
+        if (types.length > 0) {
+          const promises = types.map((t) =>
+            getTagPage({ tagTypeId: t.id, pageNo: 1, pageSize: 100 }),
+          );
+          const results = await Promise.allSettled(promises);
+          const combined: TagItem[] = [];
+          const countMap: Record<string, number> = {};
+          for (let i = 0; i < results.length; i++) {
+            const r = results[i];
+            const typeIdStr = String(types[i].id);
+            if (r.status === 'fulfilled' && r.value.code === 0 && r.value.data?.list) {
+              combined.push(...r.value.data.list);
+              countMap[typeIdStr] = r.value.data.total ?? r.value.data.list.length;
+            } else {
+              countMap[typeIdStr] = types[i].tagCount || 0;
+            }
+          }
+          setAllTags(combined);
+          setTagCountsMap(countMap);
         }
-        fetchAllTags(res.data.list);
       }
     } catch {
       message.error('加载标签分类失败');
     } finally {
       setLoading(false);
     }
-  }, [selectedTypeId, fetchAllTags]);
+  }, []);
 
-  // 拉取当前分类下的标签
+  // 拉取当前选中分类下的标签
   const fetchCurrentTags = useCallback(async () => {
     if (!selectedTypeId) return;
     try {
@@ -147,6 +137,11 @@ export const TagsPage: React.FC = () => {
       });
       if (res.code === 0 && res.data) {
         setTags(res.data.list);
+        // 同步更新当前分类计数
+        setTagCountsMap((prev) => ({
+          ...prev,
+          [String(selectedTypeId)]: res.data.total ?? res.data.list.length,
+        }));
       }
     } catch {
       message.error('加载标签列表失败');
@@ -219,7 +214,6 @@ export const TagsPage: React.FC = () => {
     setTagEditModalOpen(false);
     fetchCurrentTags();
     fetchTagTypes();
-    fetchAllTags();
   };
 
   // 快速切换标签状态
@@ -265,7 +259,6 @@ export const TagsPage: React.FC = () => {
     message.success('标签已删除');
     fetchCurrentTags();
     fetchTagTypes();
-    fetchAllTags();
   };
 
   return (
@@ -338,7 +331,6 @@ export const TagsPage: React.FC = () => {
               onClick={() => {
                 fetchTagTypes();
                 fetchCurrentTags();
-                fetchAllTags();
               }}
             >
               刷新
@@ -440,7 +432,7 @@ export const TagsPage: React.FC = () => {
                       </Text>
                       <Space size={6}>
                         <Badge
-                          count={`${typeItem.tagCount || 0} 个标签`}
+                          count={`${tagCountsMap[String(typeItem.id)] ?? typeItem.tagCount ?? 0} 个标签`}
                           style={{
                             backgroundColor: isSelected ? colorPrimary : '#8c8c8c',
                             fontSize: 11,
