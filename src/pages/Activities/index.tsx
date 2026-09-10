@@ -38,6 +38,7 @@ import {
 } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   cancelActivity,
   deleteActivity,
@@ -80,6 +81,7 @@ const STATUS_CONFIG: Record<
 };
 
 export const ActivitiesPage: React.FC = () => {
+  const navigate = useNavigate();
   const {
     token: {
       colorBgContainer,
@@ -241,8 +243,8 @@ export const ActivitiesPage: React.FC = () => {
           </Space>
 
           <Space>
-            <Button icon={<AppstoreOutlined />} onClick={() => setCategoryDrawerOpen(true)}>
-              主题与分类字典
+            <Button icon={<AppstoreOutlined />} onClick={() => navigate('/activities/categories')}>
+              活动分类管理
             </Button>
             <Button
               type="primary"
@@ -678,3 +680,5 @@ export const ActivitiesPage: React.FC = () => {
     </div>
   );
 };
+
+export { ActivityCategoriesPage } from './Categories';

@@ -1,7 +1,7 @@
 import type React from 'react';
 import { createHashRouter, Navigate } from 'react-router-dom';
 import BasicLayout from '@/layouts/BasicLayout';
-import { ActivitiesPage } from '@/pages/Activities';
+import { ActivitiesPage, ActivityCategoriesPage } from '@/pages/Activities';
 import AppealsPage from '@/pages/Appeals';
 import CommentsPage from '@/pages/Comments';
 import DashboardPage from '@/pages/Dashboard';
@@ -73,6 +73,10 @@ export const router = createHashRouter([
       {
         path: 'activities',
         element: <ActivitiesPage />,
+      },
+      {
+        path: 'activities/categories',
+        element: <ActivityCategoriesPage />,
       },
       {
         path: 'verifications',

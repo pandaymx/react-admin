@@ -9,6 +9,7 @@ import {
   ExclamationCircleOutlined,
   FileProtectOutlined,
   FileTextOutlined,
+  FolderOpenOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -75,9 +76,21 @@ const menuItems = [
     ],
   },
   {
-    key: '/activities',
+    key: 'activity-management',
     icon: <CompassOutlined />,
-    label: '活动运营',
+    label: '活动管理',
+    children: [
+      {
+        key: '/activities',
+        icon: <CompassOutlined />,
+        label: '活动管理',
+      },
+      {
+        key: '/activities/categories',
+        icon: <FolderOpenOutlined />,
+        label: '活动分类管理',
+      },
+    ],
   },
   {
     key: 'security-management',
@@ -227,7 +240,9 @@ export const BasicLayout: React.FC = () => {
       case '/tags':
         return ['用户管理', '标签管理'];
       case '/activities':
-        return ['活动运营', '活动全生命周期'];
+        return ['活动管理', '活动管理'];
+      case '/activities/categories':
+        return ['活动管理', '活动分类管理'];
       case '/reports':
         return ['安全管理', '举报管理'];
       case '/appeals':
@@ -319,7 +334,12 @@ export const BasicLayout: React.FC = () => {
             mode="inline"
             theme={isDark ? 'dark' : 'light'}
             selectedKeys={[currentSelectedKey]}
-            defaultOpenKeys={['user-management', 'security-management', '/ops']}
+            defaultOpenKeys={[
+              'user-management',
+              'activity-management',
+              'security-management',
+              '/ops',
+            ]}
             items={menuItems}
             onClick={handleMenuClick}
             style={{ borderRight: 0 }}
