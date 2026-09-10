@@ -5,6 +5,9 @@ import type {
   OpsAlertRuleItem,
   OpsDependencyItem,
   OpsHostItem,
+  OpsLogEntry,
+  OpsLogFileItem,
+  OpsLogSummary,
   OpsResourcePolicy,
   OpsServiceItem,
   OpsSummaryStats,
@@ -930,4 +933,424 @@ export const getJvmDetail = async (
     data: { ...mockJvmDetail },
     message: 'success',
   };
+};
+
+// ======================= 运维日志管理数据集与接口 =======================
+
+const mockLogSummary: OpsLogSummary = {
+  totalFiles: 16,
+  totalSizeBytes: 1284505600,
+  totalSizeHuman: '1.20 GB',
+  todayErrorCount: 14,
+  todayWarnCount: 48,
+  logDiskUsagePercent: 42.6,
+};
+
+const mockLogFiles: OpsLogFileItem[] = [
+  {
+    id: 'log-1',
+    fileName: 'gateway-server-info.log',
+    serviceCode: 'gateway-server',
+    serviceName: 'API 网关服务',
+    category: 'app',
+    level: 'INFO',
+    sizeBytes: 44880000,
+    sizeHuman: '42.8 MB',
+    lineCount: 184200,
+    updatedAt: '2026-09-10 14:28:10',
+    filePath: '/data/logs/gateway-server/gateway-server-info.log',
+    compressed: false,
+  },
+  {
+    id: 'log-2',
+    fileName: 'gateway-server-error.log',
+    serviceCode: 'gateway-server',
+    serviceName: 'API 网关服务',
+    category: 'app',
+    level: 'ERROR',
+    sizeBytes: 1258291,
+    sizeHuman: '1.2 MB',
+    lineCount: 2800,
+    updatedAt: '2026-09-10 14:15:32',
+    filePath: '/data/logs/gateway-server/gateway-server-error.log',
+    compressed: false,
+  },
+  {
+    id: 'log-3',
+    fileName: 'gateway-access.log',
+    serviceCode: 'gateway-server',
+    serviceName: 'API 网关服务',
+    category: 'access',
+    level: 'INFO',
+    sizeBytes: 134637568,
+    sizeHuman: '128.4 MB',
+    lineCount: 642000,
+    updatedAt: '2026-09-10 14:29:45',
+    filePath: '/data/logs/gateway-server/access.log',
+    compressed: false,
+  },
+  {
+    id: 'log-4',
+    fileName: 'user-server-info.log',
+    serviceCode: 'user-server',
+    serviceName: '用户中心服务',
+    category: 'app',
+    level: 'INFO',
+    sizeBytes: 71512883,
+    sizeHuman: '68.2 MB',
+    lineCount: 290000,
+    updatedAt: '2026-09-10 14:27:02',
+    filePath: '/data/logs/user-server/user-server-info.log',
+    compressed: false,
+  },
+  {
+    id: 'log-5',
+    fileName: 'user-server-error.log',
+    serviceCode: 'user-server',
+    serviceName: '用户中心服务',
+    category: 'app',
+    level: 'ERROR',
+    sizeBytes: 2516582,
+    sizeHuman: '2.4 MB',
+    lineCount: 5400,
+    updatedAt: '2026-09-10 13:58:19',
+    filePath: '/data/logs/user-server/user-server-error.log',
+    compressed: false,
+  },
+  {
+    id: 'log-6',
+    fileName: 'feeds-server-info.log',
+    serviceCode: 'feeds-server',
+    serviceName: '内容动态服务',
+    category: 'app',
+    level: 'INFO',
+    sizeBytes: 88709120,
+    sizeHuman: '84.6 MB',
+    lineCount: 360000,
+    updatedAt: '2026-09-10 14:25:30',
+    filePath: '/data/logs/feeds-server/feeds-server-info.log',
+    compressed: false,
+  },
+  {
+    id: 'log-7',
+    fileName: 'feeds-server-error.log',
+    serviceCode: 'feeds-server',
+    serviceName: '内容动态服务',
+    category: 'app',
+    level: 'ERROR',
+    sizeBytes: 3250585,
+    sizeHuman: '3.1 MB',
+    lineCount: 6800,
+    updatedAt: '2026-09-10 13:40:11',
+    filePath: '/data/logs/feeds-server/feeds-server-error.log',
+    compressed: false,
+  },
+  {
+    id: 'log-8',
+    fileName: 'ops-server.log',
+    serviceCode: 'ops-server',
+    serviceName: '系统运维服务',
+    category: 'app',
+    level: 'INFO',
+    sizeBytes: 17301504,
+    sizeHuman: '16.5 MB',
+    lineCount: 74000,
+    updatedAt: '2026-09-10 14:29:12',
+    filePath: '/data/logs/ops-server/ops-server.log',
+    compressed: false,
+  },
+  {
+    id: 'log-9',
+    fileName: 'interaction-server.log',
+    serviceCode: 'interaction-server',
+    serviceName: '互动点赞评论服务',
+    category: 'app',
+    level: 'INFO',
+    sizeBytes: 40055603,
+    sizeHuman: '38.2 MB',
+    lineCount: 162000,
+    updatedAt: '2026-09-10 14:21:40',
+    filePath: '/data/logs/interaction-server/interaction-server.log',
+    compressed: false,
+  },
+  {
+    id: 'log-10',
+    fileName: 'activity2-server.log',
+    serviceCode: 'activity2-server',
+    serviceName: '营销活动中台',
+    category: 'app',
+    level: 'INFO',
+    sizeBytes: 23068672,
+    sizeHuman: '22.0 MB',
+    lineCount: 94000,
+    updatedAt: '2026-09-10 14:18:22',
+    filePath: '/data/logs/activity2-server/activity2-server.log',
+    compressed: false,
+  },
+  {
+    id: 'log-11',
+    fileName: 'mysql-slow.log',
+    serviceCode: 'mysql',
+    serviceName: 'MySQL 8.0 数据库',
+    category: 'slow_sql',
+    level: 'WARN',
+    sizeBytes: 8808038,
+    sizeHuman: '8.4 MB',
+    lineCount: 14200,
+    updatedAt: '2026-09-10 14:10:05',
+    filePath: '/var/log/mysql/mysql-slow.log',
+    compressed: false,
+  },
+  {
+    id: 'log-12',
+    fileName: 'redis-server.log',
+    serviceCode: 'redis',
+    serviceName: 'Redis 7.2 哨兵节点',
+    category: 'redis',
+    level: 'INFO',
+    sizeBytes: 6081740,
+    sizeHuman: '5.8 MB',
+    lineCount: 28000,
+    updatedAt: '2026-09-10 14:26:50',
+    filePath: '/var/log/redis/redis-server.log',
+    compressed: false,
+  },
+  {
+    id: 'log-13',
+    fileName: 'jvm-gc-user-server.log',
+    serviceCode: 'user-server',
+    serviceName: '用户中心服务',
+    category: 'gc',
+    level: 'DEBUG',
+    sizeBytes: 13212057,
+    sizeHuman: '12.6 MB',
+    lineCount: 58000,
+    updatedAt: '2026-09-10 14:28:00',
+    filePath: '/data/logs/user-server/gc.log',
+    compressed: false,
+  },
+  {
+    id: 'log-14',
+    fileName: 'host-system-messages.log',
+    serviceCode: 'system',
+    serviceName: 'Linux 宿主操作系统',
+    category: 'system',
+    level: 'INFO',
+    sizeBytes: 20342374,
+    sizeHuman: '19.4 MB',
+    lineCount: 86000,
+    updatedAt: '2026-09-10 14:29:55',
+    filePath: '/var/log/messages',
+    compressed: false,
+  },
+  {
+    id: 'log-15',
+    fileName: 'user-server-2026-09-09.0.log.gz',
+    serviceCode: 'user-server',
+    serviceName: '用户中心服务',
+    category: 'app',
+    level: 'INFO',
+    sizeBytes: 14889779,
+    sizeHuman: '14.2 MB',
+    lineCount: 480000,
+    updatedAt: '2026-09-09 23:59:59',
+    filePath: '/data/logs/user-server/archive/user-server-2026-09-09.0.log.gz',
+    compressed: true,
+  },
+  {
+    id: 'log-16',
+    fileName: 'gateway-server-2026-09-09.0.log.gz',
+    serviceCode: 'gateway-server',
+    serviceName: 'API 网关服务',
+    category: 'app',
+    level: 'INFO',
+    sizeBytes: 29989273,
+    sizeHuman: '28.6 MB',
+    lineCount: 920000,
+    updatedAt: '2026-09-09 23:59:59',
+    filePath: '/data/logs/gateway-server/archive/gateway-server-2026-09-09.0.log.gz',
+    compressed: true,
+  },
+];
+
+/**
+ * 动态生成模拟日志内容文本与条目
+ */
+export const generateLogEntries = (file: OpsLogFileItem, count = 50): OpsLogEntry[] => {
+  const entries: OpsLogEntry[] = [];
+  const now = Date.now();
+
+  const isError = file.level === 'ERROR';
+  const isSlowSql = file.category === 'slow_sql';
+  const isGc = file.category === 'gc';
+
+  for (let i = 0; i < count; i++) {
+    const time = new Date(now - (count - i) * 3500).toISOString().replace('T', ' ').slice(0, 19);
+
+    if (isSlowSql) {
+      entries.push({
+        id: `entry-${i}`,
+        timestamp: time,
+        level: 'WARN',
+        thread: `[QueryPool-Worker-${(i % 4) + 1}]`,
+        logger: 'c.a.d.p.DruidDataSourceSlowSqlLogger',
+        traceId: `trace-sql-${1000 + i}`,
+        message: `[SLOW_SQL_DETECTED] Query time: ${(1.2 + (i % 5) * 0.4).toFixed(2)}s | Rows examined: ${
+          12000 + i * 350
+        } | SQL: SELECT * FROM system_users u LEFT JOIN user_persona p ON u.id = p.user_id WHERE u.status = 1 ORDER BY u.create_time DESC LIMIT 20`,
+      });
+    } else if (isGc) {
+      entries.push({
+        id: `entry-${i}`,
+        timestamp: time,
+        level: 'DEBUG',
+        thread: '[VM Thread]',
+        logger: 'gc,heap',
+        message: `[GC (${i % 2 === 0 ? 'G1 Evacuation Pause' : 'Young GC'})] Heap before: ${
+          2048 + (i % 10) * 128
+        }M->${1420 + (i % 10) * 64}M(8192M) | Pause Time: ${(12.4 + (i % 6) * 1.5).toFixed(2)}ms`,
+      });
+    } else if (isError) {
+      entries.push({
+        id: `entry-${i}`,
+        timestamp: time,
+        level: 'ERROR',
+        thread: `[http-nio-48080-exec-${(i % 8) + 1}]`,
+        logger: `cn.iocoder.yudao.module.${file.serviceCode.replace('-server', '')}.controller.InternalController`,
+        traceId: `trace-${(i + 1).toString().padStart(6, '0')}-err`,
+        message: `[REST_API_EXCEPTION] Request /admin-api/${file.serviceCode.replace('-server', '')}/page failed with status 500: Connection timed out to remote service node [172.17.75.184:48080]`,
+        stackTrace: `feign.RetryableException: connect timed out executing GET http://${file.serviceCode}/actuator/health\n\tat feign.FeignException.errorExecuting(FeignException.java:249)\n\tat feign.SynchronousMethodHandler.executeAndDecode(SynchronousMethodHandler.java:129)\n\tat org.springframework.cloud.openfeign.loadbalancer.RetryableFeignBlockingLoadBalancerClient.execute(RetryableFeignBlockingLoadBalancerClient.java:142)\n\tat cn.iocoder.yudao.framework.web.core.handler.GlobalExceptionHandler.handleException(GlobalExceptionHandler.java:88)`,
+      });
+    } else {
+      const levels: ('INFO' | 'WARN')[] = i % 7 === 0 ? ['WARN'] : ['INFO'];
+      const chosenLevel = levels[0];
+      entries.push({
+        id: `entry-${i}`,
+        timestamp: time,
+        level: chosenLevel,
+        thread: `[http-nio-48080-exec-${(i % 10) + 1}]`,
+        logger: `cn.iocoder.yudao.module.${file.serviceCode.replace('-server', '')}.service.impl.ServiceHandler`,
+        traceId: `trace-${(i + 1).toString().padStart(6, '0')}-req`,
+        message:
+          chosenLevel === 'WARN'
+            ? `[CIRCUIT_BREAKER_HALF_OPEN] Upstream dependency latency elevated: 124ms (threshold: 100ms)`
+            : `[API_DISPATCH_SUCCESS] Processed request method=GET uri=/admin-api/${file.serviceCode.replace(
+                '-server',
+                '',
+              )}/info in 18ms, status=200`,
+      });
+    }
+  }
+
+  return entries;
+};
+
+/**
+ * 获取日志全局汇总统计
+ */
+export const getOpsLogSummary = async (_env?: string): Promise<ApiResponse<OpsLogSummary>> => {
+  return {
+    code: 200,
+    data: { ...mockLogSummary },
+    message: 'success',
+  };
+};
+
+/**
+ * 筛选获取日志文件资产列表
+ */
+export const getOpsLogFiles = async (params?: {
+  env?: string;
+  serviceCode?: string;
+  category?: string;
+  level?: string;
+  keyword?: string;
+}): Promise<ApiResponse<OpsLogFileItem[]>> => {
+  let list = [...mockLogFiles];
+
+  if (params?.serviceCode && params.serviceCode !== 'all') {
+    list = list.filter((f) => f.serviceCode === params.serviceCode);
+  }
+  if (params?.category && params.category !== 'all') {
+    list = list.filter((f) => f.category === params.category);
+  }
+  if (params?.level && params.level !== 'all') {
+    list = list.filter((f) => f.level === params.level);
+  }
+  if (params?.keyword) {
+    const kw = params.keyword.toLowerCase();
+    list = list.filter(
+      (f) =>
+        f.fileName.toLowerCase().includes(kw) ||
+        f.serviceName.toLowerCase().includes(kw) ||
+        f.filePath.toLowerCase().includes(kw),
+    );
+  }
+
+  return {
+    code: 200,
+    data: list,
+    message: 'success',
+  };
+};
+
+/**
+ * 获取指定日志文件的最新行内容（用于终端高亮预览）
+ */
+export const getOpsLogContent = async (
+  fileId: string,
+  lines = 80,
+): Promise<ApiResponse<{ file: OpsLogFileItem; entries: OpsLogEntry[]; rawText: string }>> => {
+  const file = mockLogFiles.find((f) => f.id === fileId) || mockLogFiles[0];
+  const entries = generateLogEntries(file, lines);
+  const rawText = entries
+    .map(
+      (e) =>
+        `${e.timestamp} [${e.level.padEnd(5)}] ${e.thread} ${e.traceId ? `[${e.traceId}] ` : ''}${
+          e.logger
+        } : ${e.message}${e.stackTrace ? `\n${e.stackTrace}` : ''}`,
+    )
+    .join('\n');
+
+  return {
+    code: 200,
+    data: {
+      file,
+      entries,
+      rawText,
+    },
+    message: 'success',
+  };
+};
+
+/**
+ * 触发指定日志文件的浏览器本地下载
+ */
+export const downloadOpsLogFile = (file: OpsLogFileItem): void => {
+  const entries = generateLogEntries(file, 200);
+  const rawText = [
+    `# ==============================================================================`,
+    `# Log File: ${file.fileName}`,
+    `# Service: ${file.serviceName} (${file.serviceCode})`,
+    `# Category: ${file.category} | Level: ${file.level} | Size: ${file.sizeHuman}`,
+    `# Export Time: ${new Date().toISOString().replace('T', ' ').slice(0, 19)} (UTC+8)`,
+    `# ==============================================================================`,
+    '',
+    ...entries.map(
+      (e) =>
+        `${e.timestamp} [${e.level.padEnd(5)}] ${e.thread} ${e.traceId ? `[${e.traceId}] ` : ''}${
+          e.logger
+        } : ${e.message}${e.stackTrace ? `\n${e.stackTrace}` : ''}`,
+    ),
+  ].join('\n');
+
+  const blob = new Blob([rawText], { type: 'text/plain;charset=utf-8' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = file.fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
 };

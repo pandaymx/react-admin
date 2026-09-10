@@ -318,3 +318,54 @@ export interface JvmDetailInfo {
   daemonThreadCount: number;
   deadlockedThreadCount: number;
 }
+
+/**
+ * 日志级别与分类
+ */
+export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+
+export type LogCategory = 'app' | 'access' | 'slow_sql' | 'redis' | 'gc' | 'system';
+
+/**
+ * 运维日志文件资产
+ */
+export interface OpsLogFileItem {
+  id: string;
+  fileName: string;
+  serviceCode: string;
+  serviceName: string;
+  category: LogCategory;
+  level: LogLevel;
+  sizeBytes: number;
+  sizeHuman: string;
+  lineCount: number;
+  updatedAt: string;
+  filePath: string;
+  compressed: boolean;
+}
+
+/**
+ * 单条日志行记录
+ */
+export interface OpsLogEntry {
+  id: string;
+  timestamp: string;
+  level: LogLevel;
+  thread: string;
+  logger: string;
+  traceId?: string;
+  message: string;
+  stackTrace?: string;
+}
+
+/**
+ * 日志大盘统计
+ */
+export interface OpsLogSummary {
+  totalFiles: number;
+  totalSizeBytes: number;
+  totalSizeHuman: string;
+  todayErrorCount: number;
+  todayWarnCount: number;
+  logDiskUsagePercent: number;
+}
