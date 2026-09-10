@@ -6,7 +6,7 @@ export type OpsStatus = 'UP' | 'DOWN' | 'DEGRADED' | 'UNKNOWN';
 
 export type AlertSeverity = 'CRITICAL' | 'WARNING' | 'INFO';
 
-export type AlertState = 'FIRING' | 'RESOLVED' | 'MUTED';
+export type AlertState = 'FIRING' | 'RESOLVED' | 'MUTED' | 'ACKNOWLEDGED' | 'SILENCED' | 'UNKNOWN';
 
 /**
  * 核心指标卡片数据

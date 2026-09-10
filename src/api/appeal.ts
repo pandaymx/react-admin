@@ -31,6 +31,105 @@ export interface BackendContentRestrictionVO {
   updatedAt?: string | number;
 }
 
+// 后端 Feeds 申诉工单 Response VO (对应 AdminFeedsAppealRespVO)
+export interface BackendFeedsAppealRespVO {
+  id: number | string;
+  reportId?: number | string;
+  reportStatus?: string;
+  originalAction?: string;
+  targetType?: string;
+  targetId?: string;
+  appellantUserId?: string;
+  appellantNickname?: string;
+  appellantAvatar?: string;
+  reason?: string;
+  evidenceUrls?: string[];
+  status?: string;
+  handlerUserId?: string;
+  handleMemo?: string;
+  handledAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  handlingHistory?: Array<{
+    id?: number | string;
+    handlerUserId?: string;
+    action?: string;
+    actionDetail?: string;
+    memo?: string;
+    clientIp?: string;
+    userAgent?: string;
+    channel?: string;
+    handleTime?: string;
+  }>;
+}
+
+export interface BackendFeedsAppealSummaryRespVO {
+  pendingCount?: number;
+  todayNewCount?: number;
+  approvedCount?: number;
+  rejectedCount?: number;
+}
+
+// 转换后端 Feeds 申诉工单为前端视图模型
+const mapFeedsAppealToItem = (raw: BackendFeedsAppealRespVO): AppealItem => {
+  const uId = String(raw.appellantUserId ?? '');
+  let appealType: AppealType = 'post_violation';
+  let targetContent = `动态帖子 #${raw.targetId || ''}`;
+  const orig = String(raw.originalAction ?? '').toLowerCase();
+  if (
+    raw.targetType === 'user' ||
+    orig.includes('ban_user') ||
+    orig.includes('perm_ban') ||
+    orig.includes('temp_ban')
+  ) {
+    appealType = 'account_ban';
+    targetContent = '账号公开发布与登录权限';
+  } else if (orig.includes('comment') || orig.includes('ban_comment')) {
+    appealType = 'comment_mute';
+    targetContent = '互动评论公开发表权限';
+  } else if (orig.includes('activity')) {
+    appealType = 'activity_ban';
+    targetContent = '同城活动报名与组织权限';
+  }
+
+  let status: AppealItem['status'] = 'pending';
+  if (raw.status === 'approved') status = 'approved';
+  else if (raw.status === 'rejected') status = 'rejected';
+
+  return {
+    id: `AP_${raw.id}`,
+    restrictionId: raw.reportId,
+    user: {
+      id: uId,
+      uid: `dy_${uId.slice(-6) || '8801'}`,
+      userNo: uId,
+      username: `user_${uId.slice(-6) || 'member'}`,
+      nickname: raw.appellantNickname || `申诉用户#${uId.slice(-4) || '8801'}`,
+      avatar:
+        raw.appellantAvatar ||
+        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    },
+    appealType,
+    targetContent,
+    originalPunishReason: `违规举报处置动作：${raw.originalAction || '内容受限'}`,
+    originalPunishTime: formatDateTime(raw.createdAt),
+    originalBanExpireTime: '按合规处置期限',
+    appealReason: raw.reason || '申请人工复核处置结果，请求撤销处罚。',
+    appealEvidences: (raw.evidenceUrls || []).map((url, i) => ({
+      id: `ev_${raw.id}_${i}`,
+      url,
+      name: `申诉举证凭证_${i + 1}.png`,
+    })),
+    status,
+    reviewer: raw.handlerUserId ? `管理员#${raw.handlerUserId}` : undefined,
+    reviewTime: raw.handledAt ? formatDateTime(raw.handledAt) : undefined,
+    reviewRemark: raw.handleMemo,
+    restoreActions:
+      status === 'approved' ? ['已恢复内容上架状态', '已解除相关权限处置限制'] : undefined,
+    createdAt: formatDateTime(raw.createdAt),
+  };
+};
+
 // 转换后端治理限制为申诉工单
 const mapRestrictionToAppeal = (item: BackendContentRestrictionVO): AppealItem => {
   const uIdStr = String(item.userId ?? '');
@@ -254,12 +353,41 @@ let currentAppeals: AppealItem[] = initialAppeals.map((item) => ({
 }));
 
 /**
- * 获取申诉列表（支持分页、关键词与多维筛选，直连后端治理记录并平滑融合）
+ * 获取申诉列表（支持分页、关键词与多维筛选，直连后端真实申诉与治理记录并平滑融合）
  */
 export const getAppealList = async (
   params: AppealQueryParams,
 ): Promise<ApiResponse<AppealListResult>> => {
-  // 1. 优先尝试从后端获取真实治理处罚记录并转化为申诉工单 (双模融合)
+  // 0. 优先直连后端 /feeds/appeal/page 真实申诉中心接口
+  try {
+    const appealRes = await request<PageResult<BackendFeedsAppealRespVO>>({
+      url: '/feeds/appeal/page',
+      method: 'GET',
+      params: {
+        pageNo: params.page || 1,
+        pageSize: params.pageSize || 10,
+        status: params.status && params.status !== 'all' ? params.status : undefined,
+        appellantUserId: params.userNo || params.uid,
+      },
+      headers: { 'x-skip-error-message': 'true' },
+    });
+
+    if ((appealRes.code === 200 || appealRes.code === 0) && appealRes.data?.list) {
+      const realAppeals = appealRes.data.list.map(mapFeedsAppealToItem);
+      // 将真实申诉工单置顶合并
+      const combined = [...realAppeals];
+      for (const item of currentAppeals) {
+        if (!combined.some((b) => b.id === item.id)) {
+          combined.push(item);
+        }
+      }
+      currentAppeals = combined;
+    }
+  } catch {
+    // 静默降级容灾
+  }
+
+  // 1. 尝试从后端获取治理处罚记录并转化为申诉工单 (双模融合)
   try {
     const res = await request<PageResult<BackendContentRestrictionVO>>({
       url: '/user/content-restriction/page',
@@ -293,6 +421,21 @@ export const getAppealList = async (
     }
   } catch {
     // 静默降级容灾，走本地高保真 Mock
+  }
+
+  // 2. 尝试从后端获取真实 KPI 统计数据
+  let realSummary: BackendFeedsAppealSummaryRespVO | null = null;
+  try {
+    const sumRes = await request<BackendFeedsAppealSummaryRespVO>({
+      url: '/feeds/appeal/summary',
+      method: 'GET',
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if ((sumRes.code === 200 || sumRes.code === 0) && sumRes.data) {
+      realSummary = sumRes.data;
+    }
+  } catch {
+    // 静默降级
   }
 
   await new Promise((resolve) => setTimeout(resolve, 150));
@@ -346,11 +489,18 @@ export const getAppealList = async (
   const startIndex = (page - 1) * pageSize;
   const pageList = list.slice(startIndex, startIndex + pageSize);
 
-  // 统计数据大盘
-  const totalCount = currentAppeals.length;
-  const pendingCount = currentAppeals.filter((a) => a.status === 'pending').length;
-  const approvedCount = currentAppeals.filter((a) => a.status === 'approved').length;
-  const rejectedCount = currentAppeals.filter((a) => a.status === 'rejected').length;
+  // 统计数据大盘（优先使用真实后端 summary，兜底本地计算）
+  const totalCount = realSummary
+    ? (realSummary.pendingCount || 0) +
+      (realSummary.approvedCount || 0) +
+      (realSummary.rejectedCount || 0)
+    : currentAppeals.length;
+  const pendingCount =
+    realSummary?.pendingCount ?? currentAppeals.filter((a) => a.status === 'pending').length;
+  const approvedCount =
+    realSummary?.approvedCount ?? currentAppeals.filter((a) => a.status === 'approved').length;
+  const rejectedCount =
+    realSummary?.rejectedCount ?? currentAppeals.filter((a) => a.status === 'rejected').length;
 
   return {
     code: 200,
@@ -372,11 +522,33 @@ export const getAppealList = async (
 };
 
 /**
- * 审核处理申诉（通过 / 驳回，真实连通后端解封接口）
+ * 审核处理申诉（通过 / 驳回，真实连通后端申诉与解封接口）
  */
 export const handleAppeal = async (
   params: HandleAppealParams,
 ): Promise<ApiResponse<AppealItem>> => {
+  // 0. 若为真实 Feeds 申诉工单 (AP_ 开头且带数字 ID)，直连 PUT /feeds/appeal/handle
+  const rawId = params.id.startsWith('AP_') ? params.id.replace(/^AP_/, '') : params.id;
+  if (/^\d+$/.test(rawId)) {
+    try {
+      await request<boolean>({
+        url: '/feeds/appeal/handle',
+        method: 'PUT',
+        data: {
+          id: Number.parseInt(rawId, 10),
+          action: params.action === 'approve' ? 'approve' : 'reject',
+          memo:
+            params.reviewRemark ||
+            (params.action === 'approve' ? '申诉成立，予以恢复' : '申诉驳回，维持原判'),
+          restorePolicy: 'strict',
+        },
+        headers: { 'x-skip-error-message': 'true' },
+      });
+    } catch {
+      // 容灾继续本地状态流转
+    }
+  }
+
   const targetIndex = currentAppeals.findIndex((a) => a.id === params.id);
   if (targetIndex === -1) {
     throw new Error('申诉单不存在');

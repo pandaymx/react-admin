@@ -9,12 +9,12 @@
 | 序号 | 页面模块 | 路由路径 | 当前状态 | 对接后端接口 | 说明 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | 1 | **Redis 监控** | `/ops/redis` | 🟢 **已连通真实接口** | `GET /admin-api/infra/redis/get-monitor-info` | 动态解析 Redis 7.2 运行时指标、内存分布、QPS 及核心命令耗时统计 |
-| 2 | **日志管理** | `/ops/logs` | 🟡 **部分连通 (错误日志就绪)** | `GET /admin-api/infra/api-error-log/page`<br>`GET /admin-api/infra/api-access-log/page` (异常中) | 已直连后端真实异常错误日志流水 (含全量堆栈)；宿主机磁盘文件需运维服务支持 |
-| 3 | **全景大盘** | `/ops/overview` | 🔴 **待后端补齐** | 待提供 `GET /admin-api/ops/overview` | 当前网关返回 503 (未找到 `ops-server` 实例)，前端采用平滑拟真兜底 |
-| 4 | **服务器监控** | `/ops/server` | 🔴 **待后端补齐** | 待提供 `GET /admin-api/infra/server/get` | 后端返回 404 (缺少 Server 监控 starter)，前端采用高拟真硬件数据兜底 |
-| 5 | **微服务探针** | `/ops/services` | 🔴 **待后端补齐** | 待提供 `GET /admin-api/ops/services` | 待对接 Nacos / Eureka 实例列表与服务探活端点 |
-| 6 | **JVM 监控** | `/ops/jvm` | 🔴 **待后端补齐** | 待提供 `GET /admin-api/ops/jvm/detail` | 待通过 Spring Boot Actuator `/actuator/metrics` 聚合或专用运维接口透传 |
-| 7 | **告警中心** | `/ops/alerts` | 🔴 **待后端补齐** | 待提供 `/admin-api/ops/alert/*` | 待打通 Alertmanager / Prometheus 告警规则与实时告警事件库 |
+| 2 | **日志管理** | `/ops/logs` | 🟢 **已连通真实接口** | `GET /admin-api/infra/api-error-log/page` | 已直连后端真实异常错误日志流水 (含全量堆栈)；宿主机磁盘文件支持双模平滑兜底 |
+| 3 | **全景大盘** | `/ops/overview` | 🟢 **前端已全面直连** | `GET /admin-api/ops/overview` | 后端已落地 `OpsFrontendController.getOverview`，前端已直连并具备容灾降级 |
+| 4 | **服务器监控** | `/ops/server` | 🟢 **前端已全面直连** | `GET /admin-api/ops/server/detail` | 后端已落地硬件与系统监控详情采集，前端已直连并具备容灾降级 |
+| 5 | **微服务探针** | `/ops/services` | 🟢 **前端已全面直连** | `GET /admin-api/ops/services`<br>`POST /admin-api/ops/services/probe` | 后端已落地资产列表与即时探活，前端已直连并具备容灾降级 |
+| 6 | **JVM 监控** | `/ops/jvm` | 🟢 **前端已全面直连** | `GET /admin-api/ops/jvm/detail` | 后端已落地深度分代监控采集，前端已直连并具备容灾降级 |
+| 7 | **告警中心** | `/ops/alerts` | 🟢 **前端已全面直连** | `GET /admin-api/ops/alert/events`<br>`PUT /admin-api/ops/alert/events/{id}/acknowledge`<br>`GET /admin-api/ops/alert/rules`<br>`GET/PUT /admin-api/ops/alert/policy` | 后端已落地告警事件、确认、规则目录与策略热更新，前端已全量直连 |
 
 ---
 

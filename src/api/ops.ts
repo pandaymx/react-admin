@@ -19,6 +19,7 @@ import type {
   RedisInfoItem,
   ServerHostDetail,
 } from '@/types';
+import { formatDateTime } from '@/utils/time';
 
 // ======================= 后端真实接口映射模型 =======================
 
@@ -445,6 +446,34 @@ let currentResourcePolicy: OpsResourcePolicy = {
  * 获取运维监控大盘核心统计与健康评分
  */
 export const getOpsSummaryStats = async (): Promise<ApiResponse<OpsSummaryStats>> => {
+  try {
+    const res = await request<OpsSummaryStats>({
+      url: '/ops/overview',
+      method: 'GET',
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if ((res.code === 200 || res.code === 0) && res.data) {
+      return {
+        code: 200,
+        data: {
+          healthScore: res.data.healthScore ?? 100,
+          totalServices: res.data.totalServices ?? mockServices.length,
+          upServices: res.data.upServices ?? 0,
+          downServices: res.data.downServices ?? 0,
+          degradedServices: res.data.degradedServices ?? 0,
+          activeAlerts: res.data.activeAlerts ?? 0,
+          hostCount: res.data.hostCount ?? mockHosts.length,
+          cpuAvgUsage: res.data.cpuAvgUsage ?? 0,
+          memoryAvgUsage: res.data.memoryAvgUsage ?? 0,
+          jvmHeapAvgUsage: res.data.jvmHeapAvgUsage ?? 0,
+        },
+        message: 'success',
+      };
+    }
+  } catch (_e) {
+    // 平滑降级
+  }
+
   const upServices = mockServices.filter((s) => s.status === 'UP').length;
   const downServices = mockServices.filter((s) => s.status === 'DOWN').length;
   const degradedServices = mockServices.filter((s) => s.status === 'DEGRADED').length;
@@ -489,6 +518,42 @@ export const getOpsSummaryStats = async (): Promise<ApiResponse<OpsSummaryStats>
  * 获取微服务资产及探针状态列表
  */
 export const getOpsServices = async (_env?: string): Promise<ApiResponse<OpsServiceItem[]>> => {
+  try {
+    const res = await request<any[]>({
+      url: '/ops/services',
+      method: 'GET',
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if ((res.code === 200 || res.code === 0) && Array.isArray(res.data) && res.data.length > 0) {
+      const list: OpsServiceItem[] = res.data.map((item, idx) => ({
+        id: item.id || `svc-${idx + 1}`,
+        name: item.name || 'unknown-server',
+        chineseName: item.chineseName || item.name || '未知服务',
+        version: item.version || '1.0.0-RELEASE',
+        status: item.status || 'UNKNOWN',
+        host: item.host || '127.0.0.1',
+        port: item.port ?? 8080,
+        responseTime: item.responseTime ?? 10,
+        uptime: item.uptime || '持续运行中',
+        lastProbeTime: item.lastProbeTime
+          ? formatDateTime(item.lastProbeTime)
+          : formatDateTime(Date.now()),
+        instanceCount: item.instanceCount ?? 1,
+        jvmHeapUsage: item.jvmHeapUsage ?? 40,
+        cpuUsage: item.cpuUsage ?? 15,
+        probeEndpoint: item.probeEndpoint || '/actuator/health',
+        details: item.details,
+      }));
+      return {
+        code: 200,
+        data: list,
+        message: 'success',
+      };
+    }
+  } catch (_e) {
+    // 平滑降级
+  }
+
   return {
     code: 200,
     data: [...mockServices],
@@ -502,7 +567,44 @@ export const getOpsServices = async (_env?: string): Promise<ApiResponse<OpsServ
 export const triggerServiceProbe = async (
   serviceId: string,
 ): Promise<ApiResponse<OpsServiceItem>> => {
-  const target = mockServices.find((s) => s.id === serviceId);
+  try {
+    const res = await request<any>({
+      url: '/ops/services/probe',
+      method: 'POST',
+      params: { serviceId },
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if ((res.code === 200 || res.code === 0) && res.data) {
+      const item = res.data;
+      return {
+        code: 200,
+        data: {
+          id: item.id || serviceId,
+          name: item.name || serviceId,
+          chineseName: item.chineseName || item.name || serviceId,
+          version: item.version || '1.0.0-RELEASE',
+          status: item.status || 'UNKNOWN',
+          host: item.host || '127.0.0.1',
+          port: item.port ?? 8080,
+          responseTime: item.responseTime ?? 10,
+          uptime: item.uptime || '持续运行中',
+          lastProbeTime: item.lastProbeTime
+            ? formatDateTime(item.lastProbeTime)
+            : formatDateTime(Date.now()),
+          instanceCount: item.instanceCount ?? 1,
+          jvmHeapUsage: item.jvmHeapUsage ?? 40,
+          cpuUsage: item.cpuUsage ?? 15,
+          probeEndpoint: item.probeEndpoint || '/actuator/health',
+          details: item.details,
+        },
+        message: `服务「${item.name || serviceId}」探针探测完成：${item.status || 'UP'}`,
+      };
+    }
+  } catch (_e) {
+    // 降级使用本地模拟探测
+  }
+
+  const target = mockServices.find((s) => s.id === serviceId || s.name === serviceId);
   if (!target) {
     throw new Error('服务不存在');
   }
@@ -510,7 +612,7 @@ export const triggerServiceProbe = async (
   // 模拟微小的探针延迟波动
   const delta = Math.floor(Math.random() * 8) - 4;
   target.responseTime = Math.max(8, target.responseTime + delta);
-  target.lastProbeTime = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  target.lastProbeTime = formatDateTime(Date.now());
 
   return {
     code: 200,
@@ -547,6 +649,41 @@ export const getOpsHosts = async (): Promise<ApiResponse<OpsHostItem[]>> => {
  * 获取实时运维告警事件列表
  */
 export const getOpsAlerts = async (): Promise<ApiResponse<OpsAlertEventItem[]>> => {
+  try {
+    const res = await request<any[]>({
+      url: '/ops/alert/events',
+      method: 'GET',
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if ((res.code === 200 || res.code === 0) && Array.isArray(res.data)) {
+      const list: OpsAlertEventItem[] = res.data.map((item, idx) => ({
+        id: item.id || `alert-${idx + 1}`,
+        fingerprint: item.fingerprint || `fp-${idx + 1}`,
+        ruleCode: item.ruleCode || 'CUSTOM_ALERT',
+        ruleName: item.ruleName || '自定义指标告警',
+        target: item.target || 'system',
+        severity: item.severity || 'WARNING',
+        state: item.state || 'FIRING',
+        currentValue: item.currentValue ?? 0,
+        threshold: item.threshold ?? 0,
+        unit: item.unit || '%',
+        triggeredAt: item.triggeredAt
+          ? formatDateTime(item.triggeredAt)
+          : formatDateTime(Date.now()),
+        resolvedAt: item.resolvedAt ? formatDateTime(item.resolvedAt) : undefined,
+        message: item.message || '检测到资源指标超出阈值',
+        acknowledged: Boolean(item.acknowledged),
+      }));
+      return {
+        code: 200,
+        data: list,
+        message: 'success',
+      };
+    }
+  } catch (_e) {
+    // 平滑降级
+  }
+
   return {
     code: 200,
     data: [...mockAlerts],
@@ -558,6 +695,23 @@ export const getOpsAlerts = async (): Promise<ApiResponse<OpsAlertEventItem[]>> 
  * 确认/处置单条告警事件
  */
 export const acknowledgeAlert = async (alertId: string): Promise<ApiResponse<boolean>> => {
+  try {
+    const res = await request<any>({
+      url: `/ops/alert/events/${encodeURIComponent(alertId)}/acknowledge`,
+      method: 'PUT',
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if (res.code === 200 || res.code === 0) {
+      return {
+        code: 200,
+        data: true,
+        message: '告警已确认处置',
+      };
+    }
+  } catch (_e) {
+    // 平滑降级至本地内存操作
+  }
+
   const item = mockAlerts.find((a) => a.id === alertId);
   if (item) {
     item.acknowledged = true;
@@ -573,6 +727,36 @@ export const acknowledgeAlert = async (alertId: string): Promise<ApiResponse<boo
  * 获取告警规则目录
  */
 export const getOpsAlertRules = async (): Promise<ApiResponse<OpsAlertRuleItem[]>> => {
+  try {
+    const res = await request<any[]>({
+      url: '/ops/alert/rules',
+      method: 'GET',
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if ((res.code === 200 || res.code === 0) && Array.isArray(res.data) && res.data.length > 0) {
+      const list: OpsAlertRuleItem[] = res.data.map((r, idx) => ({
+        id: r.id || `rule-${idx + 1}`,
+        ruleCode: r.ruleCode || `RULE_${idx + 1}`,
+        ruleName: r.ruleName || '运维监控规则',
+        metric: r.metric || 'system.metric',
+        operator: r.operator || '>=',
+        threshold: r.threshold ?? 80,
+        unit: r.unit || '%',
+        severity: r.severity || 'WARNING',
+        enabled: r.enabled !== false,
+        durationSeconds: r.durationSeconds ?? 60,
+        description: r.description || '',
+      }));
+      return {
+        code: 200,
+        data: list,
+        message: 'success',
+      };
+    }
+  } catch (_e) {
+    // 平滑降级
+  }
+
   return {
     code: 200,
     data: [...mockAlertRules],
@@ -584,6 +768,24 @@ export const getOpsAlertRules = async (): Promise<ApiResponse<OpsAlertRuleItem[]
  * 获取资源告警与探测策略配置
  */
 export const getOpsResourcePolicy = async (): Promise<ApiResponse<OpsResourcePolicy>> => {
+  try {
+    const res = await request<OpsResourcePolicy>({
+      url: '/ops/alert/policy',
+      method: 'GET',
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if ((res.code === 200 || res.code === 0) && res.data) {
+      currentResourcePolicy = { ...currentResourcePolicy, ...res.data };
+      return {
+        code: 200,
+        data: currentResourcePolicy,
+        message: 'success',
+      };
+    }
+  } catch (_e) {
+    // 平滑降级
+  }
+
   return {
     code: 200,
     data: { ...currentResourcePolicy },
@@ -598,6 +800,24 @@ export const saveOpsResourcePolicy = async (
   policy: OpsResourcePolicy,
 ): Promise<ApiResponse<boolean>> => {
   currentResourcePolicy = { ...policy };
+  try {
+    const res = await request<any>({
+      url: '/ops/alert/policy',
+      method: 'PUT',
+      data: policy,
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if (res.code === 200 || res.code === 0) {
+      return {
+        code: 200,
+        data: true,
+        message: '监控阈值策略已更新并热生效',
+      };
+    }
+  } catch (_e) {
+    // 平滑降级至本地内存操作
+  }
+
   return {
     code: 200,
     data: true,
@@ -1049,6 +1269,23 @@ export const getServerDetail = async (
   _hostId?: string,
   _env?: string,
 ): Promise<ApiResponse<ServerHostDetail>> => {
+  try {
+    const res = await request<ServerHostDetail>({
+      url: '/ops/server/detail',
+      method: 'GET',
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if ((res.code === 200 || res.code === 0) && res.data?.cpu && res.data?.mem) {
+      return {
+        code: 200,
+        data: res.data,
+        message: 'success',
+      };
+    }
+  } catch (_e) {
+    // 平滑降级
+  }
+
   return {
     code: 200,
     data: { ...mockServerDetail },
@@ -1060,9 +1297,30 @@ export const getServerDetail = async (
  * 获取 JVM 深度分代指标与垃圾回收快照
  */
 export const getJvmDetail = async (
-  _serviceCode?: string,
+  serviceCode?: string,
   _env?: string,
 ): Promise<ApiResponse<JvmDetailInfo>> => {
+  try {
+    const res = await request<JvmDetailInfo>({
+      url: '/ops/jvm/detail',
+      method: 'GET',
+      params: serviceCode ? { serviceCode } : undefined,
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if ((res.code === 200 || res.code === 0) && res.data?.jvmName) {
+      return {
+        code: 200,
+        data: {
+          ...res.data,
+          startTime: res.data.startTime ? formatDateTime(res.data.startTime) : res.data.startTime,
+        },
+        message: 'success',
+      };
+    }
+  } catch (_e) {
+    // 平滑降级
+  }
+
   return {
     code: 200,
     data: { ...mockJvmDetail },

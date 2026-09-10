@@ -1,6 +1,10 @@
 # 缺失运维后端接口契约规范与需求清单 (Missing Ops APIs)
 
-本文档整理了前端系统运维板块各子页面目前**缺失或调用异常**的后端接口，详细给出推荐的接口路径、请求方法、参数契约与响应 JSON 结构体，供后端研发人员直接对照开发或集成对应 Starter 模块。
+> **最新对接状态 (2026-09-10)**：
+> 后端已在 Commit `caf0cc3f`（`2aa8a247`）中全量落地 `OpsFrontendController.java`，完整提供了本文档中规划的 **10 大 REST 契约端点**（`/ops/overview`、`/ops/services`、`/ops/services/probe`、`/ops/jvm/detail`、`/ops/server/detail`、`/ops/alert/events`、`/ops/alert/events/{id}/acknowledge`、`/ops/alert/rules`、`/ops/alert/policy` GET & PUT）。
+> 前端 `src/api/ops.ts` 已全量完成直连对接，并提供优雅的离线/启动中平滑容灾兜底机制。
+
+本文档整理了前端系统运维板块各子页面之前梳理的后端接口契约规范，作为前后端协议的历史基线与标准参考。
 
 ---
 
