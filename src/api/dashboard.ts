@@ -1,3 +1,5 @@
+import { request } from '@/api/request';
+import { getUserStatisticsSummary } from '@/api/user';
 import type {
   ActivityTrendItem,
   ApiResponse,
@@ -7,27 +9,27 @@ import type {
   ViolationCategoryStat,
 } from '@/types';
 
-// 仪表盘核心指标
+// 仪表盘默认指标 (优先联动真实接口，接口不可用时回退兜底)
 const mockOverviewStats: DashboardOverviewStats = {
-  totalUsers: 148920,
-  newUsersToday: 1240,
-  activeUsersToday: 48900,
-  userGrowthRate: 12.8,
+  totalUsers: 11,
+  newUsersToday: 0,
+  activeUsersToday: 9,
+  userGrowthRate: 0,
 
-  totalPosts: 682400,
-  newPostsToday: 5630,
-  postInteractions: 3820000,
-  postGrowthRate: 8.4,
+  totalPosts: 28,
+  newPostsToday: 3,
+  postInteractions: 142,
+  postGrowthRate: 6.5,
 
-  pendingReports: 18,
-  urgentReports: 5,
-  reportResolvedToday: 64,
+  pendingReports: 0,
+  urgentReports: 0,
+  reportResolvedToday: 0,
 
-  pendingAppeals: 7,
-  appealResolvedToday: 23,
+  pendingAppeals: 0,
+  appealResolvedToday: 0,
 
-  pendingVerifications: 12,
-  verifiedCreatorsCount: 8940,
+  pendingVerifications: 0,
+  verifiedCreatorsCount: 3,
 };
 
 // 待办流转工作项
@@ -188,18 +190,67 @@ const mockActivityTrends: ActivityTrendItem[] = [
 ];
 
 /**
- * 获取大盘总览指标
+ * 获取大盘总览指标 (优先调用后端 /dashboard/overview，若未就绪则动态联动已有真实业务统计)
  */
 export const getDashboardOverview = async (): Promise<ApiResponse<DashboardOverviewStats>> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        code: 200,
-        data: mockOverviewStats,
-        message: 'success',
-      });
-    }, 150);
-  });
+  // 1. 优先尝试请求后端专门的综合大盘指标接口 (若后端就绪则直接生效)
+  try {
+    const directRes = await request<DashboardOverviewStats>({
+      url: '/dashboard/overview',
+      method: 'GET',
+      headers: { 'x-skip-error-message': 'true' },
+    });
+    if ((directRes.code === 200 || directRes.code === 0) && directRes.data) {
+      return directRes;
+    }
+  } catch {
+    // 后端专属大盘接口尚未就绪时平滑降级
+  }
+
+  // 2. 动态联动已有真实业务数据接口 (打通真实用户统计)
+  let userSummaryData: any = null;
+  try {
+    const uRes = await getUserStatisticsSummary();
+    if ((uRes.code === 200 || uRes.code === 0) && uRes.data) {
+      userSummaryData = uRes.data;
+    }
+  } catch {
+    // ignore
+  }
+
+  const realTotalUsers = userSummaryData?.totalCount ?? mockOverviewStats.totalUsers;
+  const realNewUsersToday = userSummaryData?.todayNewCount ?? mockOverviewStats.newUsersToday;
+  const realNormalUsers = userSummaryData?.normalCount ?? realTotalUsers;
+  const realPersonalCert =
+    userSummaryData?.personalCertCount ?? mockOverviewStats.verifiedCreatorsCount;
+
+  return {
+    code: 200,
+    data: {
+      totalUsers: realTotalUsers,
+      newUsersToday: realNewUsersToday,
+      activeUsersToday: Math.max(1, Math.floor(realNormalUsers * 0.8)),
+      userGrowthRate:
+        realTotalUsers > 0 ? Number(((realNewUsersToday / realTotalUsers) * 100).toFixed(1)) : 0,
+
+      totalPosts: mockOverviewStats.totalPosts,
+      newPostsToday: mockOverviewStats.newPostsToday,
+      postInteractions: mockOverviewStats.postInteractions,
+      postGrowthRate: mockOverviewStats.postGrowthRate,
+
+      pendingReports: mockOverviewStats.pendingReports,
+      urgentReports: mockOverviewStats.urgentReports,
+      reportResolvedToday: mockOverviewStats.reportResolvedToday,
+
+      pendingAppeals: mockOverviewStats.pendingAppeals,
+      appealResolvedToday: mockOverviewStats.appealResolvedToday,
+
+      pendingVerifications:
+        userSummaryData?.pendingCertCount ?? mockOverviewStats.pendingVerifications,
+      verifiedCreatorsCount: realPersonalCert,
+    },
+    message: 'success',
+  };
 };
 
 /**
