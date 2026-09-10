@@ -25,10 +25,21 @@ jobs:
       - name: 检出源码
         uses: actions/checkout@v4
 
-      - name: 配置 Bun 运行环境
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+      # 这里不用 oven-sh/setup-bun@v2：runner 是 host 模式（macOS/ARM64），bun 已装在宿主
+      # /Users/rah/.bun/bin 并写在 LaunchAgent 的 PATH 里。三条路都实测过：
+      #   bun-version: latest  -> 请求 api.github.com 解析 tag，本机出口是共享 IP，随机 403
+      #   bun-version: 1.4.2   -> action 在 host 模式下拼不出下载地址，TypeError: Invalid URL
+      #   bun-download-url:…   -> 可用，但要把 darwin-aarch64 写死进流水线
+      # 将来若换成 Linux docker runner，把下面这段解注释换回来即可：
+      # - name: 配置 Bun 运行环境
+      #   uses: oven-sh/setup-bun@v2
+      #   with:
+      #     bun-download-url: https://github.com/oven-sh/bun/releases/download/bun-v1.4.2/bun-linux-x64.zip
+
+      - name: 校验宿主 Bun 可用
+        run: |
+          command -v bun >/dev/null 2>&1 || { echo "runner 上没有 bun：检查 /Users/rah/.bun/bin 是否在 daemon 的 PATH 里"; exit 1; }
+          echo "bun $(bun --version) @ $(command -v bun)"
 
       - name: 安装依赖 (frozen lockfile)
         run: bun install --frozen-lockfile
@@ -39,8 +50,10 @@ jobs:
       - name: TypeScript 编译与 Vite 生产打包
         run: bun run build
         env:
-          # 优先读取 Gitea Repository / Org 配置的变量，未配置时回退使用内网后端地址
-          VITE_API_HOST: ${{ vars.VITE_API_HOST || 'http://192.168.3.100:48080' }}
+          # 默认留空 => 产物里的 baseURL 是相对路径 /admin-api，由 qxj-web 容器的 nginx 同源反代到
+          # 后端网关，不需要后端配 CORS。要让浏览器直连后端时，在仓库/组织 Variables 里配
+          # VITE_API_HOST=http://192.168.3.100:48080 覆盖这里。
+          VITE_API_HOST: ${{ vars.VITE_API_HOST || '' }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || '/admin-api' }}
 
       - name: 归档构建产物 (dist)
@@ -50,9 +63,23 @@ jobs:
           path: dist/
           retention-days: 7
 
+      - name: 发布到本机 nginx 静态目录
+        # runner 是 host 模式，和 qxj-web 容器同机同文件系统，发布 = 一次本地 rsync，
+        # 不需要 SSH 密钥也不需要 Gitea secrets
+        if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production' }}
+        run: |
+          WEB_ROOT="${{ vars.QXJ_WEB_ROOT || '/Users/rah/Projects/qxj-web/dist' }}"
+          WEB_PORT="${{ vars.QXJ_WEB_PORT || '8082' }}"
+          test -d "$WEB_ROOT" || { echo "web root 不存在：$WEB_ROOT，先在 runner 机器上跑 qxj-web/run.sh"; exit 1; }
+          rsync -a --delete dist/ "$WEB_ROOT/"
+          echo "已发布到 $WEB_ROOT："
+          ls -1 "$WEB_ROOT"
+          curl -fsS -o /dev/null -m 10 "http://127.0.0.1:${WEB_PORT}/" && echo "站点自检：HTTP 200"
+
       # -------------------------------------------------------------
       # 内部私有化部署插槽（按需开启）：
-      # 方式 1：SCP / SSH 部署到公司内网 Nginx 静态目录
+      # 方式 1：SCP / SSH 部署到另一台机器上的 Nginx 静态目录
+      #        （本仓库已改用上面的本机 rsync 方案；下面这段留给发布目标在别的机器时）
       # - name: 发布至内网 Nginx 静态目录
       #   uses: appleboy/scp-action@master
       #   with:
