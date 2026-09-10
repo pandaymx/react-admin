@@ -329,7 +329,16 @@ export const BasicLayout: React.FC = () => {
             {collapsed ? 'RA' : 'React Admin'}
           </Title>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div
+          className="sider-menu-scroll"
+          style={{
+            flex: 1,
+            height: 'calc(100% - 64px)',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            minHeight: 0,
+          }}
+        >
           <Menu
             mode="inline"
             theme={isDark ? 'dark' : 'light'}
