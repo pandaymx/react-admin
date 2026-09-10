@@ -14,6 +14,7 @@ import {
   MenuUnfoldOutlined,
   MoonOutlined,
   SafetyCertificateOutlined,
+  SecurityScanOutlined,
   SunOutlined,
   TagOutlined,
   TeamOutlined,
@@ -79,24 +80,31 @@ const menuItems = [
     label: '活动运营',
   },
   {
-    key: '/verifications',
-    icon: <SafetyCertificateOutlined />,
-    label: '认证管理',
-  },
-  {
-    key: '/reports',
-    icon: <ExclamationCircleOutlined />,
-    label: '举报管理',
-  },
-  {
-    key: '/appeals',
-    icon: <AuditOutlined />,
-    label: '申诉管理',
-  },
-  {
-    key: '/sensitive-words',
-    icon: <FileProtectOutlined />,
-    label: '敏感词管理',
+    key: 'security-management',
+    icon: <SecurityScanOutlined />,
+    label: '安全管理',
+    children: [
+      {
+        key: '/reports',
+        icon: <ExclamationCircleOutlined />,
+        label: '举报管理',
+      },
+      {
+        key: '/appeals',
+        icon: <AuditOutlined />,
+        label: '申诉管理',
+      },
+      {
+        key: '/verifications',
+        icon: <SafetyCertificateOutlined />,
+        label: '认证管理',
+      },
+      {
+        key: '/sensitive-words',
+        icon: <FileProtectOutlined />,
+        label: '敏感词管理',
+      },
+    ],
   },
   {
     key: '/ops',
@@ -220,14 +228,14 @@ export const BasicLayout: React.FC = () => {
         return ['用户管理', '标签管理'];
       case '/activities':
         return ['活动运营', '活动全生命周期'];
-      case '/verifications':
-        return ['认证管理'];
       case '/reports':
-        return ['举报管理'];
+        return ['安全管理', '举报管理'];
       case '/appeals':
-        return ['申诉管理'];
+        return ['安全管理', '申诉管理'];
+      case '/verifications':
+        return ['安全管理', '认证管理'];
       case '/sensitive-words':
-        return ['敏感词管理'];
+        return ['安全管理', '敏感词管理'];
       case '/ops':
       case '/ops/overview':
         return ['系统运维', '全景大盘'];
@@ -311,7 +319,7 @@ export const BasicLayout: React.FC = () => {
             mode="inline"
             theme={isDark ? 'dark' : 'light'}
             selectedKeys={[currentSelectedKey]}
-            defaultOpenKeys={['user-management', '/ops']}
+            defaultOpenKeys={['user-management', 'security-management', '/ops']}
             items={menuItems}
             onClick={handleMenuClick}
             style={{ borderRight: 0 }}
