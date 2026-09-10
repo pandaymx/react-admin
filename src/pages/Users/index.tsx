@@ -5,6 +5,7 @@ import {
   CommentOutlined,
   DownloadOutlined,
   DownOutlined,
+  EditOutlined,
   ExclamationCircleOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
@@ -14,10 +15,13 @@ import {
   LockOutlined,
   MoreOutlined,
   PhoneOutlined,
+  PlusOutlined,
   ReloadOutlined,
   SafetyCertificateFilled,
   SearchOutlined,
   StopOutlined,
+  TagOutlined,
+  TagsOutlined,
   TeamOutlined,
   UnlockOutlined,
   UserDeleteOutlined,
@@ -39,6 +43,7 @@ import {
   Input,
   message,
   Popconfirm,
+  Popover,
   Row,
   Select,
   Space,
@@ -84,9 +89,21 @@ import {
   UserBanModal,
 } from './components/UserBanModal';
 import { UserPunishmentHistoryModal } from './components/UserPunishmentHistoryModal';
+import { PRESET_TAG_GROUPS, UserTagsEditModal } from './components/UserTagsEditModal';
 
 const { Text, Title } = Typography;
 const { RangePicker } = DatePicker;
+
+// 用户标签背景颜色提取函数
+const getTagColor = (tag: string): string => {
+  for (const group of PRESET_TAG_GROUPS) {
+    if (group.tags.includes(tag)) return group.color;
+  }
+  const fallbackColors = ['blue', 'cyan', 'purple', 'geekblue', 'magenta', 'orange', 'green'];
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  return fallbackColors[Math.abs(hash) % fallbackColors.length];
+};
 
 // 内容治理限制类型 UI 呈现元信息
 const RESTRICTION_TYPE_META: Record<
@@ -240,6 +257,7 @@ const userColumnOptions: ColumnOptionItem[] = [
   { key: 'user', title: '用户信息 (头像/昵称/展示号)', required: true },
   { key: 'phoneNumber', title: '联系手机号' },
   { key: 'certification', title: '用户认证状态' },
+  { key: 'tags', title: '用户标签' },
   { key: 'status', title: '账号状态与处罚' },
   { key: 'fans', title: '粉丝/关注/好友数' },
   { key: 'createTime', title: '注册时间' },
@@ -286,6 +304,15 @@ export const UsersPage: React.FC = () => {
   // 违规处罚历史档案弹窗状态
   const [historyModalVisible, setHistoryModalVisible] = useState<boolean>(false);
   const [historyUser, setHistoryUser] = useState<UserItem | null>(null);
+
+  // 用户业务标签配置弹窗状态
+  const [tagModalVisible, setTagModalVisible] = useState<boolean>(false);
+  const [tagUser, setTagUser] = useState<UserItem | null>(null);
+
+  const handleOpenTagModal = (record: UserItem) => {
+    setTagUser(record);
+    setTagModalVisible(true);
+  };
 
   const handleOpenHistoryModal = (record: UserItem) => {
     setHistoryUser(record);
@@ -459,6 +486,8 @@ export const UsersPage: React.FC = () => {
           nickname: formValues.nickname ? String(formValues.nickname).trim() : undefined,
           status: queryStatus,
           authStatus: formValues.authStatus,
+          tag:
+            formValues.tag && formValues.tag !== 'all' ? String(formValues.tag).trim() : undefined,
           pageNo: isAuthFiltering ? 1 : page,
           pageSize: isAuthFiltering ? 100 : size,
         };
@@ -548,6 +577,12 @@ export const UsersPage: React.FC = () => {
             rawList = rawList.filter((u) => getUserCertificationLabel(u) === targetLabel);
           }
 
+          // 用户标签前端二次保障过滤
+          if (formValues.tag && formValues.tag !== 'all') {
+            const targetTag = String(formValues.tag).trim();
+            rawList = rawList.filter((u) => u.tags?.includes(targetTag));
+          }
+
           // 核心置顶算法：被全量封号与违规受限的用户置顶优先展示，同等处置权重按注册时间倒序
           rawList.sort((a, b) => {
             const wA = getUserSortWeight(a, grouped);
@@ -609,6 +644,7 @@ export const UsersPage: React.FC = () => {
 
           const isFiltering =
             (formValues.status && formValues.status !== 'all') ||
+            (formValues.tag && formValues.tag !== 'all') ||
             isAuthFiltering ||
             formValues.userId ||
             formValues.phoneNumber ||
@@ -617,7 +653,7 @@ export const UsersPage: React.FC = () => {
 
           let displayList = rawList;
           let actualTotal = res.data.total;
-          if (isAuthFiltering) {
+          if (isAuthFiltering || (formValues.tag && formValues.tag !== 'all')) {
             actualTotal = rawList.length;
             const start = (page - 1) * size;
             displayList = rawList.slice(start, start + size);
@@ -678,6 +714,7 @@ export const UsersPage: React.FC = () => {
     form.setFieldsValue({
       authStatus: 'all',
       status: 'all',
+      tag: 'all',
     });
     fetchData(1, pageSize);
   };
@@ -1352,6 +1389,106 @@ export const UsersPage: React.FC = () => {
       render: (_: any, record) => renderCertificationTag(record.certificationLabel),
     },
     {
+      title: '用户标签',
+      key: 'tags',
+      width: 210,
+      render: (_, record) => {
+        const tags = record.tags || [];
+        if (tags.length === 0) {
+          return (
+            <Button
+              type="dashed"
+              size="small"
+              icon={<PlusOutlined />}
+              onClick={() => handleOpenTagModal(record)}
+              style={{ fontSize: 12, borderRadius: 4, height: 26 }}
+            >
+              打标签
+            </Button>
+          );
+        }
+
+        const visibleTags = tags.slice(0, 2);
+        const restTags = tags.slice(2);
+
+        return (
+          <Space size={4} wrap align="center">
+            {visibleTags.map((t) => (
+              <Tag
+                key={t}
+                color={getTagColor(t)}
+                style={{ marginInlineEnd: 0, fontSize: 11, borderRadius: 4 }}
+              >
+                {t}
+              </Tag>
+            ))}
+            {restTags.length > 0 && (
+              <Popover
+                title={
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      width: '100%',
+                    }}
+                  >
+                    <span>全部标签 ({tags.length})</span>
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<EditOutlined />}
+                      onClick={() => handleOpenTagModal(record)}
+                      style={{ padding: 0 }}
+                    >
+                      修改
+                    </Button>
+                  </div>
+                }
+                content={
+                  <div
+                    style={{
+                      maxWidth: 260,
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 6,
+                      paddingTop: 4,
+                    }}
+                  >
+                    {tags.map((t) => (
+                      <Tag key={t} color={getTagColor(t)} style={{ borderRadius: 4 }}>
+                        {t}
+                      </Tag>
+                    ))}
+                  </div>
+                }
+              >
+                <Tag
+                  style={{
+                    cursor: 'pointer',
+                    marginInlineEnd: 0,
+                    fontSize: 11,
+                    borderRadius: 4,
+                  }}
+                >
+                  +{restTags.length}
+                </Tag>
+              </Popover>
+            )}
+            <Tooltip title="快速修改用户标签">
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => handleOpenTagModal(record)}
+                style={{ color: '#8c8c8c', width: 22, height: 22, padding: 0 }}
+              />
+            </Tooltip>
+          </Space>
+        );
+      },
+    },
+    {
       title: '账号状态',
       dataIndex: 'status',
       key: 'status',
@@ -1398,6 +1535,12 @@ export const UsersPage: React.FC = () => {
           record.status !== 'normal' || record.restrictions?.some((r) => r.status === 'active');
 
         const moreMenuItems: MenuProps['items'] = [
+          {
+            key: 'edit-tags-item',
+            icon: <TagsOutlined style={{ color: '#13c2c2' }} />,
+            label: '配置用户标签...',
+            onClick: () => handleOpenTagModal(record),
+          },
           {
             key: 'punish-history-item',
             icon: <HistoryOutlined style={{ color: '#1677ff' }} />,
@@ -1684,6 +1827,7 @@ export const UsersPage: React.FC = () => {
           initialValues={{
             authStatus: 'all',
             status: 'all',
+            tag: 'all',
           }}
         >
           <Row gutter={[16, 12]}>
@@ -1775,12 +1919,31 @@ export const UsersPage: React.FC = () => {
               </Form.Item>
             </Col>
 
-            <Col xs={24} sm={16} md={12} lg={10}>
-              <Form.Item label="注册时间范围" name="dateRange" style={{ marginBottom: 0 }}>
-                <RangePicker
-                  style={{ width: '100%' }}
-                  placeholder={['注册起始日期', '注册截止日期']}
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item label="用户标签" name="tag" style={{ marginBottom: 0 }}>
+                <Select
+                  showSearch
+                  allowClear
+                  placeholder="按标签检索过滤"
+                  options={[
+                    {
+                      label: '全部标签',
+                      value: 'all',
+                    },
+                    ...PRESET_TAG_GROUPS.flatMap((group) =>
+                      group.tags.map((t) => ({
+                        label: `${t} (${group.category})`,
+                        value: t,
+                      })),
+                    ),
+                  ]}
                 />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} sm={16} md={12} lg={6}>
+              <Form.Item label="注册时间范围" name="dateRange" style={{ marginBottom: 0 }}>
+                <RangePicker style={{ width: '100%' }} placeholder={['起始日期', '截止日期']} />
               </Form.Item>
             </Col>
 
@@ -1788,7 +1951,7 @@ export const UsersPage: React.FC = () => {
               xs={24}
               sm={8}
               md={12}
-              lg={8}
+              lg={6}
               style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end' }}
             >
               <Space size="middle" style={{ marginBottom: 0 }}>
@@ -2193,6 +2356,78 @@ export const UsersPage: React.FC = () => {
               )}
             </div>
 
+            {/* 用户业务标签专区 */}
+            <Divider style={{ margin: '16px 0' }} />
+            <div style={{ marginBottom: 16 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 8,
+                }}
+              >
+                <Space>
+                  <TagOutlined style={{ color: '#13c2c2' }} />
+                  <Text strong style={{ fontSize: 14 }}>
+                    用户业务标签 ({currentUser.tags?.length || 0})
+                  </Text>
+                </Space>
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<EditOutlined />}
+                  onClick={() => handleOpenTagModal(currentUser)}
+                  style={{ padding: 0 }}
+                >
+                  配置标签
+                </Button>
+              </div>
+
+              <Card
+                size="small"
+                style={{
+                  background: token.colorFillAlter,
+                  borderRadius: 6,
+                  border: `1px solid ${token.colorBorderSecondary}`,
+                }}
+              >
+                {currentUser.tags && currentUser.tags.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {currentUser.tags.map((t) => (
+                      <Tag
+                        key={t}
+                        color={getTagColor(t)}
+                        style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4 }}
+                      >
+                        {t}
+                      </Tag>
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      暂未关联任何兴趣或业务特征标签
+                    </Text>
+                    <Button
+                      type="dashed"
+                      size="small"
+                      icon={<PlusOutlined />}
+                      onClick={() => handleOpenTagModal(currentUser)}
+                    >
+                      添加标签
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            </div>
+
             <Divider style={{ margin: '16px 0' }} />
 
             <Descriptions title="基本资料" column={2} bordered size="small">
@@ -2255,6 +2490,19 @@ export const UsersPage: React.FC = () => {
               <Descriptions.Item label="注册时间" span={2}>
                 {formatDateTime(currentUser.createTime || currentUser.registerTime)}
               </Descriptions.Item>
+              <Descriptions.Item label="业务标签" span={2}>
+                {currentUser.tags && currentUser.tags.length > 0 ? (
+                  <Space size={6} wrap>
+                    {currentUser.tags.map((t) => (
+                      <Tag key={t} color={getTagColor(t)} style={{ borderRadius: 4 }}>
+                        {t}
+                      </Tag>
+                    ))}
+                  </Space>
+                ) : (
+                  <Text type="secondary">暂无标签</Text>
+                )}
+              </Descriptions.Item>
             </Descriptions>
           </div>
         )}
@@ -2278,6 +2526,28 @@ export const UsersPage: React.FC = () => {
           setHistoryUser(null);
         }}
         onRevokeSuccess={handleHistoryRevokeSuccess}
+      />
+
+      {/* 用户业务标签配置弹窗 */}
+      <UserTagsEditModal
+        open={tagModalVisible}
+        user={tagUser}
+        onClose={() => {
+          setTagModalVisible(false);
+          setTagUser(null);
+        }}
+        onSuccess={(updatedTags) => {
+          if (!tagUser) return;
+          const targetId = String(tagUser.id || tagUser.userId);
+          setUserList((prev) =>
+            prev.map((u) =>
+              String(u.id || u.userId) === targetId ? { ...u, tags: updatedTags } : u,
+            ),
+          );
+          if (currentUser && String(currentUser.id || currentUser.userId) === targetId) {
+            setCurrentUser({ ...currentUser, tags: updatedTags });
+          }
+        }}
       />
     </div>
   );

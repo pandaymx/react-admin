@@ -119,6 +119,7 @@ const mockUsers: UserItem[] = [
     gender: 'male',
     email: 'geek_vanguard@tech.com',
     bio: '专注硬核科技评测与前沿数码产品体验，每周五晚八点直播！',
+    tags: ['数码极客', '硬核评测', '前沿科技', '自驾旅行'],
   },
   {
     id: '2',
@@ -168,6 +169,7 @@ const mockUsers: UserItem[] = [
     gender: 'female',
     email: 'sweet_dessert@foodie.cn',
     bio: '探寻城市巷尾的绝美风味，带你吃遍大江南北 🍰🍲',
+    tags: ['美食探店', '烘焙甜品', '精品咖啡', '城市漫步'],
   },
   {
     id: '3',
@@ -705,7 +707,7 @@ export const getUserList = async (
     });
 
     if ((res.code === 200 || res.code === 0) && res.data) {
-      const list: UserItem[] = (res.data.list || []).map((vo) => {
+      let list: UserItem[] = (res.data.list || []).map((vo) => {
         const certificationLabel = getUserCertificationLabel(vo);
         const userNo = vo.userNo || vo.userId;
 
@@ -742,8 +744,17 @@ export const getUserList = async (
           friendCount: vo.friendCount || 0,
           personalAuths: vo.personalAuths,
           restrictions: (vo as any).restrictions,
+          tags: (vo as any).tags ||
+            (vo as any).tagList ||
+            currentDataset.find((u) => u.id === String(vo.id) || u.userNo === String(userNo))
+              ?.tags || ['活跃用户'],
         };
       });
+
+      if (params.tag && params.tag !== 'all') {
+        const targetTag = params.tag.trim();
+        list = list.filter((u) => u.tags?.includes(targetTag));
+      }
 
       return {
         code: 200,
@@ -857,6 +868,12 @@ export const getUserList = async (
       const cBool = Boolean(params.certified);
       filtered = filtered.filter((u) => u.certified === cBool);
     }
+  }
+
+  // 用户业务标签过滤
+  if (params.tag && params.tag !== 'all') {
+    const targetTag = params.tag.trim();
+    filtered = filtered.filter((u) => u.tags?.includes(targetTag));
   }
 
   // 注册时间范围过滤
@@ -1611,5 +1628,43 @@ export const revokeUserContentRestriction = async (
     code: 200,
     data: true,
     message: '已成功解除该项内容治理限制',
+  };
+};
+
+/**
+ * 更新/保存用户的业务标签列表
+ */
+export const updateUserTags = async (
+  userId: string | number,
+  tags: string[],
+): Promise<ApiResponse<boolean>> => {
+  try {
+    const res = await request<boolean>({
+      url: '/user/tag/update-user-tags',
+      method: 'PUT',
+      data: { userId, tags },
+    });
+    if (res && (res.code === 200 || res.code === 0)) {
+      return res;
+    }
+  } catch (error) {
+    console.warn('更新用户标签接口异常，使用本地乐观更新', error);
+  }
+
+  // 内存数据集乐观更新
+  currentDataset = currentDataset.map((u) => {
+    if (String(u.id) === String(userId) || String(u.userId) === String(userId)) {
+      return {
+        ...u,
+        tags,
+      };
+    }
+    return u;
+  });
+
+  return {
+    code: 0,
+    data: true,
+    message: '用户标签更新成功',
   };
 };

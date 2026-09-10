@@ -179,6 +179,7 @@ export interface UserItem {
   lastActiveTime?: string;
   activeStatus?: 'online' | 'offline' | 'recent';
   restrictions?: ContentRestrictionItem[]; // 当前生效或关联的内容限制惩戒清单
+  tags?: string[]; // 用户标签列表（如 ['户外徒步', '摄影达人']）
   persona?: UserPersona;
 }
 
@@ -236,6 +237,7 @@ export interface UserQueryParams {
   certified?: boolean | 'all'; // 实名认证: true/false 或 all
   authStatus?: 'all' | 'unverified' | 'pending' | 'personal' | 'enterprise'; // 合并后的实名状态筛选
   dateRange?: [string, string]; // 注册时间范围
+  tag?: string; // 标签名称筛选
   pageNo?: number; // 页码 (对齐后端 pageNo)
   page?: number; // 兼容前端 page
   pageSize?: number;
