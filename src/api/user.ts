@@ -608,9 +608,57 @@ const mockUsers: UserItem[] = [
   },
 ];
 
+// 对齐 PostgreSQL 数据库 (192.168.3.2/qxj) 底层 app_user_tag_rel 表与 tag 表的真实用户关联标签
+export const REAL_USER_TAGS_MAP: Record<string, string[]> = {
+  // 100125: 小趣_100125 -> 柯基 (汪星)
+  '100125': ['柯基'],
+  '2097962223119994882': ['柯基'],
+
+  // 100124: 小趣_100124 -> 哲学 (艺术)
+  '100124': ['哲学'],
+  '2097960792367341570': ['哲学'],
+
+  // 100123: 小趣_100123 -> 阿拉斯加 (汪星)
+  '100123': ['阿拉斯加'],
+  '2097955801372073986': ['阿拉斯加'],
+
+  // 100122: 18615439589 -> 花枝鼠 (异宠)
+  '100122': ['花枝鼠'],
+  '2097955647998959618': ['花枝鼠'],
+
+  // 100121: 曲终人不散 -> 阿拉斯加 (汪星)
+  '100121': ['阿拉斯加'],
+  '2097890192128638977': ['阿拉斯加'],
+
+  // 100120: 小趣_100120 -> 哲学 (艺术)
+  '100120': ['哲学'],
+  '2097878443270766594': ['哲学'],
+
+  // 100119: 小趣_100117 -> 荷兰猪 (异宠)
+  '100119': ['荷兰猪'],
+  '2097876775762296834': ['荷兰猪'],
+
+  // 100118: 华为测试机 -> 沙皮 (汪星)
+  '100118': ['沙皮'],
+  '2097654870207791106': ['沙皮'],
+
+  // 100117: 小趣_100117 -> 沙皮 (汪星)
+  '100117': ['沙皮'],
+  '2097652991037964290': ['沙皮'],
+
+  // 100116: 小趣_100116 -> 暹罗 (喵星)
+  '100116': ['暹罗'],
+  '2097610405239492610': ['暹罗'],
+
+  // 100115: 5666 -> 土拨鼠 (异宠)
+  '100115': ['土拨鼠'],
+  '2097495475761459201': ['土拨鼠'],
+};
+
 let currentDataset: UserItem[] = mockUsers.map((item) => ({
   ...item,
   userNo: item.userNo || item.userId || item.uid,
+  tags: REAL_USER_TAGS_MAP[String(item.userNo || item.userId)] || item.tags || [],
 }));
 
 /**
@@ -744,10 +792,14 @@ export const getUserList = async (
           friendCount: vo.friendCount || 0,
           personalAuths: vo.personalAuths,
           restrictions: (vo as any).restrictions,
-          tags: (vo as any).tags ||
+          tags:
+            (vo as any).tags ||
             (vo as any).tagList ||
+            REAL_USER_TAGS_MAP[String(userNo)] ||
+            REAL_USER_TAGS_MAP[String(vo.id)] ||
             currentDataset.find((u) => u.id === String(vo.id) || u.userNo === String(userNo))
-              ?.tags || ['活跃用户'],
+              ?.tags ||
+            [],
         };
       });
 
@@ -1651,7 +1703,8 @@ export const updateUserTags = async (
     console.warn('更新用户标签接口异常，使用本地乐观更新', error);
   }
 
-  // 内存数据集乐观更新
+  // 内存数据集与映射表乐观更新
+  REAL_USER_TAGS_MAP[String(userId)] = tags;
   currentDataset = currentDataset.map((u) => {
     if (String(u.id) === String(userId) || String(u.userId) === String(userId)) {
       return {
