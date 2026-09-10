@@ -119,7 +119,12 @@
   - **⚡ Redis 监控与配置中心 (`/ops/redis`)**：Redis 基础运行指标（版本/端口/模式/连续运行天数）、内存碎片率 (`mem_fragmentation_ratio`) 与已用/最大分配、Keyspace 缓存命中率与 QPS、分库 (db0 ~ db3) 键分布、命令耗时分布，以及核心配置参数表格（支持分类筛选、即输即查搜索与热修改标识）；
   - **🧩 微服务探针 (`/ops/services`)**：微服务列表监控、端口与节点、实时延时波动、即时发起心跳探活与呼出资产详情抽屉 (`ServiceDetailDrawer`)；
   - **☕ JVM 与 GC 监控 (`/ops/jvm`)**：目标微服务 JVM 运行档案、堆分代大盘（新生代 Eden、老年代 Old Gen、元空间 Metaspace）、Young GC / Full GC 频次与停顿耗时、JVM 活动/峰值/守护/死锁线程模型；
-  - **🚨 告警中心与策略 (`/ops/alerts`)**：实时活动告警事件处理、单项/批量处置确认、告警规则目录弹窗 (`AlertRulesModal`) 与资源告警阈值配置 (`ResourcePolicyModal`)。
+  - **🚨 告警中心与策略 (`/ops/alerts`)**：实时活动告警事件处理、单项/批量处置确认、告警规则目录弹窗 (`AlertRulesModal`) 与资源告警阈值配置 (`ResourcePolicyModal`)；
+  - **📋 日志管理与下载中心 (`/ops/logs`)**：
+    - **全链路日志汇聚**：涵盖网关路由、用户中心、内容审核、运维监控、慢 SQL 查询、Redis 运行、JVM GC 等多类别日志归集；
+    - **日志文件概览看板**：实时汇总日志文件总数、总存储大小、今日系统错误数及潜在异常告警数；
+    - **多维过滤与多选批处理**：支持按服务归属、日志类型、运行环境（生产/预发/测试/开发）以及关键字即时检索，提供日志多选与一键打包批量下载；
+    - **在线终端日志查看器 (`LogViewerDrawer`)**：内置极客风暗黑终端控制台，支持 50/100/200/500 行 Tail 预览、日志级别彩标与 TraceId 追踪、终端内关键字即时高亮、一键复制当前视窗内容与单文件原格式下载。
 
 ---
 
@@ -170,8 +175,10 @@ react-admin/
 │   │   │   ├── Services/       # 微服务健康与即时探活
 │   │   │   ├── Jvm/            # JVM 性能与 GC 垃圾回收监控
 │   │   │   ├── Alerts/         # 实时告警中心与阈值策略
+│   │   │   ├── Logs/           # 日志管理与日志文件下载中心
 │   │   │   └── components/     # 跨页面公用组件
 │   │   │       ├── AlertRulesModal.tsx      # 告警规则目录弹窗
+│   │   │       ├── LogViewerDrawer.tsx      # 在线终端日志查看器与下载抽屉
 │   │   │       ├── ResourcePolicyModal.tsx  # 资源阈值策略弹窗
 │   │   │       └── ServiceDetailDrawer.tsx  # 微服务探针快照与资产详情抽屉
 │   │   ├── Posts/              # 作品帖子管理模块
