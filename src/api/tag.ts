@@ -648,6 +648,28 @@ export async function getTagPage(
     queryParams.name = params.name.trim();
   }
 
+  // 后端接口 /user/tag/page 强制校验 @NotNull(message = "标签类型ID不能为空")
+  // 若未指定具体 tagTypeId，不向后端发送必败请求，直接使用本地数据兜底
+  if (!queryParams.tagTypeId) {
+    let filtered = [...dynamicTags];
+    if (params?.status && params.status !== 'all') {
+      filtered = filtered.filter((item) => item.status === params.status);
+    }
+    if (params?.name) {
+      const kw = params.name.trim().toLowerCase();
+      filtered = filtered.filter((item) => item.name.toLowerCase().includes(kw));
+    }
+    filtered.sort((a, b) => a.sort - b.sort);
+    return {
+      code: 0,
+      msg: 'success',
+      data: {
+        list: filtered,
+        total: filtered.length,
+      },
+    };
+  }
+
   try {
     const res = await request<{ list: TagItem[]; total: number }>({
       url: '/user/tag/page',

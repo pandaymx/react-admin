@@ -85,6 +85,30 @@ export const TagsPage: React.FC = () => {
 
   const [configDrawerOpen, setConfigDrawerOpen] = useState<boolean>(false);
 
+  // 拉取所有标签 (按各分类并行拉取汇总，供统计与初始配置抽屉)
+  const fetchAllTags = useCallback(
+    async (types?: TagTypeItem[]) => {
+      const targetTypes = types || tagTypes;
+      if (!targetTypes || targetTypes.length === 0) return;
+      try {
+        const promises = targetTypes.map((t) =>
+          getTagPage({ tagTypeId: t.id, pageNo: 1, pageSize: 100 }),
+        );
+        const results = await Promise.allSettled(promises);
+        const combined: TagItem[] = [];
+        for (const r of results) {
+          if (r.status === 'fulfilled' && r.value.code === 0 && r.value.data?.list) {
+            combined.push(...r.value.data.list);
+          }
+        }
+        setAllTags(combined);
+      } catch {
+        // ignore
+      }
+    },
+    [tagTypes],
+  );
+
   // 拉取标签类型列表
   const fetchTagTypes = useCallback(async () => {
     try {
@@ -95,40 +119,14 @@ export const TagsPage: React.FC = () => {
         if (!selectedTypeId && res.data.list.length > 0) {
           setSelectedTypeId(res.data.list[0].id);
         }
+        fetchAllTags(res.data.list);
       }
     } catch {
       message.error('加载标签分类失败');
     } finally {
       setLoading(false);
     }
-  }, [selectedTypeId]);
-
-  // 拉取所有标签 (供统计与初始配置抽屉)
-  const fetchAllTags = useCallback(async () => {
-    try {
-      const res = await getTagPage({ pageNo: 1, pageSize: 100 });
-      if (res.code === 0 && res.data) {
-        let all = [...res.data.list];
-        const total = res.data.total;
-        if (total > 100) {
-          const totalPages = Math.ceil(total / 100);
-          const promises = [];
-          for (let p = 2; p <= totalPages; p++) {
-            promises.push(getTagPage({ pageNo: p, pageSize: 100 }));
-          }
-          const restRes = await Promise.all(promises);
-          for (const r of restRes) {
-            if (r.code === 0 && r.data?.list) {
-              all = all.concat(r.data.list);
-            }
-          }
-        }
-        setAllTags(all);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+  }, [selectedTypeId, fetchAllTags]);
 
   // 拉取当前分类下的标签
   const fetchCurrentTags = useCallback(async () => {
@@ -152,8 +150,7 @@ export const TagsPage: React.FC = () => {
 
   useEffect(() => {
     fetchTagTypes();
-    fetchAllTags();
-  }, [fetchTagTypes, fetchAllTags]);
+  }, [fetchTagTypes]);
 
   useEffect(() => {
     fetchCurrentTags();
