@@ -564,11 +564,35 @@ let dynamicActivities: ActivityDetailRespVO[] = [...mockActivities];
 export async function getActivityPage(
   params?: ActivityPageReqVO,
 ): Promise<ApiResponse<{ list: ActivityItem[]; total: number }>> {
+  // 清洗 query 参数：后端 status 为 java.lang.Integer，禁止传递 "all"，全部查询时必须剔除 status 字段
+  const queryParams: Record<string, any> = {
+    pageNo: params?.pageNo || 1,
+    pageSize: params?.pageSize || 20,
+  };
+  if (params?.status !== undefined && (params.status as any) !== 'all') {
+    queryParams.status = Number(params.status);
+  }
+  if (params?.city && params.city !== 'all') {
+    queryParams.city = params.city;
+  }
+  if (params?.title?.trim()) {
+    queryParams.title = params.title.trim();
+  }
+  if (params?.subcategoryId && params.subcategoryId !== 'all') {
+    queryParams.subcategoryId = params.subcategoryId;
+  }
+  if (params?.categoryId && params.categoryId !== 'all') {
+    queryParams.categoryId = params.categoryId;
+  }
+  if (params?.publisherUserId?.trim()) {
+    queryParams.publisherUserId = params.publisherUserId.trim();
+  }
+
   try {
     const res = await request<{ list: ActivityItem[]; total: number }>({
       url: '/activity2/activity/page',
       method: 'GET',
-      params,
+      params: queryParams,
     });
     if (res && res.code === 0 && res.data) return res;
   } catch (error) {

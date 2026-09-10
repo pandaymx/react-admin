@@ -123,7 +123,7 @@ export const TagsPage: React.FC = () => {
       const res = await getTagPage({
         tagTypeId: selectedTypeId,
         name: searchKeyword,
-        status: statusFilter,
+        status: statusFilter === 'all' ? undefined : statusFilter,
       });
       if (res.code === 0 && res.data) {
         setTags(res.data.list);

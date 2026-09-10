@@ -501,11 +501,23 @@ let dynamicConfigs: InitialTagConfigItem[] = [...mockInitialConfigs];
 export async function getTagTypePage(
   params?: AdminTagTypePageReqVO,
 ): Promise<ApiResponse<{ list: TagTypeItem[]; total: number }>> {
+  const queryParams: Record<string, any> = {
+    pageNo: params?.pageNo || 1,
+    pageSize: params?.pageSize || 20,
+  };
+  if (params?.status && (params.status as any) !== 'all') {
+    queryParams.status =
+      params.status === 'active' ? 0 : params.status === 'disabled' ? 1 : params.status;
+  }
+  if (params?.name?.trim()) {
+    queryParams.name = params.name.trim();
+  }
+
   try {
     const res = await request<{ list: TagTypeItem[]; total: number }>({
       url: '/user/tag-type/page',
       method: 'GET',
-      params,
+      params: queryParams,
     });
     if (res && res.code === 0 && res.data) {
       return res;
@@ -621,11 +633,26 @@ export async function deleteTagType(id: number): Promise<ApiResponse<boolean>> {
 export async function getTagPage(
   params?: AdminTagPageReqVO,
 ): Promise<ApiResponse<{ list: TagItem[]; total: number }>> {
+  const queryParams: Record<string, any> = {
+    pageNo: params?.pageNo || 1,
+    pageSize: params?.pageSize || 20,
+  };
+  if (params?.tagTypeId && (params.tagTypeId as any) !== 'all') {
+    queryParams.tagTypeId = Number(params.tagTypeId);
+  }
+  if (params?.status && (params.status as any) !== 'all') {
+    queryParams.status =
+      params.status === 'active' ? 0 : params.status === 'disabled' ? 1 : params.status;
+  }
+  if (params?.name?.trim()) {
+    queryParams.name = params.name.trim();
+  }
+
   try {
     const res = await request<{ list: TagItem[]; total: number }>({
       url: '/user/tag/page',
       method: 'GET',
-      params,
+      params: queryParams,
     });
     if (res && res.code === 0 && res.data) return res;
   } catch (error) {
@@ -737,11 +764,16 @@ export async function deleteTag(id: number): Promise<ApiResponse<boolean>> {
 export async function getInitialTagConfigPage(params?: {
   scene?: string;
 }): Promise<ApiResponse<{ list: InitialTagConfigItem[]; total: number }>> {
+  const queryParams: Record<string, any> = {};
+  if (params?.scene && params.scene !== 'all') {
+    queryParams.scene = params.scene;
+  }
+
   try {
     const res = await request<{ list: InitialTagConfigItem[]; total: number }>({
       url: '/user/tag-initial-config/page',
       method: 'GET',
-      params,
+      params: queryParams,
     });
     if (res && res.code === 0 && res.data) return res;
   } catch (error) {

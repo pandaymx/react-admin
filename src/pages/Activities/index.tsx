@@ -111,7 +111,7 @@ export const ActivitiesPage: React.FC = () => {
       const params: ActivityPageReqVO = {
         pageNo: 1,
         pageSize: 50,
-        status: activeTabStatus === 'all' ? 'all' : (Number(activeTabStatus) as ActivityStatus),
+        status: activeTabStatus === 'all' ? undefined : (Number(activeTabStatus) as ActivityStatus),
         city: cityFilter === 'all' ? undefined : cityFilter,
         title: searchTitle.trim() || undefined,
       };
